@@ -1,0 +1,53 @@
+# Dockerfile
+
+# =======================================================
+# Stage 1: Build Stage
+# Di sini kita install semua dependensi dan melatih model AI.
+# =======================================================
+# Menggunakan Node.js v20 yang sudah terbukti kompatibel.
+FROM node:20 AS builder
+
+# Set working directory di dalam container
+WORKDIR /app
+
+# Copy file package.json dan package-lock.json terlebih dahulu
+# Ini memanfaatkan cache Docker, build akan lebih cepat jika dependensi tidak berubah.
+COPY package*.json ./
+
+# Install SEMUA dependensi (termasuk devDependencies)
+# Ini lebih aman untuk puppeteer dan memastikan semua alat build tersedia jika diperlukan.
+RUN npm install
+
+# Copy sisa kode aplikasi, termasuk script pelatihan AI.
+COPY . .
+
+# --- PERBAIKAN KRUSIAL ---
+# Jalankan script pelatihan untuk membuat file model.nlp
+# File ini akan dibuat di dalam /app/model.nlp di dalam image builder.
+RUN node train-nlp.js
+
+
+# =======================================================
+# Stage 2: Runtime Stage
+# Di sini kita membuat image final yang siap dijalankan, lebih kecil dan lebih aman.
+# =======================================================
+# Bot menggunakan WAHA sebagai gateway WhatsApp dan tidak menjalankan browser
+# sendiri. Runtime Node harus sama dengan builder agar modul native tfjs-node
+# memakai ABI dan libstdc++ yang kompatibel.
+FROM node:20-bookworm-slim
+
+# Set working directory yang sama
+WORKDIR /app
+
+# Copy semua file yang diperlukan dari stage 'builder' ke stage final ini.
+# Ini termasuk:
+# - folder node_modules yang sudah terinstall
+# - kode aplikasi Anda (index.js, public/, dll.)
+# - dan yang terpenting, file model.nlp yang sudah dilatih!
+COPY --from=builder /app ./
+
+# Expose port yang digunakan oleh aplikasi Anda (sesuai di index.js)
+EXPOSE 8020
+
+# Perintah default untuk menjalankan aplikasi saat container dinyalakan.
+CMD ["node", "index.js"]

@@ -1,0 +1,7 @@
+console.log('A')
+require('whatsapp-web.js')
+console.log('B')
+require('node-nlp')
+console.log('C')
+require('axios')
+console.log('D')

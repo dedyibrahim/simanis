@@ -1,0 +1,41 @@
+import {
+  BanknotesIcon,
+  Bars3Icon,
+  BriefcaseIcon,
+  BuildingLibraryIcon,
+  BuildingOffice2Icon,
+  CalendarDaysIcon,
+  CheckBadgeIcon,
+  ClipboardDocumentListIcon,
+  Cog6ToothIcon,
+  DocumentDuplicateIcon,
+  FolderOpenIcon,
+  HomeModernIcon,
+  MagnifyingGlassIcon,
+  QueueListIcon,
+  RectangleStackIcon,
+  Squares2X2Icon,
+  UserGroupIcon,
+} from '@heroicons/vue/24/outline'
+
+export const iconMap = {
+  menu: Bars3Icon,
+  dashboard: HomeModernIcon,
+  search: MagnifyingGlassIcon,
+  calendar: CalendarDaysIcon,
+  briefcase: BriefcaseIcon,
+  queue: QueueListIcon,
+  done: CheckBadgeIcon,
+  invoice: BanknotesIcon,
+  document: DocumentDuplicateIcon,
+  report: RectangleStackIcon,
+  bank: BuildingLibraryIcon,
+  office: BuildingOffice2Icon,
+  folder: FolderOpenIcon,
+  users: UserGroupIcon,
+  settings: Cog6ToothIcon,
+  clipboard: ClipboardDocumentListIcon,
+  fallback: Squares2X2Icon,
+} as const
+
+export type AppIcon = keyof typeof iconMap

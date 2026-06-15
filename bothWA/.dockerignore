@@ -1,0 +1,16 @@
+node_modules
+.wwebjs_auth
+sessions
+whatsapp-session
+
+.env
+bothwa.env
+
+*.log
+*.pid
+model.nlp
+
+diag-*.js
+swagger-ui-init.js
+waha-openapi.json
+waha-swagger.html

@@ -1,0 +1,257 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-slate-100 text-slate-900 antialiased;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  .theme-dark body {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.03em;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-100;
+  }
+
+  .theme-dark ::-webkit-scrollbar-track {
+    @apply bg-slate-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-300;
+  }
+
+  .theme-dark ::-webkit-scrollbar-thumb {
+    @apply bg-slate-700;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+
+  .theme-dark ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-600;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-xl border border-transparent px-6 py-3 text-sm font-medium shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-slate-900 text-white shadow-lg hover:bg-slate-800 focus:ring-slate-900;
+  }
+
+  .btn-secondary {
+    @apply border-slate-200 bg-white text-slate-900 shadow-lg hover:bg-slate-50 focus:ring-slate-900;
+  }
+
+  .card {
+    @apply overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg transition-all duration-300;
+  }
+
+  .card-header {
+    @apply border-b border-slate-100 px-6 py-5 sm:px-8;
+  }
+
+  .card-body {
+    @apply px-6 py-6 sm:p-8;
+  }
+
+  .card-footer {
+    @apply border-t border-slate-100 px-6 py-4 sm:px-8;
+  }
+
+  .form-input {
+    @apply block w-full rounded-xl border-slate-200 bg-slate-50/50 text-sm shadow-sm transition-all duration-200 hover:bg-slate-50 focus:border-slate-900 focus:ring-slate-900;
+  }
+
+  .nav-link {
+    @apply flex items-center rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200;
+  }
+
+  .nav-link-active {
+    @apply bg-slate-900 text-white shadow-lg;
+  }
+
+  .nav-link-inactive {
+    @apply text-slate-600 hover:bg-slate-50 hover:text-slate-900;
+  }
+
+  .sidebar {
+    @apply border-r border-slate-200 bg-white shadow-lg;
+  }
+
+  .surface-card {
+    @apply rounded-[28px] border border-slate-200/80 bg-white shadow-sm;
+  }
+
+  .theme-dark .surface-card {
+    @apply border-slate-800/80 bg-slate-900 text-slate-100 shadow-[0_28px_72px_-30px_rgba(2,6,23,0.72)];
+  }
+
+  .surface-card--dark {
+    @apply rounded-[28px] border border-slate-800/80 bg-slate-950 text-slate-100 shadow-[0_28px_72px_-30px_rgba(2,6,23,0.72)];
+  }
+
+  .hero-band {
+    @apply bg-gradient-to-br from-blue-100 via-slate-50 to-indigo-100;
+  }
+
+  .grid-fade {
+    background-image:
+      linear-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .display-kicker {
+    @apply text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500;
+  }
+
+  .theme-dark .display-kicker {
+    @apply text-slate-400;
+  }
+
+  .theme-dark .app-shell .sidebar {
+    @apply border-slate-800 bg-slate-900 shadow-[0_24px_55px_-30px_rgba(2,6,23,0.95)];
+  }
+
+  .theme-dark .app-shell header {
+    @apply border-slate-800 bg-slate-950/90;
+  }
+
+  .theme-dark .app-shell .bg-white,
+  .theme-dark .app-shell .bg-white\/80,
+  .theme-dark .app-shell .bg-white\/70,
+  .theme-dark .app-shell .bg-slate-50,
+  .theme-dark .app-shell .bg-slate-50\/80,
+  .theme-dark .app-shell .bg-slate-50\/50,
+  .theme-dark .app-shell .bg-slate-100,
+  .theme-dark .app-shell .bg-slate-100\/70,
+  .theme-dark .app-shell .bg-slate-100\/80,
+  .theme-dark .app-shell .bg-blue-50 {
+    background-color: rgb(15 23 42 / 1) !important;
+  }
+
+  .theme-dark .app-shell .border-slate-100,
+  .theme-dark .app-shell .border-slate-200,
+  .theme-dark .app-shell .border-slate-300 {
+    border-color: rgb(51 65 85 / 0.95) !important;
+  }
+
+  .theme-dark .app-shell .text-slate-900,
+  .theme-dark .app-shell .text-slate-800,
+  .theme-dark .app-shell .text-slate-700 {
+    color: rgb(226 232 240 / 1) !important;
+  }
+
+  .theme-dark .app-shell .text-slate-600,
+  .theme-dark .app-shell .text-slate-500,
+  .theme-dark .app-shell .text-slate-400 {
+    color: rgb(148 163 184 / 1) !important;
+  }
+
+  .theme-dark .app-shell input,
+  .theme-dark .app-shell select,
+  .theme-dark .app-shell textarea {
+    @apply border-slate-700 bg-slate-900 text-slate-100 placeholder:text-slate-400;
+  }
+
+  .theme-dark .app-shell .hover\:bg-slate-50:hover,
+  .theme-dark .app-shell .hover\:bg-slate-100:hover {
+    background-color: rgb(30 41 59 / 1) !important;
+  }
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) scale(1.04);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.float-orb {
+  animation: drift 12s ease-in-out infinite;
+}
+
+.reveal {
+  animation: rise 0.55s ease-out both;
+}
+
+.reveal-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.reveal-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.reveal-delay-3 {
+  animation-delay: 0.24s;
+}
+
+.animate-bounce {
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.delay-75 {
+  animation-delay: 0.2s;
+}
+
+.delay-150 {
+  animation-delay: 0.4s;
+}

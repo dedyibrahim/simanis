@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp API Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem; /* rounded-lg */
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            border-color: #3b82f6; /* blue-500 */
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem; /* rounded-lg */
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, opacity 0.2s;
+        }
+        .btn-primary {
+            background-color: #3b82f6; /* blue-500 */
+            color: #ffffff;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb; /* blue-600 */
+        }
+        .btn-secondary {
+            background-color: #6b7280; /* gray-500 */
+            color: #ffffff;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563; /* gray-600 */
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .message-box {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        .message-success {
+            background-color: #d1fae5; /* green-100 */
+            color: #065f46; /* green-800 */
+            border: 1px solid #34d399; /* green-400 */
+        }
+        .message-error {
+            background-color: #fee2e2; /* red-100 */
+            color: #991b1b; /* red-800 */
+            border: 1px solid #ef4444; /* red-400 */
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-6">
+    <div class="container mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">WhatsApp API Dashboard</h1>
+
+        <!-- API Key Configuration -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">API Key Configuration</h2>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <input type="text" id="apiKeyInput" class="input-field flex-grow" placeholder="Enter your API Key">
+                <button id="saveApiKeyBtn" class="btn btn-primary">Save API Key</button>
+            </div>
+            <p class="text-sm text-gray-500 mt-2">
+                <span class="font-bold text-red-600">Warning:</span> For local development only. Do not store sensitive API keys like this in production.
+            </p>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Connection Status</h2>
+            <div class="flex items-center justify-between mb-4">
+                <p class="text-lg font-medium text-gray-600">Status: <span id="connectionStatus" class="font-bold text-blue-500">Loading...</span></p>
+                <button id="refreshStatusBtn" class="btn btn-secondary">Refresh Status</button>
+            </div>
+            <div id="qrCodeContainer" class="flex justify-center items-center p-4 bg-gray-50 rounded-lg hidden">
+                <img id="qrCodeImage" src="" alt="QR Code" class="w-48 h-48 border border-gray-300 rounded-md">
+            </div>
+            <p id="qrCodeText" class="text-center text-sm text-gray-600 mt-2 hidden">Scan this QR code with your WhatsApp app.</p>
+        </div>
+
+        <!-- Send Message -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Send Text Message</h2>
+            <div class="mb-4">
+                <label for="messageNumber" class="block text-sm font-medium text-gray-700 mb-2">Number (e.g., 6281234567890):</label>
+                <input type="text" id="messageNumber" class="input-field" placeholder="Enter recipient number">
+            </div>
+            <div class="mb-4">
+                <label for="messageText" class="block text-sm font-medium text-gray-700 mb-2">Message:</label>
+                <textarea id="messageText" class="input-field h-24 resize-y" placeholder="Enter your message"></textarea>
+            </div>
+            <button id="sendMessageBtn" class="btn btn-primary w-full">Send Message</button>
+        </div>
+
+        <!-- Send Media -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Send Media (Image/Video)</h2>
+            <div class="mb-4">
+                <label for="mediaNumber" class="block text-sm font-medium text-gray-700 mb-2">Number (e.g., 6281234567890):</label>
+                <input type="text" id="mediaNumber" class="input-field" placeholder="Enter recipient number">
+            </div>
+            <div class="mb-4">
+                <label for="mediaCaption" class="block text-sm font-medium text-gray-700 mb-2">Caption (Optional):</label>
+                <input type="text" id="mediaCaption" class="input-field" placeholder="Enter caption">
+            </div>
+            <div class="mb-4">
+                <label for="mediaUrl" class="block text-sm font-medium text-gray-700 mb-2">Media URL:</label>
+                <input type="url" id="mediaUrl" class="input-field" placeholder="e.g., https://example.com/image.jpg">
+                <p class="text-xs text-gray-500 mt-1">OR</p>
+            </div>
+            <div class="mb-4">
+                <label for="mediaFile" class="block text-sm font-medium text-gray-700 mb-2">Upload File (for Base64):</label>
+                <input type="file" id="mediaFile" class="input-field p-2">
+                <input type="hidden" id="mediaBase64">
+                <input type="hidden" id="mediaFilename">
+                <p class="text-xs text-gray-500 mt-1">Only one (URL or File) should be provided.</p>
+            </div>
+            <button id="sendMediaBtn" class="btn btn-primary w-full">Send Media</button>
+        </div>
+
+        <!-- Check Number Registered -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Check Number Registration</h2>
+            <div class="mb-4">
+                <label for="checkNumber" class="block text-sm font-medium text-gray-700 mb-2">Number (e.g., 6281234567890):</label>
+                <input type="text" id="checkNumber" class="input-field" placeholder="Enter number to check">
+            </div>
+            <button id="checkRegistrationBtn" class="btn btn-primary w-full">Check Registration</button>
+            <p id="registrationResult" class="text-sm font-medium mt-4"></p>
+        </div>
+
+        <!-- Get Contact Info -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Get Contact Information</h2>
+            <div class="mb-4">
+                <label for="contactNumber" class="block text-sm font-medium text-gray-700 mb-2">Number (e.g., 6281234567890):</label>
+                <input type="text" id="contactNumber" class="input-field" placeholder="Enter number to get info">
+            </div>
+            <button id="getContactInfoBtn" class="btn btn-primary w-full">Get Contact Info</button>
+            <div id="contactInfoResult" class="message-box message-success hidden"></div>
+        </div>
+
+        <!-- Reset Session -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Reset WhatsApp Session</h2>
+            <p class="text-sm text-gray-600 mb-4">This will log out the current WhatsApp session and require a new QR code scan.</p>
+            <button id="resetSessionBtn" class="btn btn-secondary w-full">Reset Session</button>
+        </div>
+
+        <!-- Global Message Display -->
+        <div id="globalMessage" class="message-box hidden"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8010'; // Ganti jika API Anda berjalan di port/host lain
+
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+        const connectionStatusSpan = document.getElementById('connectionStatus');
+        const refreshStatusBtn = document.getElementById('refreshStatusBtn');
+        const qrCodeContainer = document.getElementById('qrCodeContainer');
+        const qrCodeImage = document.getElementById('qrCodeImage');
+        const qrCodeText = document.getElementById('qrCodeText');
+        const globalMessageDiv = document.getElementById('globalMessage');
+
+        // Send Message Elements
+        const messageNumberInput = document.getElementById('messageNumber');
+        const messageTextInput = document.getElementById('messageText');
+        const sendMessageBtn = document.getElementById('sendMessageBtn');
+
+        // Send Media Elements
+        const mediaNumberInput = document.getElementById('mediaNumber');
+        const mediaCaptionInput = document.getElementById('mediaCaption');
+        const mediaUrlInput = document.getElementById('mediaUrl');
+        const mediaFileInput = document.getElementById('mediaFile');
+        const mediaBase64Input = document.getElementById('mediaBase64');
+        const mediaFilenameInput = document.getElementById('mediaFilename');
+        const sendMediaBtn = document.getElementById('sendMediaBtn');
+
+        // Check Registration Elements
+        const checkNumberInput = document.getElementById('checkNumber');
+        const checkRegistrationBtn = document.getElementById('checkRegistrationBtn');
+        const registrationResultP = document.getElementById('registrationResult');
+
+        // Get Contact Info Elements
+        const contactNumberInput = document.getElementById('contactNumber');
+        const getContactInfoBtn = document.getElementById('getContactInfoBtn');
+        const contactInfoResultDiv = document.getElementById('contactInfoResult');
+
+        // Reset Session Element
+        const resetSessionBtn = document.getElementById('resetSessionBtn');
+
+        let currentApiKey = localStorage.getItem('whatsappApiKey') || '';
+        if (currentApiKey) {
+            apiKeyInput.value = currentApiKey;
+        }
+
+        // --- Helper Functions ---
+        function showMessage(message, type = 'success') {
+            globalMessageDiv.textContent = message;
+            globalMessageDiv.className = `message-box ${type === 'success' ? 'message-success' : 'message-error'}`;
+            globalMessageDiv.classList.remove('hidden');
+            setTimeout(() => {
+                globalMessageDiv.classList.add('hidden');
+            }, 5000); // Hide after 5 seconds
+        }
+
+        function setLoading(button, isLoading) {
+            if (isLoading) {
+                button.disabled = true;
+                button.innerHTML = `<span class="loading-spinner"></span> Loading...`;
+            } else {
+                button.disabled = false;
+                button.innerHTML = button.dataset.originalText; // Restore original text
+            }
+        }
+
+        // --- API Calls ---
+        async function callApi(endpoint, method = 'GET', body = null, button = null) {
+            if (!currentApiKey) {
+                showMessage('API Key is not set. Please save your API Key first.', 'error');
+                return null;
+            }
+
+            const url = `${API_BASE_URL}${endpoint}`;
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': currentApiKey
+                }
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            if (button) {
+                button.dataset.originalText = button.innerHTML; // Store original text
+                setLoading(button, true);
+            }
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage(`API Error: ${data.error || 'Unknown error'}`, 'error');
+                    return null;
+                }
+                showMessage(data.message || 'Operation successful!', 'success');
+                return data;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showMessage(`Network Error: ${error.message}`, 'error');
+                return null;
+            } finally {
+                if (button) {
+                    setLoading(button, false);
+                }
+            }
+        }
+
+        async function getStatus() {
+            connectionStatusSpan.textContent = 'Checking...';
+            connectionStatusSpan.classList.remove('text-green-500', 'text-red-500');
+            connectionStatusSpan.classList.add('text-blue-500');
+            qrCodeContainer.classList.add('hidden');
+            qrCodeText.classList.add('hidden');
+
+            const data = await callApi('/status');
+            if (data) {
+                connectionStatusSpan.textContent = data.status.toUpperCase();
+                if (data.status === 'ready') {
+                    connectionStatusSpan.classList.remove('text-blue-500', 'text-red-500');
+                    connectionStatusSpan.classList.add('text-green-500');
+                } else {
+                    connectionStatusSpan.classList.remove('text-blue-500', 'text-green-500');
+                    connectionStatusSpan.classList.add('text-red-500');
+                    if (data.qr_code) {
+                        qrCodeImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.qr_code)}`;
+                        qrCodeContainer.classList.remove('hidden');
+                        qrCodeText.classList.remove('hidden');
+                    }
+                }
+            } else {
+                connectionStatusSpan.textContent = 'Failed to load';
+                connectionStatusSpan.classList.remove('text-blue-500', 'text-green-500');
+                connectionStatusSpan.classList.add('text-red-500');
+            }
+        }
+
+        // --- Event Listeners ---
+        saveApiKeyBtn.addEventListener('click', () => {
+            const newKey = apiKeyInput.value.trim();
+            if (newKey) {
+                localStorage.setItem('whatsappApiKey', newKey);
+                currentApiKey = newKey;
+                showMessage('API Key saved successfully!');
+                getStatus(); // Refresh status after saving API Key
+            } else {
+                showMessage('API Key cannot be empty.', 'error');
+            }
+        });
+
+        refreshStatusBtn.addEventListener('click', getStatus);
+
+        sendMessageBtn.addEventListener('click', async () => {
+            const number = messageNumberInput.value.trim();
+            const message = messageTextInput.value.trim();
+            if (!number || !message) {
+                showMessage('Number and message are required.', 'error');
+                return;
+            }
+            await callApi('/send-message', 'POST', { number, message }, sendMessageBtn);
+        });
+
+        mediaFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    mediaBase64Input.value = e.target.result; // Data URL (e.g., data:image/png;base64,...)
+                    mediaFilenameInput.value = file.name;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                mediaBase64Input.value = '';
+                mediaFilenameInput.value = '';
+            }
+        });
+
+        sendMediaBtn.addEventListener('click', async () => {
+            const number = mediaNumberInput.value.trim();
+            const caption = mediaCaptionInput.value.trim();
+            const media_url = mediaUrlInput.value.trim();
+            const media_base64 = mediaBase64Input.value.trim();
+            const filename = mediaFilenameInput.value.trim();
+
+            if (!number) {
+                showMessage('Number is required.', 'error');
+                return;
+            }
+            if (!media_url && !media_base64) {
+                showMessage('Either Media URL or a file must be provided.', 'error');
+                return;
+            }
+            if (media_base64 && !filename) {
+                showMessage('Filename is required for Base64 media.', 'error');
+                return;
+            }
+
+            const body = { number, caption };
+            if (media_url) {
+                body.media_url = media_url;
+            } else if (media_base64) {
+                body.media_base64 = media_base64;
+                body.filename = filename;
+            }
+
+            await callApi('/send-media', 'POST', body, sendMediaBtn);
+        });
+
+        checkRegistrationBtn.addEventListener('click', async () => {
+            const number = checkNumberInput.value.trim();
+            if (!number) {
+                showMessage('Number is required.', 'error');
+                return;
+            }
+            registrationResultP.textContent = 'Checking...';
+            registrationResultP.className = 'text-sm font-medium mt-4 text-blue-500';
+
+            const data = await callApi(`/is-registered?number=${encodeURIComponent(number)}`, 'GET', null, checkRegistrationBtn);
+            if (data) {
+                if (data.is_registered) {
+                    registrationResultP.textContent = `Number ${data.number} is REGISTERED.`;
+                    registrationResultP.className = 'text-sm font-medium mt-4 text-green-600';
+                } else {
+                    registrationResultP.textContent = `Number ${data.number} is NOT REGISTERED.`;
+                    registrationResultP.className = 'text-sm font-medium mt-4 text-red-600';
+                }
+            } else {
+                registrationResultP.textContent = 'Failed to check registration.';
+                registrationResultP.className = 'text-sm font-medium mt-4 text-red-600';
+            }
+        });
+
+        getContactInfoBtn.addEventListener('click', async () => {
+            const number = contactNumberInput.value.trim();
+            if (!number) {
+                showMessage('Number is required.', 'error');
+                return;
+            }
+            contactInfoResultDiv.classList.add('hidden');
+            contactInfoResultDiv.textContent = '';
+
+            const data = await callApi(`/get-contact-info?number=${encodeURIComponent(number)}`, 'GET', null, getContactInfoBtn);
+            if (data && data.contact) {
+                contactInfoResultDiv.innerHTML = `
+                    <p><span class="font-bold">ID:</span> ${data.contact._serialized}</p>
+                    <p><span class="font-bold">Name:</span> ${data.contact.name || 'N/A'}</p>
+                    <p><span class="font-bold">Number:</span> ${data.contact.number}</p>
+                    <p><span class="font-bold">Is Business:</span> ${data.contact.isBusiness ? 'Yes' : 'No'}</p>
+                    <p><span class="font-bold">Is Group:</span> ${data.contact.isGroup ? 'Yes' : 'No'}</p>
+                `;
+                contactInfoResultDiv.classList.remove('hidden', 'message-error');
+                contactInfoResultDiv.classList.add('message-success');
+            } else if (data && data.error) {
+                 contactInfoResultDiv.innerHTML = `<p>${data.error}</p>`;
+                 contactInfoResultDiv.classList.remove('hidden', 'message-success');
+                 contactInfoResultDiv.classList.add('message-error');
+            } else {
+                contactInfoResultDiv.innerHTML = `<p>Failed to get contact info.</p>`;
+                contactInfoResultDiv.classList.remove('hidden', 'message-success');
+                contactInfoResultDiv.classList.add('message-error');
+            }
+        });
+
+        resetSessionBtn.addEventListener('click', async () => {
+            const confirmed = confirm('Are you sure you want to reset the WhatsApp session? This will log you out.');
+            if (confirmed) {
+                await callApi('/reset-session', 'POST', null, resetSessionBtn);
+                getStatus(); // Refresh status after resetting
+            }
+        });
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            getStatus();
+        });
+
+        // Custom confirm/alert for better UX (replace native alert/confirm)
+        // Note: For a real production app, you'd build a proper modal.
+        function confirm(message) {
+            return window.confirm(message); // Using native for simplicity in this demo
+        }
+        // function alert(message) {
+        //     window.alert(message); // Using native for simplicity in this demo
+        // }
+
+    </script>
+</body>
+</html>

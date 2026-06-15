@@ -1,0 +1,68 @@
+# Common
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.pid
+npm-debug.log*
+yarn-error.log*
+
+# Root env
+.env
+.env.*
+!.env.example
+
+# Backup metadata
+.git-backups/
+
+# Backend
+backend/.git/
+backend/.env
+backend/.env.backup
+backend/.phpunit.result.cache
+backend/*.sql
+backend/app/*.sql
+backend/node_modules/
+backend/bootstrap/cache/*.php
+backend/bootstrap/cache/*.tmp
+backend/public/hot
+backend/public/storage
+backend/public/berkasclient/
+backend/public/berkaslegalisasis/
+backend/public/berkasnotaris/
+backend/public/berkasppat/
+backend/public/berkaswarmerkings/
+backend/public/chat_attachments/
+backend/public/foto/
+backend/public/suratnotaris/
+backend/public/tandaterima/
+backend/storage/*.key
+backend/storage/app/database-backups/
+backend/storage/app/google-calendar/
+backend/storage/framework/cache/data/
+backend/storage/framework/cache/data/.gitignore
+backend/storage/framework/cache/laravel-excel/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+backend/storage/logs/
+backend/vendor/
+
+# Frontend
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/.output/
+frontend/.data/
+frontend/.nuxt/
+frontend/.nitro/
+frontend/.cache/
+frontend/dist/
+frontend/node_modules/
+
+# bothWA
+bothWA/.env
+bothWA/bothwa.env
+bothWA/.wwebjs_auth/
+bothWA/node_modules/
+bothWA/sessions/
+bothWA/whatsapp-session/

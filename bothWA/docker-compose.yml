@@ -1,0 +1,34 @@
+services:
+  bothwa:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: bothwa
+    restart: unless-stopped
+    env_file:
+      - bothwa.env
+    ports:
+      - "8020:8020"
+    depends_on:
+      - waha
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: simanis-waha
+    restart: unless-stopped
+    ports:
+      - "8010:3000"
+    environment:
+      - WHATSAPP_DEFAULT_ENGINE=WEBJS
+      - WAHA_API_KEY=admin
+      - WAHA_NO_API_KEY=False
+      - WAHA_DASHBOARD_ENABLED=true
+      - WAHA_DASHBOARD_USERNAME=admin
+      - WAHA_DASHBOARD_PASSWORD=dedy123
+      - WAHA_PRINT_QR=true
+      - WAHA_AUTO_START_DELAY_SECONDS=0
+      - WHATSAPP_RESTART_ALL_SESSIONS=true
+    volumes:
+      - ./sessions:/app/.sessions
