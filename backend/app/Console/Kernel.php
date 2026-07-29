@@ -34,6 +34,12 @@ class Kernel extends ConsoleKernel
             ->timezone('Asia/Jakarta')
             ->withoutOverlapping();
 
+        if (filter_var(env('GOOGLE_CALENDAR_SYNC_ENABLED', false), FILTER_VALIDATE_BOOLEAN)) {
+            $schedule->command('events:sync-google-calendar')
+                ->everyFiveMinutes()
+                ->withoutOverlapping();
+        }
+
         $schedule->command('backup:database-monthly')->monthlyOn(1, '02:00');
     }
 

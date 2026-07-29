@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+uploads/
+models/*.pkl
+outputs/*.json
+outputs/*.jpg
+outputs/*.jpeg
+outputs/*.png
+samples/*.jpg
+samples/*.jpeg
+samples/*.png

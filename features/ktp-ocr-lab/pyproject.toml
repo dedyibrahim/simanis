@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ktp-ocr-lab"
+version = "0.1.0"
+description = "Experimental KTP OCR extraction lab for Simanis."
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.116.0",
+  "opencv-python>=4.10.0",
+  "numpy>=1.26.0",
+  "pydantic>=2.8.0",
+  "python-multipart>=0.0.20",
+  "scikit-learn>=1.5.0",
+  "uvicorn[standard]>=0.35.0",
+  "python-dateutil>=2.9.0"
+]
+
+[project.scripts]
+ktp-ocr-lab = "ktp_ocr_lab.cli:main"
+ktp-ocr-generate-sample = "ktp_ocr_lab.generate_sample:main"
+ktp-ocr-benchmark = "ktp_ocr_lab.benchmark:main"
+ktp-ocr-build-dataset = "ktp_ocr_lab.modeling.build_dataset:main"
+ktp-ocr-train-reader = "ktp_ocr_lab.modeling.train_reader:main"
+ktp-ocr-web = "ktp_ocr_lab.web:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NAME="${KTP_OCR_CONTAINER:-ktp-ocr-lab}"
+
+if docker inspect "${NAME}" >/dev/null 2>&1; then
+  docker inspect --format '{{.Name}}|{{.State.Status}}|{{.State.Running}}|{{.Config.Image}}|{{.RestartCount}}' "${NAME}"
+else
+  printf '/%s|missing|false||\n' "${NAME}"
+fi

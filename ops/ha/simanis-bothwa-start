@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /var/www/bothWA
+
+compose() {
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+  else
+    docker compose "$@"
+  fi
+}
+
+docker network inspect bothwa_default >/dev/null 2>&1 || docker network create bothwa_default >/dev/null
+
+if ! docker ps -a --format '{{.Names}}' | grep -qx 'simanis-waha'; then
+  compose create --no-build waha
+fi
+
+if docker ps -a --format '{{.Names}}' | grep -qx 'bothwa'; then
+  if ! docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' bothwa \
+      | grep -qx 'WAHA_BASE_URL=http://simanis-waha:3000'; then
+    docker rm -f bothwa >/dev/null
+  fi
+fi
+
+if ! docker ps -a --format '{{.Names}}' | grep -qx 'bothwa'; then
+  docker run -d \
+    --name bothwa \
+    --restart unless-stopped \
+    --network bothwa_default \
+    -p 8020:8020 \
+    --env-file /var/www/bothWA/bothwa.env \
+    -e WAHA_BASE_URL=http://simanis-waha:3000 \
+    -e WAHA_WEBHOOK_URL=http://bothwa:8020/webhook/waha \
+    bothwa:latest >/dev/null
+fi
+
+docker update --restart=unless-stopped simanis-waha bothwa >/dev/null 2>&1 || true
+
+docker start simanis-waha >/dev/null
+sleep 10
+
+WAHA_API_KEY="$(grep -E '^WAHA_API_KEY=' /var/www/bothWA/bothwa.env | tail -1 | cut -d= -f2-)"
+WAHA_API_KEY="${WAHA_API_KEY:-admin}"
+WAHA_STATUS="$(curl -fsS -H "X-Api-Key: ${WAHA_API_KEY}" http://127.0.0.1:8010/api/sessions/default 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+if [[ "${WAHA_STATUS}" == "STOPPED" || -z "${WAHA_STATUS}" ]]; then
+  curl -fsS -X POST -H "X-Api-Key: ${WAHA_API_KEY}" http://127.0.0.1:8010/api/sessions/default/start >/dev/null 2>&1 || true
+  sleep 8
+fi
+
+if docker ps -a --format '{{.Names}}' | grep -qx 'bothwa'; then
+  if docker ps --format '{{.Names}}' | grep -qx 'bothwa'; then
+    docker restart bothwa >/dev/null
+  else
+    docker start bothwa >/dev/null
+  fi
+fi
+
+docker ps --filter name=simanis-waha --filter name=bothwa --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'

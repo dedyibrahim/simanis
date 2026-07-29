@@ -1,0 +1,22 @@
+{
+  "name": "baseline",
+  "description": "Resize ringan, grayscale, dan parser rule-based. Cocok sebagai pembanding awal.",
+  "preprocessing": {
+    "resize_scale": 1.5,
+    "grayscale": true,
+    "denoise": false,
+    "sharpen": false,
+    "contrast": "none",
+    "threshold": "none",
+    "deskew": false
+  },
+  "ocr": {
+    "engine": "mock",
+    "language": "id"
+  },
+  "parser": {
+    "normalize_labels": true,
+    "strict_nik": true
+  }
+}
+

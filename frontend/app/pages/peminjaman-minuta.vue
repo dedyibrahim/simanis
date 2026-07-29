@@ -48,7 +48,8 @@ const business = useLegacyBusiness()
 
 const loading = ref(false)
 const search = ref('')
-const monthFilter = ref(new Date().toISOString().slice(0, 7))
+const monthFilter = ref('')
+const statusFilter = ref('')
 const rows = ref<MinutaRow[]>([])
 const message = ref('')
 const errorMessage = ref('')
@@ -98,6 +99,13 @@ const formTitle = computed(() =>
 )
 
 const searchKeyword = computed(() => search.value.trim().toLowerCase())
+
+const statusOptions = [
+  { label: 'Semua status', value: '' },
+  { label: 'Dipinjam', value: 'Dipinjam' },
+  { label: 'Terlambat', value: 'Terlambat' },
+  { label: 'Dikembalikan', value: 'Dikembalikan' },
+]
 
 const filteredRows = computed(() => {
   if (!searchKeyword.value) return rows.value
@@ -177,8 +185,12 @@ const loadData = async () => {
   loading.value = true
   clearNotice()
   try {
-    const query: Record<string, string> = {
-      date: monthFilter.value,
+    const query: Record<string, string> = {}
+    if (monthFilter.value) {
+      query.date = monthFilter.value
+    }
+    if (statusFilter.value) {
+      query.status = statusFilter.value
     }
     if (search.value.trim()) {
       query.search = search.value.trim()
@@ -191,7 +203,7 @@ const loadData = async () => {
       tanggal_kembali: toDateInput(item.tanggal_kembali),
     }))
     page.value = 1
-    message.value = response.message || ''
+    message.value = ''
   } catch (error) {
     rows.value = []
     page.value = 1
@@ -338,6 +350,11 @@ watch(monthFilter, () => {
   void loadData()
 })
 
+watch(statusFilter, () => {
+  page.value = 1
+  void loadData()
+})
+
 onMounted(() => {
   void loadData()
 })
@@ -346,30 +363,55 @@ onMounted(() => {
 <template>
   <div class="space-y-6">
     <SurfaceCard class="p-6 sm:p-7">
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p class="display-kicker">Ringkasan</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-900">Data Peminjaman Minuta</h2>
+      <div class="flex flex-col gap-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="display-kicker">Ringkasan</p>
+            <h2 class="mt-2 text-2xl font-semibold text-slate-900">Data Peminjaman Minuta</h2>
+          </div>
+
+          <button
+            type="button"
+            class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            @click="openCreateForm"
+          >
+            <PlusIcon class="h-4 w-4" />
+            Tambah Peminjaman
+          </button>
         </div>
 
-        <div class="flex flex-wrap items-end gap-2">
-          <label class="w-[170px] max-w-full">
-            <span class="sr-only">Periode</span>
+        <div class="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3">
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[180px_190px_minmax(260px,1fr)_120px]">
+          <label class="min-w-0">
+            <span class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Periode</span>
             <input
               v-model="monthFilter"
               type="month"
-              class="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
           </label>
-          <label class="w-[260px] max-w-full">
-            <span class="sr-only">Pencarian</span>
+
+          <label class="min-w-0">
+            <span class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Status</span>
+            <select
+              v-model="statusFilter"
+              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option v-for="option in statusOptions" :key="option.value || 'all'" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+
+          <label class="min-w-0 md:col-span-2 xl:col-span-1">
+            <span class="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Pencarian</span>
             <div class="relative">
               <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 v-model="search"
                 type="text"
-                placeholder="Pencarian"
-                class="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                placeholder="Cari no akta, bundle, peminjam, keperluan..."
+                class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 @keyup.enter="loadData"
               />
             </div>
@@ -377,21 +419,14 @@ onMounted(() => {
 
           <button
             type="button"
-            class="h-10 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            class="mt-5 h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="loading"
             @click="loadData"
           >
             {{ loading ? 'Memuat...' : 'Refresh' }}
           </button>
 
-          <button
-            type="button"
-            class="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
-            @click="openCreateForm"
-          >
-            <PlusIcon class="h-4 w-4" />
-            Tambah Peminjaman
-          </button>
+          </div>
         </div>
       </div>
 

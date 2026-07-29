@@ -61,21 +61,25 @@ class DashboardService
                 'judul' => 'Pembuat Akta Notaris',
                 'jumlah' => $notaris['total'],
                 'nama_lengkap' => $notaris['nama_lengkap'],
+                'nama_lengkap_list' => $notaris['nama_lengkap_list'],
             ],
             [
                 'judul' => 'Pembuat Akta PPAT',
                 'jumlah' => $ppat['total'],
                 'nama_lengkap' => $ppat['nama_lengkap'],
+                'nama_lengkap_list' => $ppat['nama_lengkap_list'],
             ],
             [
                 'judul' => 'Pembuat Legalisasi',
                 'jumlah' => $legalisasi['total'],
                 'nama_lengkap' => $legalisasi['nama_lengkap'],
+                'nama_lengkap_list' => $legalisasi['nama_lengkap_list'],
             ],
             [
                 'judul' => 'Pembuat Waarmerking',
                 'jumlah' => $warmerking['total'],
                 'nama_lengkap' => $warmerking['nama_lengkap'],
+                'nama_lengkap_list' => $warmerking['nama_lengkap_list'],
             ],
         ];
     }
@@ -172,25 +176,35 @@ class DashboardService
 
     private function getTopPerformer(string $table, string $dateColumn, string $startDate, string $endDate): array
     {
-        $top = DB::table($table)
+        $rows = DB::table($table)
             ->join('users', $table . '.id_user', '=', 'users.id_user')
             ->select(DB::raw('count(' . $table . '.id_user) as total'), 'users.nama_lengkap')
             ->where('users.level_user', '!=', 'Admin')
             ->whereBetween($table . '.' . $dateColumn, [$startDate, $endDate])
             ->groupBy('users.id_user', 'users.nama_lengkap')
             ->orderBy('total', 'DESC')
-            ->first();
+            ->orderBy('users.nama_lengkap')
+            ->get();
 
-        if (!$top) {
+        if ($rows->isEmpty()) {
             return [
                 'total' => 0,
                 'nama_lengkap' => '-',
+                'nama_lengkap_list' => [],
             ];
         }
 
+        $topTotal = (int) $rows->first()->total;
+        $topNames = $rows
+            ->filter(fn ($row) => (int) $row->total === $topTotal)
+            ->pluck('nama_lengkap')
+            ->values()
+            ->all();
+
         return [
-            'total' => (int) $top->total,
-            'nama_lengkap' => $top->nama_lengkap,
+            'total' => $topTotal,
+            'nama_lengkap' => implode(', ', $topNames),
+            'nama_lengkap_list' => $topNames,
         ];
     }
 

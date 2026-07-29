@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const FormData = require('form-data');
 
 const app = express();
 const port = Number(process.env.PORT || 8020);
@@ -86,8 +87,14 @@ const LARAVEL_API_URL_ASSISTANTS = `${LARAVEL_BASE_URL}/api/chatbot-assistants`;
 const LARAVEL_API_URL_CREATE = `${LARAVEL_BASE_URL}/api/create-event-from-chat`;
 const LARAVEL_API_URL_DELETE = `${LARAVEL_BASE_URL}/api/delete-event-from-chat`;
 const LARAVEL_API_URL_CLIENT_SEARCH = `${LARAVEL_BASE_URL}/api/chatbot-search-client`;
+const LARAVEL_API_URL_CONFIRM_KTP_OCR = `${LARAVEL_BASE_URL}/api/chatbot/clients/confirm-ktp-ocr`;
 const LARAVEL_API_URL_DOC_ACCESS_DECISION = `${LARAVEL_BASE_URL}/api/document-access/decision-from-chat`;
 const LARAVEL_API_URL_REPORTORIUM_MONTHLY = `${LARAVEL_BASE_URL}/api/chatbot-reportorium-monthly`;
+const KTP_OCR_BASE_URL = String(process.env.KTP_OCR_BASE_URL || 'http://127.0.0.1:8765').trim().replace(/\/$/, '');
+const KTP_OCR_CONFIG = String(process.env.KTP_OCR_CONFIG || 'paddleocr-fast.json').trim();
+const KTP_OCR_ENGINE = String(process.env.KTP_OCR_ENGINE || 'paddleocr').trim();
+const KTP_OCR_ENDPOINT = `${KTP_OCR_BASE_URL}/api/ocr`;
+const KTP_OCR_TIMEOUT_MS = Number(process.env.KTP_OCR_TIMEOUT_MS || 90000);
 
 const WAHA_BASE_URL = String(process.env.WAHA_BASE_URL || 'http://127.0.0.1:8010').trim().replace(/\/$/, '');
 const WAHA_API_KEY = String(process.env.WAHA_API_KEY || 'admin').trim();
@@ -113,7 +120,7 @@ const JAKARTA_OFFSET_HOURS = 7;
 
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 15000);
 
-app.use(bodyParser.json({ limit: '2mb' }));
+app.use(bodyParser.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
@@ -126,6 +133,9 @@ const assistantDirectoryCache = {
     fetchedAt: 0,
     rows: [],
 };
+const inputClientSessions = {};
+const INPUT_CLIENT_SESSION_TTL_MS = 15 * 60 * 1000;
+const KTP_UPLOAD_DIR = path.join(__dirname, 'tmp', 'ktp-ocr');
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -1163,9 +1173,19 @@ const resolveMessageBody = (raw) => {
         raw?.body,
         raw?.text,
         raw?.text?.body,
+        raw?.caption,
         raw?.message?.body,
         raw?.message?.text,
         raw?.message?.text?.body,
+        raw?.message?.caption,
+        raw?.payload?.body,
+        raw?.payload?.text,
+        raw?.payload?.text?.body,
+        raw?.payload?.message?.body,
+        raw?._data?.body,
+        raw?._data?.caption,
+        raw?._data?.message?.conversation,
+        raw?._data?.message?.extendedTextMessage?.text,
     ];
 
     for (const candidate of candidates) {
@@ -1176,6 +1196,15 @@ const resolveMessageBody = (raw) => {
 
     return '';
 };
+
+const normalizeCommandText = (value) =>
+    String(value || '')
+        .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, '')
+        .replace(/\u00A0/g, ' ')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
 
 const resolveMessageFrom = (raw) => {
     const candidates = [
@@ -1286,6 +1315,323 @@ const sendTextViaWaha = async ({ chatId, text }) => {
     });
 };
 
+const hasInboundMedia = (raw) => {
+    if (!isObject(raw)) return false;
+    if (raw.hasMedia === true || raw.message?.hasMedia === true) return true;
+    if (isObject(raw.media) || isObject(raw.file) || isObject(raw.document) || isObject(raw.image)) return true;
+
+    const mimetype = String(raw.mimetype || raw.media?.mimetype || raw._data?.mimetype || '').toLowerCase();
+    return mimetype.startsWith('image/');
+};
+
+const extractMediaDescriptor = (raw) => {
+    const media = isObject(raw?.media) ? raw.media : {};
+    const file = isObject(raw?.file) ? raw.file : {};
+    const image = isObject(raw?.image) ? raw.image : {};
+    const data = isObject(raw?._data) ? raw._data : {};
+
+    const url = [
+        media.url,
+        media.mediaUrl,
+        file.url,
+        image.url,
+        raw?.mediaUrl,
+        raw?.downloadUrl,
+        data.mediaUrl,
+        data.deprecatedMms3Url,
+    ].find((item) => typeof item === 'string' && item.trim());
+
+    const base64 = [
+        media.data,
+        media.base64,
+        file.data,
+        image.data,
+        raw?.base64,
+        raw?.data,
+    ].find((item) => typeof item === 'string' && item.trim());
+
+    const mimetype = String(
+        media.mimetype
+        || file.mimetype
+        || image.mimetype
+        || raw?.mimetype
+        || data.mimetype
+        || 'image/jpeg'
+    ).trim();
+
+    const filename = String(
+        media.filename
+        || file.filename
+        || image.filename
+        || raw?.filename
+        || data.filename
+        || `ktp-${Date.now()}.${extensionFromMime(mimetype)}`
+    ).trim();
+
+    return { url, base64, mimetype, filename };
+};
+
+const extensionFromMime = (mimetype) => {
+    const source = String(mimetype || '').toLowerCase();
+    if (source.includes('png')) return 'png';
+    if (source.includes('webp')) return 'webp';
+    if (source.includes('bmp')) return 'bmp';
+    if (source.includes('tif')) return 'tif';
+    return 'jpg';
+};
+
+const normalizeWahaMediaUrl = (rawUrl) => {
+    const source = String(rawUrl || '').trim();
+    if (!source) return '';
+
+    if (!/^https?:\/\//i.test(source)) {
+        return buildUrl(WAHA_BASE_URL, source);
+    }
+
+    try {
+        const parsed = new URL(source);
+        const internal = new URL(WAHA_BASE_URL);
+        const localHosts = ['127.0.0.1', 'localhost', '0.0.0.0'];
+
+        if (localHosts.includes(parsed.hostname) || parsed.port === '8010') {
+            parsed.protocol = internal.protocol;
+            parsed.hostname = internal.hostname;
+            parsed.port = internal.port;
+        }
+
+        return parsed.toString();
+    } catch {
+        return source;
+    }
+};
+
+const downloadKtpMedia = async (msg, senderNumber) => {
+    const descriptor = extractMediaDescriptor(msg.raw || {});
+    const safeSender = normalizePhone(senderNumber) || 'unknown';
+    const extension = extensionFromMime(descriptor.mimetype);
+    const targetPath = path.join(KTP_UPLOAD_DIR, `${safeSender}-${Date.now()}.${extension}`);
+
+    fs.mkdirSync(KTP_UPLOAD_DIR, { recursive: true });
+
+    if (descriptor.base64) {
+        const cleanBase64 = descriptor.base64.includes(',')
+            ? descriptor.base64.split(',').pop()
+            : descriptor.base64;
+        fs.writeFileSync(targetPath, Buffer.from(cleanBase64, 'base64'));
+        return targetPath;
+    }
+
+    if (descriptor.url) {
+        const mediaUrl = normalizeWahaMediaUrl(descriptor.url);
+        console.log(`Download media KTP dari ${mediaUrl}`);
+        const response = await axios.get(mediaUrl, {
+            headers: wahaHeaders(),
+            responseType: 'stream',
+            timeout: KTP_OCR_TIMEOUT_MS,
+        });
+        await new Promise((resolve, reject) => {
+            const writer = fs.createWriteStream(targetPath);
+            response.data.pipe(writer);
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+        });
+        return targetPath;
+    }
+
+    throw new Error('Media gambar tidak ditemukan di payload webhook WAHA.');
+};
+
+const runKtpOcr = async (imagePath) => {
+    const form = new FormData();
+    form.append('image', fs.createReadStream(imagePath));
+    form.append('config_name', KTP_OCR_CONFIG);
+    form.append('engine', KTP_OCR_ENGINE);
+
+    const response = await axios.post(KTP_OCR_ENDPOINT, form, {
+        headers: form.getHeaders(),
+        timeout: KTP_OCR_TIMEOUT_MS,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+    });
+
+    return response.data;
+};
+
+const fieldValue = (ocrResult, key) => String(ocrResult?.fields?.[key]?.value || '').trim();
+
+const buildOcrReviewMessage = ({ ocrResult, existingClient }) => {
+    const lines = [];
+    const exists = Boolean(existingClient);
+    lines.push(exists ? '*Client sudah terdaftar.*' : '*Client belum ditemukan.*');
+    if (exists) {
+        lines.push(`ID: ${existingClient.id_client || '-'}`);
+        lines.push(`Nama terdaftar: ${existingClient.nama_client || '-'}`);
+        lines.push('');
+    }
+
+    lines.push('*Hasil OCR KTP:*');
+    lines.push(`NIK: ${fieldValue(ocrResult, 'nik') || '-'}`);
+    lines.push(`Nama: ${fieldValue(ocrResult, 'nama') || '-'}`);
+    lines.push(`Tempat/Tgl Lahir: ${fieldValue(ocrResult, 'tempat_tanggal_lahir') || '-'}`);
+    lines.push(`Jenis Kelamin: ${fieldValue(ocrResult, 'jenis_kelamin') || '-'}`);
+    lines.push(`Gol. Darah: ${fieldValue(ocrResult, 'golongan_darah') || '-'}`);
+    lines.push(`Alamat: ${fieldValue(ocrResult, 'alamat') || '-'}`);
+    lines.push(`RT/RW: ${fieldValue(ocrResult, 'rt_rw') || '-'}`);
+    lines.push(`Kel/Desa: ${fieldValue(ocrResult, 'kel_desa') || '-'}`);
+    lines.push(`Kecamatan: ${fieldValue(ocrResult, 'kecamatan') || '-'}`);
+    lines.push(`Agama: ${fieldValue(ocrResult, 'agama') || '-'}`);
+    lines.push(`Status: ${fieldValue(ocrResult, 'status_perkawinan') || '-'}`);
+    lines.push(`Pekerjaan: ${fieldValue(ocrResult, 'pekerjaan') || '-'}`);
+    lines.push(`Kewarganegaraan: ${fieldValue(ocrResult, 'kewarganegaraan') || '-'}`);
+    lines.push(`Berlaku Hingga: ${fieldValue(ocrResult, 'berlaku_hingga') || '-'}`);
+    lines.push('');
+    lines.push(exists
+        ? 'Ketik *YA SIMPAN* untuk menambahkan foto KTP ke client ini.'
+        : 'Ketik *YA SIMPAN* untuk membuat client baru dan menyimpan foto KTP.');
+    lines.push('Ketik *BATAL* untuk membatalkan.');
+
+    return lines.join('\n');
+};
+
+const findExistingClientByNik = async (nik) => {
+    if (!nik) return null;
+    const response = await axios.get(LARAVEL_API_URL_CLIENT_SEARCH, {
+        params: { q: nik, jenis_client: 'Perorangan', limit: 5 },
+        headers: { 'X-API-Key': LARAVEL_API_KEY, Accept: 'application/json' },
+        timeout: REQUEST_TIMEOUT_MS,
+    });
+    const rows = Array.isArray(response?.data?.data) ? response.data.data : [];
+    return rows.find((row) => String(row.no_identitas || '').trim() === nik) || null;
+};
+
+const cleanupInputClientSessions = () => {
+    const now = Date.now();
+    Object.entries(inputClientSessions).forEach(([phone, session]) => {
+        if (!session?.expiresAt || session.expiresAt < now) {
+            delete inputClientSessions[phone];
+        }
+    });
+};
+
+const confirmKtpOcrToBackend = async ({ session, senderNumber }) => {
+    const form = new FormData();
+    form.append('ktp_image', fs.createReadStream(session.imagePath));
+    form.append('ocr_result', JSON.stringify(session.ocrResult));
+    form.append('source', 'whatsapp');
+    form.append('sender_phone', senderNumber);
+
+    const response = await axios.post(LARAVEL_API_URL_CONFIRM_KTP_OCR, form, {
+        headers: {
+            ...form.getHeaders(),
+            'X-API-Key': LARAVEL_API_KEY,
+            Accept: 'application/json',
+        },
+        timeout: REQUEST_TIMEOUT_MS,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+    });
+
+    return response.data;
+};
+
+async function handleInputClientFlow(msg, senderNumber) {
+    cleanupInputClientSessions();
+    const normalized = normalizeCommandText(msg.body);
+    const currentSession = inputClientSessions[senderNumber];
+
+    if (/^input\s+(?:client|klien)$/.test(normalized)) {
+        console.log(`Mode input client KTP dimulai oleh ${senderNumber}`);
+        inputClientSessions[senderNumber] = {
+            step: 'waiting_ktp',
+            expiresAt: Date.now() + INPUT_CLIENT_SESSION_TTL_MS,
+        };
+        await msg.reply('Silakan kirim foto KTP client. Data tidak akan disimpan sebelum Anda konfirmasi *YA SIMPAN*.');
+        return true;
+    }
+
+    if (!currentSession) {
+        return false;
+    }
+
+    if (normalized === 'batal') {
+        delete inputClientSessions[senderNumber];
+        await msg.reply('Input client dari KTP dibatalkan.');
+        return true;
+    }
+
+    if (currentSession.step === 'review') {
+        if (/^(?:ya\s+simpan|simpan|ya)$/i.test(normalized)) {
+            try {
+                const result = await confirmKtpOcrToBackend({ session: currentSession, senderNumber });
+                delete inputClientSessions[senderNumber];
+                const data = result?.data || {};
+                const client = data.client || {};
+                const action = data.result === 'created_new' ? 'Client baru dibuat.' : 'Client sudah ada, KTP ditambahkan.';
+                await msg.reply([
+                    `*Berhasil.* ${action}`,
+                    `ID: ${client.id_client || '-'}`,
+                    `NIK: ${client.no_identitas || '-'}`,
+                    `Nama: ${client.nama_client || '-'}`,
+                ].join('\n'));
+            } catch (error) {
+                console.error('Gagal konfirmasi KTP OCR ke backend:', error?.response?.data || error.message);
+                await msg.reply(error?.response?.data?.message || 'Gagal menyimpan hasil OCR KTP ke data client.');
+            }
+            return true;
+        }
+
+        await msg.reply('Ketik *YA SIMPAN* untuk menyimpan/attach KTP, atau *BATAL* untuk membatalkan.');
+        return true;
+    }
+
+    if (currentSession.step === 'waiting_ktp') {
+        if (!msg.hasMedia) {
+            await msg.reply('Saya menunggu foto KTP. Silakan kirim gambar KTP, atau ketik *BATAL*.');
+            return true;
+        }
+
+        try {
+            await msg.reply('Foto KTP diterima. OCR sedang diproses, mohon tunggu...');
+            const imagePath = await downloadKtpMedia(msg, senderNumber);
+            const ocrResult = await runKtpOcr(imagePath);
+            const nik = fieldValue(ocrResult, 'nik');
+            const nama = fieldValue(ocrResult, 'nama');
+
+            if (!/^\d{16}$/.test(nik) || !nama) {
+                inputClientSessions[senderNumber] = {
+                    step: 'waiting_ktp',
+                    expiresAt: Date.now() + INPUT_CLIENT_SESSION_TTL_MS,
+                };
+                await msg.reply([
+                    'Hasil OCR belum cukup untuk disimpan.',
+                    `NIK: ${nik || '-'}`,
+                    `Nama: ${nama || '-'}`,
+                    '',
+                    'Silakan kirim ulang foto KTP yang lebih jelas, atau ketik *BATAL*.',
+                ].join('\n'));
+                return true;
+            }
+
+            const existingClient = await findExistingClientByNik(nik);
+            inputClientSessions[senderNumber] = {
+                step: 'review',
+                imagePath,
+                ocrResult,
+                existingClient,
+                expiresAt: Date.now() + INPUT_CLIENT_SESSION_TTL_MS,
+            };
+
+            await msg.reply(buildOcrReviewMessage({ ocrResult, existingClient }));
+        } catch (error) {
+            console.error('Gagal proses input client KTP:', error?.response?.data || error.message);
+            await msg.reply(error?.response?.data?.detail || error?.response?.data?.message || 'Gagal memproses foto KTP. Pastikan OCR service aktif dan kirim gambar yang jelas.');
+        }
+        return true;
+    }
+
+    return false;
+}
+
 const toMessageContext = (messageEnvelope) => {
     const eventName = String(messageEnvelope?.event || '').toLowerCase();
     const raw = isObject(messageEnvelope?.payload) ? messageEnvelope.payload : messageEnvelope;
@@ -1303,6 +1649,8 @@ const toMessageContext = (messageEnvelope) => {
         body,
         fromMe,
         messageId,
+        raw,
+        hasMedia: hasInboundMedia(raw),
         reply: async (text) => {
             await sendTextViaWaha({ chatId: from, text });
         },
@@ -1917,13 +2265,19 @@ async function handleCreateSchedule(msg, senderNumberInput = '') {
 }
 
 async function processIncomingMessage(msg) {
-    if (!nlpManager || !msg || !msg.body || !msg.from) return;
+    if (!nlpManager || !msg || !msg.from) return;
 
     if (msg.from.endsWith('@g.us') || msg.from.endsWith('@newsletter')) return;
     if (msg.fromMe) return;
 
     const senderNumber = await resolvePhoneFromLidChatId(msg.from);
-    const userMessage = msg.body.trim();
+    const userMessage = String(msg.body || '').trim();
+
+    if (await handleInputClientFlow(msg, senderNumber)) {
+        return;
+    }
+
+    if (!userMessage) return;
 
     if (/^\/?help$/i.test(userMessage) || /^bantuan$/i.test(userMessage)) {
         await msg.reply(buildScheduleHelpMessage());
@@ -2168,7 +2522,8 @@ app.post('/webhook/waha', authenticateWebhook, async (req, res) => {
             if (!context) continue;
 
             if (!context.eventName.startsWith('message')) continue;
-            if (!context.body || !context.from) continue;
+            if (!context.from) continue;
+            if (!context.body && !context.hasMedia) continue;
             if (!reserveInboundMessage(context.messageId)) {
                 console.log(`Webhook duplikat diabaikan: ${context.messageId}`);
                 continue;

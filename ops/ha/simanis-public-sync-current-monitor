@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STATUS_FILE="/var/lib/simanis-ha/file-sync-status.json"
+SSH_KEY="/root/.ssh/simanis_ha"
+PEER="192.168.0.10"
+
+while true; do
+  pid="$(pgrep -f 'rsync .* /var/www/apinotaris/public/[^ ]+/ root@192.168.0.10:' | head -1 || true)"
+  [[ -n "${pid}" && -r "/proc/${pid}/io" ]] || exit 0
+
+  activity_bytes="$(awk '/^rchar:/ {print $2}' "/proc/${pid}/io")"
+  command_line="$(tr '\0' ' ' < "/proc/${pid}/cmdline")"
+  current_directory="$(sed -n 's#.* /var/www/apinotaris/public/\([^/ ]*\)/ .*#\1#p' <<< "${command_line}")"
+
+  php -r '
+    $path = $argv[1];
+    $data = json_decode((string) @file_get_contents($path), true) ?: [];
+    if (($data["status"] ?? "") !== "syncing") {
+        exit(2);
+    }
+    $data["current_directory"] = $argv[2] ?: "folder public";
+    $data["activity_bytes"] = (int) $argv[3];
+    $data["updated_at"] = date(DATE_ATOM);
+    $data["process_running"] = true;
+    file_put_contents($path, json_encode($data, JSON_UNESCAPED_SLASHES).PHP_EOL);
+  ' "${STATUS_FILE}" "${current_directory}" "${activity_bytes}" || exit 0
+
+  scp -q -i "${SSH_KEY}" "${STATUS_FILE}" root@"${PEER}":"${STATUS_FILE}" || true
+  sleep 30
+done

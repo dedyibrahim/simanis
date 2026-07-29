@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+docker stop bothwa simanis-waha >/dev/null 2>&1 || true
+docker update --restart=no bothwa simanis-waha >/dev/null 2>&1 || true
+
+docker ps -a --filter name=simanis-waha --filter name=bothwa --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'

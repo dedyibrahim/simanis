@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="${KTP_OCR_APP_DIR:-/var/www/features/ktp-ocr-lab}"
+NETWORK="${KTP_OCR_DOCKER_NETWORK:-bothwa_default}"
+IMAGE="${KTP_OCR_IMAGE:-ktp-ocr-lab:latest}"
+NAME="${KTP_OCR_CONTAINER:-ktp-ocr-lab}"
+
+cd "${APP_DIR}"
+
+docker network inspect "${NETWORK}" >/dev/null 2>&1 || docker network create "${NETWORK}" >/dev/null
+
+docker build -t "${IMAGE}" .
+
+if docker ps -a --format '{{.Names}}' | grep -qx "${NAME}"; then
+  docker rm -f "${NAME}" >/dev/null
+fi
+
+docker run -d \
+  --name "${NAME}" \
+  --restart unless-stopped \
+  --network "${NETWORK}" \
+  -p 8765:8765 \
+  "${IMAGE}" >/dev/null
+
+for _ in $(seq 1 30); do
+  if curl -fsS http://127.0.0.1:8765/api/health >/dev/null 2>&1; then
+    docker ps --filter name="${NAME}" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+    exit 0
+  fi
+  sleep 2
+done
+
+docker logs --tail=80 "${NAME}" || true
+exit 1

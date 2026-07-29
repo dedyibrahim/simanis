@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KTP OCR Lab</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <aside class="panel control-panel">
+          <div class="brand-row">
+            <div class="brand-mark">KTP</div>
+            <div>
+              <h1>OCR Lab</h1>
+              <p>Upload, scan, tuning, dan review hasil ekstraksi KTP.</p>
+            </div>
+          </div>
+
+          <form id="ocrForm" class="form-stack">
+            <label class="drop-zone" for="imageInput">
+              <input id="imageInput" name="image" type="file" accept="image/*" capture="environment" />
+              <span class="drop-icon">+</span>
+              <strong>Pilih atau scan gambar KTP</strong>
+              <small>JPG, PNG, WEBP, BMP, TIFF</small>
+            </label>
+
+            <div class="field-grid">
+              <label>
+                Config
+                <select id="configSelect" name="config_name"></select>
+              </label>
+              <label>
+                Engine
+                <select id="engineSelect" name="engine"></select>
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="secondary" type="button" id="sampleButton">Sample</button>
+              <button class="primary" type="submit" id="runButton">Jalankan OCR</button>
+            </div>
+          </form>
+
+          <div class="status-box" id="statusBox">Siap menerima gambar.</div>
+        </aside>
+
+        <section class="main-panel">
+          <div class="preview-band">
+            <div class="image-frame">
+              <img id="previewImage" alt="Preview gambar KTP" />
+              <div id="emptyPreview" class="empty-preview">Preview gambar akan tampil di sini</div>
+            </div>
+            <div class="image-frame">
+              <img id="processedImage" alt="Preview hasil preprocessing" />
+              <div id="emptyProcessed" class="empty-preview">Hasil preprocessing akan tampil setelah OCR</div>
+            </div>
+          </div>
+
+          <div class="metrics-row">
+            <div class="metric"><span>Resolusi</span><strong id="metricSize">-</strong></div>
+            <div class="metric"><span>Blur</span><strong id="metricBlur">-</strong></div>
+            <div class="metric"><span>Status</span><strong id="metricStatus">-</strong></div>
+            <div class="metric"><span>Durasi</span><strong id="metricDuration">-</strong></div>
+          </div>
+
+          <div class="result-grid">
+            <section class="panel result-panel">
+              <div class="section-head">
+                <h2>Field KTP</h2>
+                <button class="ghost" type="button" id="copyJsonButton">Copy JSON</button>
+              </div>
+              <div id="fieldsTable" class="fields-table"></div>
+            </section>
+
+            <section class="panel result-panel">
+              <div class="tabs">
+                <button type="button" class="tab active" data-tab="raw">Raw OCR</button>
+                <button type="button" class="tab" data-tab="json">JSON</button>
+              </div>
+              <pre id="rawText" class="code-pane active"></pre>
+              <pre id="jsonText" class="code-pane"></pre>
+            </section>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

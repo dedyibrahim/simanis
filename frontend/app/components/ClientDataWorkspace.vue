@@ -5,8 +5,21 @@ type ApiEnvelope<T = unknown> = {
   data?: T
 }
 
+type ClientPageData = {
+  rows?: ClientRow[]
+  pagination?: {
+    page?: number
+    per_page?: number
+    total?: number
+    filtered?: number
+    last_page?: number
+  }
+}
+
 type ClientType = 'Perorangan' | 'Badan Hukum'
 type ClientSearchField = 'all' | 'name' | 'identity' | 'creator' | 'contact'
+type ClientSortKey = 'id_client' | 'nama_client' | 'no_identitas' | 'pembuat_client'
+type SortDirection = 'asc' | 'desc'
 type BantekSearchField = 'all' | 'no_bantek' | 'lokasi' | 'client'
 
 type ClientRow = Record<string, unknown> & {
@@ -18,6 +31,11 @@ type ClientRow = Record<string, unknown> & {
   contact_number?: string | number
   email?: string
   pembuat_client?: string
+}
+
+type ClientIdentityCheck = {
+  exists?: boolean
+  client?: ClientRow | null
 }
 
 type ClientDocument = Record<string, unknown> & {
@@ -51,14 +69,6 @@ const bantekSearchField = ref<BantekSearchField>('all')
 const message = ref('')
 const errorMessage = ref('')
 
-const clientSearchFieldOptions: Array<{ value: ClientSearchField; label: string }> = [
-  { value: 'all', label: 'Semua' },
-  { value: 'name', label: 'Nama' },
-  { value: 'identity', label: 'No Identitas' },
-  { value: 'creator', label: 'Pembuat' },
-  { value: 'contact', label: 'Kontak' },
-]
-
 const bantekSearchFieldOptions: Array<{ value: BantekSearchField; label: string }> = [
   { value: 'all', label: 'Semua' },
   { value: 'no_bantek', label: 'No Bantek' },
@@ -67,11 +77,16 @@ const bantekSearchFieldOptions: Array<{ value: BantekSearchField; label: string 
 ]
 
 const clients = ref<ClientRow[]>([])
+const clientOptionRows = ref<ClientRow[]>([])
 const banteks = ref<BantekRow[]>([])
 
 const clientDialogOpen = ref(false)
 const savingClient = ref(false)
 const editingClientIndex = ref(-1)
+const clientDialogError = ref('')
+const clientIdentityInputRef = ref<HTMLInputElement | null>(null)
+const checkingClientIdentity = ref(false)
+const clientIdentityMatch = ref<ClientRow | null>(null)
 const clientForm = reactive<ClientRow>({
   no_identitas: '',
   nama_client: '',
@@ -122,7 +137,16 @@ const bantekLinkClientSearch = ref('')
 
 const clientCurrentPage = ref(1)
 const clientPerPage = ref(10)
-const clientPerPageOptions = [10, 20, 50]
+const clientPerPageOptions = [10, 25, 50, 100]
+const clientSortKey = ref<ClientSortKey>('id_client')
+const clientSortDirection = ref<SortDirection>('desc')
+const clientTotal = ref(0)
+const clientFilteredTotal = ref(0)
+const clientLastPage = ref(1)
+let clientSearchTimer: ReturnType<typeof setTimeout> | undefined
+let clientDialogToastTimer: ReturnType<typeof setTimeout> | undefined
+let clientRequestSequence = 0
+let suspendClientReload = false
 
 const expandedBantekRows = reactive<Record<string, boolean>>({})
 const bantekActionLoading = ref(false)
@@ -167,50 +191,26 @@ const resetClientForm = () => {
   setFormFromClient()
 }
 
-const filteredClients = computed(() => {
-  const keyword = clientSearch.value.trim().toLowerCase()
-  if (!keyword) {
-    return clients.value
-  }
-
-  return clients.value.filter((item) => {
-    const byField: Record<ClientSearchField, unknown[]> = {
-      all: [
-        item.nama_client,
-        item.no_identitas,
-        item.pembuat_client,
-        item.email,
-        item.contact_number,
-      ],
-      name: [item.nama_client],
-      identity: [item.no_identitas],
-      creator: [item.pembuat_client],
-      contact: [item.email, item.contact_number],
-    }
-
-    const fields = byField[clientSearchField.value]
-    return fields.some(field => toString(field, '').toLowerCase().includes(keyword))
-  })
-})
-
-const clientTotalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredClients.value.length / clientPerPage.value)),
-)
-
-const paginatedClients = computed(() => {
-  const start = (clientCurrentPage.value - 1) * clientPerPage.value
-  const end = start + clientPerPage.value
-  return filteredClients.value.slice(start, end)
-})
+const filteredClients = computed(() => clients.value)
+const paginatedClients = computed(() => clients.value)
+const clientTotalPages = computed(() => Math.max(1, clientLastPage.value))
 
 const clientStartItem = computed(() => {
-  if (!filteredClients.value.length) return 0
+  if (!clientFilteredTotal.value) return 0
   return (clientCurrentPage.value - 1) * clientPerPage.value + 1
 })
 
 const clientEndItem = computed(() =>
-  Math.min(clientStartItem.value + clientPerPage.value - 1, filteredClients.value.length),
+  Math.min(clientStartItem.value + clients.value.length - 1, clientFilteredTotal.value),
 )
+
+const clientVisiblePages = computed(() => {
+  const total = clientTotalPages.value
+  const current = clientCurrentPage.value
+  const first = Math.max(1, Math.min(current - 2, total - 4))
+  const last = Math.min(total, first + 4)
+  return Array.from({ length: last - first + 1 }, (_, index) => first + index)
+})
 
 const filteredBanteks = computed(() => {
   const keyword = bantekSearch.value.trim().toLowerCase()
@@ -257,15 +257,64 @@ const workspaceTitle = computed(() =>
     : 'Daftar Client Badan Hukum',
 )
 
+const identityLabel = computed(() =>
+  props.clientType === 'Perorangan' ? 'NIK' : 'NPWP',
+)
+
+const identityPlaceholder = computed(() =>
+  props.clientType === 'Perorangan'
+    ? 'Masukkan 16 digit NIK'
+    : 'Masukkan nomor NPWP badan hukum',
+)
+
+const identityMaxLength = computed(() =>
+  props.clientType === 'Perorangan' ? 16 : 25,
+)
+
+const clientNamePlaceholder = computed(() =>
+  props.clientType === 'Perorangan'
+    ? 'Masukkan nama lengkap client'
+    : 'Masukkan nama badan hukum',
+)
+
+const clientSearchPlaceholder = computed(() =>
+  `Cari nama client, ${identityLabel.value}, pembuat, email, atau kontak...`,
+)
+
+const clientSearchFieldOptions = computed<Array<{ value: ClientSearchField; label: string }>>(() => [
+  { value: 'all', label: 'Semua' },
+  { value: 'name', label: 'Nama' },
+  { value: 'identity', label: identityLabel.value },
+  { value: 'creator', label: 'Pembuat' },
+  { value: 'contact', label: 'Kontak' },
+])
+
 const clientFormTitle = computed(() =>
   editingClientIndex.value === -1
     ? `Tambahkan Client ${props.clientType}`
     : `Edit Client ${props.clientType}`,
 )
 
+const clientIdentityBlocked = computed(() => Boolean(clientIdentityMatch.value))
+
 const clearStatus = () => {
   message.value = ''
   errorMessage.value = ''
+}
+
+const clearClientDialogError = () => {
+  clientDialogError.value = ''
+}
+
+const showClientDialogError = (value: string) => {
+  clientDialogError.value = value
+}
+
+const applyIdentityMatchPreview = (client: ClientRow) => {
+  clientForm.nama_client = toString(client.nama_client, '')
+  clientForm.alamat_client = toString(client.alamat_client, '')
+  clientForm.contact_number = toString(client.contact_number, '')
+  clientForm.email = toString(client.email, '')
 }
 
 const bantekRowKey = (item: BantekRow, index: number) => `bantek-${toString(item.no_bantek, String(index))}`
@@ -279,20 +328,60 @@ const toggleBantekExpand = (item: BantekRow, index: number) => {
 
 const closeClientDialog = () => {
   clientDialogOpen.value = false
+  clearClientDialogError()
+  clientIdentityMatch.value = null
   resetClientForm()
 }
 
 const loadClients = async () => {
+  const requestSequence = ++clientRequestSequence
   loadingClient.value = true
   clearStatus()
   try {
-    const response = await business.client.getDataClient({ jenis_client: props.clientType }) as ApiEnvelope<ClientRow[]>
-    clients.value = toList<ClientRow>(response)
+    const response = await business.client.getDataClient({
+      jenis_client: props.clientType,
+      server_side: true,
+      page: clientCurrentPage.value,
+      per_page: clientPerPage.value,
+      search: clientSearch.value.trim(),
+      search_field: clientSearchField.value,
+      sort_by: clientSortKey.value,
+      sort_direction: clientSortDirection.value,
+    }) as ApiEnvelope<ClientPageData>
+    if (requestSequence !== clientRequestSequence) return
+
+    const pageData = response.data || {}
+    const pagination = pageData.pagination || {}
+    clients.value = Array.isArray(pageData.rows) ? pageData.rows : []
+    clientCurrentPage.value = Number(pagination.page || 1)
+    clientTotal.value = Number(pagination.total || 0)
+    clientFilteredTotal.value = Number(pagination.filtered || 0)
+    clientLastPage.value = Number(pagination.last_page || 1)
   } catch (error) {
+    if (requestSequence !== clientRequestSequence) return
+
     clients.value = []
+    clientTotal.value = 0
+    clientFilteredTotal.value = 0
+    clientLastPage.value = 1
     errorMessage.value = (error as { data?: { message?: string } })?.data?.message || 'Gagal memuat data client.'
   } finally {
-    loadingClient.value = false
+    if (requestSequence === clientRequestSequence) {
+      loadingClient.value = false
+    }
+  }
+}
+
+const loadClientOptions = async () => {
+  if (clientOptionRows.value.length) return
+
+  try {
+    const response = await business.client.getDataClient({
+      jenis_client: props.clientType,
+    }) as ApiEnvelope<ClientRow[]>
+    clientOptionRows.value = toList<ClientRow>(response)
+  } catch {
+    clientOptionRows.value = []
   }
 }
 
@@ -312,19 +401,63 @@ const loadBanteks = async () => {
 
 const openCreateClientDialog = () => {
   clearStatus()
+  clearClientDialogError()
+  clientIdentityMatch.value = null
   resetClientForm()
   clientDialogOpen.value = true
+  nextTick(() => clientIdentityInputRef.value?.focus())
 }
 
 const openEditClientDialog = (client: ClientRow, index: number) => {
   clearStatus()
+  clearClientDialogError()
+  clientIdentityMatch.value = null
   editingClientIndex.value = index
   setFormFromClient(client)
   clientDialogOpen.value = true
+  nextTick(() => clientIdentityInputRef.value?.focus())
+}
+
+const clearIdentityMatchOnInput = () => {
+  if (!clientIdentityMatch.value) return
+  clientIdentityMatch.value = null
+}
+
+const checkClientIdentity = async () => {
+  const identity = toString(clientForm.no_identitas, '').trim()
+  clientForm.no_identitas = identity
+  clientIdentityMatch.value = null
+
+  if (!identity || checkingClientIdentity.value) return
+
+  checkingClientIdentity.value = true
+  clearClientDialogError()
+
+  try {
+    const response = await business.client.checkClientIdentity({
+      no_identitas: identity,
+      jenis_client: props.clientType,
+      id_client: clientForm.id_client || undefined,
+    }) as ApiEnvelope<ClientIdentityCheck>
+
+    const matchedClient = response.data?.exists ? response.data?.client : null
+    if (matchedClient) {
+      clientIdentityMatch.value = matchedClient
+      applyIdentityMatchPreview(matchedClient)
+      showClientDialogError(`${identityLabel.value} sudah terdaftar atas nama ${toString(matchedClient.nama_client, 'client ini')}. Tidak perlu input ulang.`)
+    }
+  } catch (error) {
+    showClientDialogError((error as { data?: { message?: string } })?.data?.message || `Gagal mengecek ${identityLabel.value}.`)
+  } finally {
+    checkingClientIdentity.value = false
+  }
 }
 
 const saveClient = async () => {
-  if (savingClient.value) {
+  if (savingClient.value || clientIdentityBlocked.value) {
+    if (clientIdentityBlocked.value) {
+      showClientDialogError(`${identityLabel.value} sudah terdaftar. Data tidak perlu disimpan ulang.`)
+    }
     return
   }
   savingClient.value = true
@@ -343,9 +476,10 @@ const saveClient = async () => {
 
     message.value = response.message || 'Data client berhasil disimpan.'
     closeClientDialog()
+    clientOptionRows.value = []
     await loadClients()
   } catch (error) {
-    errorMessage.value = (error as { data?: { message?: string } })?.data?.message || 'Gagal menyimpan data client.'
+    showClientDialogError((error as { data?: { message?: string } })?.data?.message || 'Gagal menyimpan data client.')
   } finally {
     savingClient.value = false
   }
@@ -655,7 +789,7 @@ const printBantekLabel = (noBantek: unknown) => {
 }
 
 const clientOptions = computed(() =>
-  clients.value.flatMap((client) => {
+  clientOptionRows.value.flatMap((client) => {
     const id = client.id_client as string | number | undefined
     if (id === undefined || id === null || id === '') {
       return []
@@ -710,6 +844,35 @@ const clearClientSearch = () => {
   clientSearch.value = ''
 }
 
+const resetClientTable = () => {
+  suspendClientReload = true
+  clientSearch.value = ''
+  clientSearchField.value = 'all'
+  clientSortKey.value = 'nama_client'
+  clientSortDirection.value = 'asc'
+  clientCurrentPage.value = 1
+  void nextTick(() => {
+    suspendClientReload = false
+    void loadClients()
+  })
+}
+
+const sortClientsBy = (key: ClientSortKey) => {
+  if (clientSortKey.value === key) {
+    clientSortDirection.value = clientSortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    clientSortKey.value = key
+    clientSortDirection.value = 'asc'
+  }
+  clientCurrentPage.value = 1
+  void loadClients()
+}
+
+const clientSortIcon = (key: ClientSortKey) => {
+  if (clientSortKey.value !== key) return '-'
+  return clientSortDirection.value === 'asc' ? '^' : 'v'
+}
+
 const clearBantekSearch = () => {
   bantekSearch.value = ''
 }
@@ -731,13 +894,21 @@ const bantekSearchFieldButtonClass = (value: BantekSearchField) => {
 const goToPrevClientPage = () => {
   if (clientCurrentPage.value > 1) {
     clientCurrentPage.value -= 1
+    void loadClients()
   }
 }
 
 const goToNextClientPage = () => {
   if (clientCurrentPage.value < clientTotalPages.value) {
     clientCurrentPage.value += 1
+    void loadClients()
   }
+}
+
+const goToClientPage = (page: number) => {
+  if (page === clientCurrentPage.value || page < 1 || page > clientTotalPages.value) return
+  clientCurrentPage.value = page
+  void loadClients()
 }
 
 const initialize = async () => {
@@ -749,33 +920,60 @@ watch(
   () => {
     setFormFromClient()
     clientCurrentPage.value = 1
+    clientOptionRows.value = []
     void initialize()
   },
 )
 
 watch(clientSearch, () => {
+  if (suspendClientReload) return
   clientCurrentPage.value = 1
+  if (clientSearchTimer) clearTimeout(clientSearchTimer)
+  clientSearchTimer = setTimeout(() => {
+    void loadClients()
+  }, 350)
+})
+
+watch(clientSearchField, () => {
+  if (suspendClientReload) return
+  clientCurrentPage.value = 1
+  void loadClients()
 })
 
 watch(clientPerPage, () => {
+  if (suspendClientReload) return
   clientCurrentPage.value = 1
+  void loadClients()
 })
 
-watch(
-  () => filteredClients.value.length,
-  () => {
-    if (clientCurrentPage.value > clientTotalPages.value) {
-      clientCurrentPage.value = clientTotalPages.value
-    }
-    if (clientCurrentPage.value < 1) {
-      clientCurrentPage.value = 1
-    }
-  },
-)
+watch(activeTab, (tab) => {
+  if (tab === 'bantek') {
+    void loadClientOptions()
+  }
+})
+
+watch(clientDialogError, (value) => {
+  if (clientDialogToastTimer) {
+    clearTimeout(clientDialogToastTimer)
+    clientDialogToastTimer = undefined
+  }
+
+  if (!value) return
+
+  clientDialogToastTimer = setTimeout(() => {
+    clientDialogError.value = ''
+    clientDialogToastTimer = undefined
+  }, 3500)
+})
 
 onMounted(() => {
   setFormFromClient()
   void initialize()
+})
+
+onBeforeUnmount(() => {
+  if (clientSearchTimer) clearTimeout(clientSearchTimer)
+  if (clientDialogToastTimer) clearTimeout(clientDialogToastTimer)
 })
 </script>
 
@@ -818,7 +1016,7 @@ onMounted(() => {
       <div class="space-y-4 border-b border-slate-200 bg-slate-50 px-6 py-5">
         <div class="space-y-1">
           <p class="text-sm font-semibold text-slate-800">{{ workspaceTitle }}</p>
-          <p class="text-xs text-slate-500">Pencarian dan aksi dipadatkan agar fokus ke tabel data client.</p>
+          <p class="text-xs text-slate-500">Cari, filter, urutkan, dan atur jumlah data langsung dari tabel.</p>
         </div>
 
         <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -828,7 +1026,7 @@ onMounted(() => {
               <input
                 v-model="clientSearch"
                 type="text"
-                placeholder="Cari nama client, identitas, pembuat, email, kontak..."
+                :placeholder="clientSearchPlaceholder"
                 class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-700 transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
               <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -865,9 +1063,17 @@ onMounted(() => {
             >
               {{ option.label }}
             </button>
+            <button
+              v-if="clientSearch || clientSearchField !== 'all' || clientSortKey !== 'nama_client' || clientSortDirection !== 'asc'"
+              type="button"
+              class="rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+              @click="resetClientTable"
+            >
+              Reset
+            </button>
           </div>
           <p class="text-xs text-slate-500">
-            Menampilkan {{ filteredClients.length }} data client.
+            {{ clientFilteredTotal }} dari {{ clientTotal }} data client.
           </p>
         </div>
       </div>
@@ -877,7 +1083,7 @@ onMounted(() => {
           Memuat data client...
         </p>
         <div v-else-if="!filteredClients.length" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          Data client belum tersedia.
+          {{ clientTotal ? 'Tidak ada data yang cocok dengan pencarian atau filter.' : 'Data client belum tersedia.' }}
         </div>
 
         <div v-else class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -886,9 +1092,21 @@ onMounted(() => {
               <thead class="bg-slate-100">
                 <tr>
                   <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">No</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Nama Client</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">No Identitas</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Pembuat</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    <button type="button" class="inline-flex items-center gap-1.5 hover:text-blue-700" @click="sortClientsBy('nama_client')">
+                      Nama Client <span aria-hidden="true">{{ clientSortIcon('nama_client') }}</span>
+                    </button>
+                  </th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    <button type="button" class="inline-flex items-center gap-1.5 hover:text-blue-700" @click="sortClientsBy('no_identitas')">
+                      {{ identityLabel }} <span aria-hidden="true">{{ clientSortIcon('no_identitas') }}</span>
+                    </button>
+                  </th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    <button type="button" class="inline-flex items-center gap-1.5 hover:text-blue-700" @click="sortClientsBy('pembuat_client')">
+                      Pembuat <span aria-hidden="true">{{ clientSortIcon('pembuat_client') }}</span>
+                    </button>
+                  </th>
                   <th class="w-[280px] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Aksi</th>
                 </tr>
               </thead>
@@ -930,9 +1148,9 @@ onMounted(() => {
 
           <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3">
             <p class="text-xs text-slate-600">
-              Menampilkan {{ clientStartItem }} - {{ clientEndItem }} dari {{ filteredClients.length }} data
+              Menampilkan {{ clientStartItem }} - {{ clientEndItem }} dari {{ clientFilteredTotal }} data
             </p>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center justify-end gap-2">
               <label class="text-xs font-semibold uppercase tracking-wider text-slate-500">Per halaman</label>
               <select
                 v-model.number="clientPerPage"
@@ -948,18 +1166,28 @@ onMounted(() => {
                 :disabled="clientCurrentPage <= 1"
                 @click="goToPrevClientPage"
               >
-                Prev
+                Sebelumnya
               </button>
-              <span class="px-2 text-xs font-semibold text-slate-700">
-                {{ clientCurrentPage }} / {{ clientTotalPages }}
-              </span>
+              <button
+                v-for="page in clientVisiblePages"
+                :key="`client-page-${page}`"
+                type="button"
+                class="h-8 min-w-8 rounded-lg border px-2 text-xs font-semibold transition"
+                :class="page === clientCurrentPage
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'"
+                :aria-current="page === clientCurrentPage ? 'page' : undefined"
+                @click="goToClientPage(page)"
+              >
+                {{ page }}
+              </button>
               <button
                 type="button"
                 class="h-8 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="clientCurrentPage >= clientTotalPages"
                 @click="goToNextClientPage"
               >
-                Next
+                Berikutnya
               </button>
             </div>
           </div>
@@ -1138,31 +1366,72 @@ onMounted(() => {
             <h3 class="text-lg font-semibold text-slate-900">{{ clientFormTitle }}</h3>
             <button type="button" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="closeClientDialog">Tutup</button>
           </div>
+          <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="-translate-y-1 opacity-0"
+            enter-to-class="translate-y-0 opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="translate-y-0 opacity-100"
+            leave-to-class="-translate-y-1 opacity-0"
+          >
+            <div
+              v-if="clientDialogError"
+              class="absolute left-5 right-5 top-16 z-20 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-xl shadow-red-950/10"
+            >
+              {{ clientDialogError }}
+            </div>
+          </Transition>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <label class="flex flex-col gap-2">
-              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Client</span>
-              <input v-model="clientForm.nama_client" type="text" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ identityLabel }}</span>
+              <input
+                ref="clientIdentityInputRef"
+                v-model="clientForm.no_identitas"
+                type="text"
+                inputmode="numeric"
+                :maxlength="identityMaxLength"
+                :placeholder="identityPlaceholder"
+                class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                @input="clearIdentityMatchOnInput"
+                @change="checkClientIdentity"
+                @blur="checkClientIdentity"
+              />
+              <span v-if="checkingClientIdentity" class="text-xs font-semibold text-blue-600">Mengecek {{ identityLabel }}...</span>
             </label>
             <label class="flex flex-col gap-2">
-              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">No Identitas / NPWP</span>
-              <input v-model="clientForm.no_identitas" type="text" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Client</span>
+              <input
+                v-model="clientForm.nama_client"
+                type="text"
+                :placeholder="clientNamePlaceholder"
+                :disabled="clientIdentityBlocked"
+                class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500"
+              />
             </label>
+            <div v-if="clientIdentityMatch" class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p class="font-semibold">{{ identityLabel }} sudah ada di data client.</p>
+              <p class="mt-1">
+                {{ toString(clientIdentityMatch.nama_client) }}
+                <span v-if="clientIdentityMatch.id_client">- {{ clientIdentityMatch.id_client }}</span>
+                <span v-if="clientIdentityMatch.pembuat_client">, dibuat oleh {{ clientIdentityMatch.pembuat_client }}</span>
+              </p>
+            </div>
             <label class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Contact Number</span>
-              <input v-model="clientForm.contact_number" type="text" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <input v-model="clientForm.contact_number" type="text" :disabled="clientIdentityBlocked" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" />
             </label>
             <label class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Email</span>
-              <input v-model="clientForm.email" type="email" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <input v-model="clientForm.email" type="email" :disabled="clientIdentityBlocked" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" />
             </label>
             <label class="md:col-span-2 flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Alamat Client</span>
-              <textarea v-model="clientForm.alamat_client" rows="4" class="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"></textarea>
+              <textarea v-model="clientForm.alamat_client" rows="4" :disabled="clientIdentityBlocked" class="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500"></textarea>
             </label>
           </div>
           <div class="mt-5 flex justify-end gap-2">
             <button type="button" class="h-10 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="closeClientDialog">Batal</button>
-            <button type="button" class="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50" :disabled="savingClient" @click="saveClient">
+            <button type="button" class="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50" :disabled="savingClient || checkingClientIdentity || clientIdentityBlocked" @click="saveClient">
               {{ savingClient ? 'Menyimpan...' : 'Simpan Client' }}
             </button>
           </div>

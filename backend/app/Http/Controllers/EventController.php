@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Models\User;
+use App\Services\GoogleCalendarSyncService;
 use App\Services\Waha\WahaNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,10 +15,15 @@ use Carbon\Carbon; // Pastikan Carbon diimpor
 class EventController extends Controller
 {
     private $wahaNotificationService;
+    private GoogleCalendarSyncService $googleCalendarSyncService;
 
-    public function __construct(WahaNotificationService $wahaNotificationService)
+    public function __construct(
+        WahaNotificationService $wahaNotificationService,
+        GoogleCalendarSyncService $googleCalendarSyncService
+    )
     {
         $this->wahaNotificationService = $wahaNotificationService;
+        $this->googleCalendarSyncService = $googleCalendarSyncService;
     }
 
     /**
@@ -28,6 +34,80 @@ class EventController extends Controller
     {
         $events = Event::with(['users:id,nama_lengkap', 'creator:id,nama_lengkap'])->latest()->get();
         return response()->json(['status' => true, 'message' => 'Berhasil mengambil semua data acara', 'data' => $events], 200);
+    }
+
+    /**
+     * Menampilkan jadwal publik tanpa login.
+     */
+    public function publicIndex(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $start = $request->filled('start_date')
+            ? Carbon::parse((string) $request->query('start_date'))->startOfDay()
+            : now()->copy()->startOfMonth()->subDays(7);
+
+        $end = $request->filled('end_date')
+            ? Carbon::parse((string) $request->query('end_date'))->endOfDay()
+            : now()->copy()->endOfMonth()->addDays(7);
+
+        if ($start->diffInDays($end) > 120) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Rentang jadwal publik maksimal 120 hari.',
+            ], 422);
+        }
+
+        $events = Event::with(['users:id,nama_lengkap', 'creator:id,nama_lengkap'])
+            ->where('start_datetime', '<=', $end->toDateTimeString())
+            ->where(function ($query) use ($start) {
+                $query->where('end_datetime', '>=', $start->toDateTimeString())
+                    ->orWhere(function ($fallback) use ($start) {
+                        $fallback->whereNull('end_datetime')
+                            ->where('start_datetime', '>=', $start->toDateTimeString());
+                    });
+            })
+            ->orderBy('start_datetime')
+            ->get()
+            ->map(function (Event $event) {
+                return [
+                    'id' => $event->id,
+                    'title' => $event->title,
+                    'description' => $event->description,
+                    'location' => $event->location,
+                    'start_datetime' => optional($event->start_datetime)->toDateTimeString(),
+                    'end_datetime' => optional($event->end_datetime)->toDateTimeString(),
+                    'color' => $event->color,
+                    'users' => $event->users
+                        ->map(fn (User $user) => [
+                            'id' => $user->id,
+                            'nama_lengkap' => $user->nama_lengkap,
+                        ])
+                        ->values(),
+                    'creator' => $event->creator ? [
+                        'id' => $event->creator->id,
+                        'nama_lengkap' => $event->creator->nama_lengkap,
+                    ] : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Berhasil mengambil jadwal publik.',
+            'data' => $events,
+        ], 200);
     }
 
     /**
@@ -92,6 +172,7 @@ class EventController extends Controller
         }
 
         $event->load(['users:id,nama_lengkap', 'creator:id,nama_lengkap']);
+        $this->syncGoogleCalendarEvent($event);
 
         if (!empty($userIds)) {
             $creatorName = Auth::user()->nama_lengkap;
@@ -129,6 +210,7 @@ class EventController extends Controller
         $creatorName = $event->creator->nama_lengkap ?? 'Sistem';
         $deletedByName = Auth::user()->nama_lengkap;
 
+        $this->deleteGoogleCalendarEvent($event);
         $event->delete();
 
         if ($usersToNotify->isNotEmpty()) {
@@ -214,6 +296,7 @@ class EventController extends Controller
         if ($request->has('users')) { $event->users()->sync($request->users); }
 
         $event->load(['users:id,nama_lengkap', 'creator:id,nama_lengkap']);
+        $this->syncGoogleCalendarEvent($event);
         return response()->json(['status' => true, 'message' => 'Acara berhasil diperbarui', 'data' => $event], 200);
     }
 
@@ -568,6 +651,9 @@ class EventController extends Controller
             $event->users()->sync($participantIds);
         }
 
+        $event->load(['users:id,nama_lengkap', 'creator:id,nama_lengkap']);
+        $this->syncGoogleCalendarEvent($event);
+
         $usersToNotify = User::whereIn('id', $participantIds)
             ->where('id', '!=', $creator->id)
             ->whereNotNull('phone')
@@ -642,6 +728,7 @@ class EventController extends Controller
         $creatorName = $event->creator->nama_lengkap ?? $requester->nama_lengkap;
         $deletedByName = $requester->nama_lengkap;
 
+        $this->deleteGoogleCalendarEvent($event);
         $event->delete();
 
         if ($usersToNotify->isNotEmpty()) {
@@ -664,6 +751,24 @@ class EventController extends Controller
         }
 
         return [$start, $end];
+    }
+
+    private function syncGoogleCalendarEvent(Event $event): void
+    {
+        try {
+            $this->googleCalendarSyncService->syncEvent($event);
+        } catch (\Throwable $error) {
+            report($error);
+        }
+    }
+
+    private function deleteGoogleCalendarEvent(Event $event): void
+    {
+        try {
+            $this->googleCalendarSyncService->deleteEvent($event);
+        } catch (\Throwable $error) {
+            report($error);
+        }
     }
 
     private function findScheduleConflicts(Carbon $rangeStart, Carbon $rangeEnd, array $targetUserIds, ?int $ignoreEventId = null)

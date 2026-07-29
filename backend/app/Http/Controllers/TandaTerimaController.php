@@ -6,6 +6,7 @@ use App\Models\IsiDiterima;
 use App\Models\TandaTerima;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TandaTerimaController extends Controller
 {
@@ -150,7 +151,33 @@ class TandaTerimaController extends Controller
     public function destroy($id)
     {
         $tandaTerima = TandaTerima::findOrFail($id);
-        $tandaTerima->delete();
+        $level = strtoupper(trim((string) optional(request()->user())->level_user));
+        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+
+        if (!$isSuperAdmin) {
+            if ((string) $tandaTerima->pembuat !== (string) optional(request()->user())->id_user) {
+                return response()->json(['message' => 'Anda hanya bisa menghapus tanda terima yang Anda buat sendiri.'], 403);
+            }
+
+            $latest = TandaTerima::where('status', $tandaTerima->status)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$latest || (int) $latest->id !== (int) $tandaTerima->id) {
+                return response()->json(['message' => 'Hanya nomor tanda terima terakhir yang bisa dihapus.'], 403);
+            }
+        }
+
+        $path = public_path('tandaterima/'.$tandaTerima->file);
+        DB::transaction(function () use ($tandaTerima) {
+            IsiDiterima::where('tanda_terima_id', $tandaTerima->id)->delete();
+            $tandaTerima->delete();
+        });
+
+        if ($tandaTerima->file && is_file($path)) {
+            @unlink($path);
+        }
 
         return response()->json(['message' => 'Tanda Terima berhasil dihapus'], 200);
     }

@@ -107,6 +107,333 @@
     @apply border-r border-slate-200 bg-white shadow-lg;
   }
 
+  :root {
+    --simanis-accent-50: #eff6ff;
+    --simanis-accent-100: #dbeafe;
+    --simanis-accent-200: #bfdbfe;
+    --simanis-accent-500: #3b82f6;
+    --simanis-accent-600: #2563eb;
+    --simanis-accent-700: #1d4ed8;
+    --simanis-accent-rgb: 37 99 235;
+    --simanis-accent-grad-from: #2563eb;
+    --simanis-accent-grad-to: #4f46e5;
+    --simanis-accent-shadow: rgba(37, 99, 235, 0.24);
+    --simanis-shell-from: #e8eef7;
+    --simanis-shell-mid: #f3f6fb;
+    --simanis-shell-to: #e9eff8;
+    --simanis-main-from: rgba(219, 234, 254, 0.72);
+    --simanis-main-to: rgba(241, 245, 249, 0.96);
+    --simanis-surface: #ffffff;
+    --simanis-surface-soft: #f1f6fd;
+    --simanis-sidebar-from: #ffffff;
+    --simanis-sidebar-to: #eef5ff;
+    --simanis-header-bg: rgba(248, 250, 252, 0.94);
+    --simanis-table-head: #eaf2ff;
+    --simanis-border: #c2d3ea;
+  }
+
+  :root.theme-accent-royal {
+    --simanis-accent-50: #f5f3ff;
+    --simanis-accent-100: #ede9fe;
+    --simanis-accent-200: #ddd6fe;
+    --simanis-accent-500: #8b5cf6;
+    --simanis-accent-600: #7c3aed;
+    --simanis-accent-700: #6d28d9;
+    --simanis-accent-rgb: 124 58 237;
+    --simanis-accent-grad-from: #7c3aed;
+    --simanis-accent-grad-to: #2563eb;
+    --simanis-accent-shadow: rgba(124, 58, 237, 0.25);
+    --simanis-shell-from: #eee9ff;
+    --simanis-shell-mid: #f8f6ff;
+    --simanis-shell-to: #e9efff;
+    --simanis-main-from: rgba(237, 233, 254, 0.78);
+    --simanis-main-to: rgba(248, 250, 252, 0.96);
+    --simanis-surface: #fffefe;
+    --simanis-surface-soft: #f5f1ff;
+    --simanis-sidebar-from: #ffffff;
+    --simanis-sidebar-to: #f1edff;
+    --simanis-header-bg: rgba(250, 248, 255, 0.94);
+    --simanis-table-head: #f0ebff;
+    --simanis-border: #cfc4f6;
+  }
+
+  :root.theme-accent-emerald {
+    --simanis-accent-50: #ecfdf5;
+    --simanis-accent-100: #d1fae5;
+    --simanis-accent-200: #a7f3d0;
+    --simanis-accent-500: #10b981;
+    --simanis-accent-600: #059669;
+    --simanis-accent-700: #047857;
+    --simanis-accent-rgb: 5 150 105;
+    --simanis-accent-grad-from: #059669;
+    --simanis-accent-grad-to: #0d9488;
+    --simanis-accent-shadow: rgba(5, 150, 105, 0.24);
+    --simanis-shell-from: #e4f7ef;
+    --simanis-shell-mid: #f3fbf8;
+    --simanis-shell-to: #e2f3f1;
+    --simanis-main-from: rgba(209, 250, 229, 0.72);
+    --simanis-main-to: rgba(240, 253, 250, 0.96);
+    --simanis-surface: #fefffe;
+    --simanis-surface-soft: #eefbf5;
+    --simanis-sidebar-from: #ffffff;
+    --simanis-sidebar-to: #e9fbf4;
+    --simanis-header-bg: rgba(247, 254, 251, 0.94);
+    --simanis-table-head: #e9faf3;
+    --simanis-border: #b6dfd0;
+  }
+
+  :root.theme-accent-sunset {
+    --simanis-accent-50: #fff7ed;
+    --simanis-accent-100: #ffedd5;
+    --simanis-accent-200: #fed7aa;
+    --simanis-accent-500: #f97316;
+    --simanis-accent-600: #ea580c;
+    --simanis-accent-700: #c2410c;
+    --simanis-accent-rgb: 234 88 12;
+    --simanis-accent-grad-from: #ea580c;
+    --simanis-accent-grad-to: #e11d48;
+    --simanis-accent-shadow: rgba(234, 88, 12, 0.24);
+    --simanis-shell-from: #fff0e6;
+    --simanis-shell-mid: #fff8f4;
+    --simanis-shell-to: #ffe8ef;
+    --simanis-main-from: rgba(255, 237, 213, 0.78);
+    --simanis-main-to: rgba(255, 241, 242, 0.96);
+    --simanis-surface: #fffefd;
+    --simanis-surface-soft: #fff5ee;
+    --simanis-sidebar-from: #ffffff;
+    --simanis-sidebar-to: #fff0e8;
+    --simanis-header-bg: rgba(255, 248, 244, 0.94);
+    --simanis-table-head: #fff0e6;
+    --simanis-border: #f3c4aa;
+  }
+
+  :root.theme-accent-rose {
+    --simanis-accent-50: #fdf2f8;
+    --simanis-accent-100: #fce7f3;
+    --simanis-accent-200: #fbcfe8;
+    --simanis-accent-500: #ec4899;
+    --simanis-accent-600: #db2777;
+    --simanis-accent-700: #be185d;
+    --simanis-accent-rgb: 219 39 119;
+    --simanis-accent-grad-from: #db2777;
+    --simanis-accent-grad-to: #9333ea;
+    --simanis-accent-shadow: rgba(219, 39, 119, 0.24);
+    --simanis-shell-from: #fdeaf5;
+    --simanis-shell-mid: #fff7fb;
+    --simanis-shell-to: #f1e9ff;
+    --simanis-main-from: rgba(252, 231, 243, 0.78);
+    --simanis-main-to: rgba(245, 243, 255, 0.96);
+    --simanis-surface: #fffefd;
+    --simanis-surface-soft: #fff0f7;
+    --simanis-sidebar-from: #ffffff;
+    --simanis-sidebar-to: #fff0f8;
+    --simanis-header-bg: rgba(255, 247, 251, 0.94);
+    --simanis-table-head: #fceaf4;
+    --simanis-border: #efbfd7;
+  }
+
+  :root.theme-accent-graphite {
+    --simanis-accent-50: #f8fafc;
+    --simanis-accent-100: #fef3c7;
+    --simanis-accent-200: #fde68a;
+    --simanis-accent-500: #ca8a04;
+    --simanis-accent-600: #334155;
+    --simanis-accent-700: #1e293b;
+    --simanis-accent-rgb: 51 65 85;
+    --simanis-accent-grad-from: #334155;
+    --simanis-accent-grad-to: #ca8a04;
+    --simanis-accent-shadow: rgba(51, 65, 85, 0.28);
+    --simanis-shell-from: #e7ebf0;
+    --simanis-shell-mid: #f7f8f5;
+    --simanis-shell-to: #f3ebd3;
+    --simanis-main-from: rgba(226, 232, 240, 0.82);
+    --simanis-main-to: rgba(254, 243, 199, 0.62);
+    --simanis-surface: #fffefa;
+    --simanis-surface-soft: #f8f4e9;
+    --simanis-sidebar-from: #ffffff;
+    --simanis-sidebar-to: #f5f0df;
+    --simanis-header-bg: rgba(250, 249, 244, 0.94);
+    --simanis-table-head: #f3eddc;
+    --simanis-border: #cfc5aa;
+  }
+
+  :root:not(.theme-dark) .app-shell {
+    background:
+      radial-gradient(circle at top left, rgb(var(--simanis-accent-rgb) / 0.1), transparent 34rem),
+      linear-gradient(135deg, var(--simanis-shell-from) 0%, var(--simanis-shell-mid) 45%, var(--simanis-shell-to) 100%) !important;
+    color: #0f172a;
+  }
+
+  :root:not(.theme-dark) .app-shell main {
+    background:
+      linear-gradient(180deg, var(--simanis-main-from), var(--simanis-main-to)) !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .sidebar {
+    background: linear-gradient(180deg, var(--simanis-sidebar-from) 0%, var(--simanis-sidebar-to) 100%) !important;
+    border-color: var(--simanis-border) !important;
+    box-shadow: 14px 0 34px -28px rgba(15, 23, 42, 0.55);
+  }
+
+  :root:not(.theme-dark) .app-shell header {
+    background:
+      radial-gradient(circle at right, rgb(var(--simanis-accent-rgb) / 0.08), transparent 22rem),
+      var(--simanis-header-bg) !important;
+    border-color: var(--simanis-border) !important;
+    box-shadow: 0 12px 32px -28px rgba(15, 23, 42, 0.55);
+  }
+
+  :root:not(.theme-dark) .app-shell .bg-white,
+  :root:not(.theme-dark) .app-shell .bg-white\/80,
+  :root:not(.theme-dark) .app-shell .bg-white\/70 {
+    background-color: var(--simanis-surface) !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .border-slate-100,
+  :root:not(.theme-dark) .app-shell .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #dbe3ee !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .border-slate-200,
+  :root:not(.theme-dark) .app-shell .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--simanis-border) !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .border-slate-300 {
+    border-color: #94a3b8 !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .text-slate-400 {
+    color: #64748b !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .text-slate-500 {
+    color: #475569 !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .text-slate-600 {
+    color: #334155 !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .bg-slate-50,
+  :root:not(.theme-dark) .app-shell .bg-slate-50\/50,
+  :root:not(.theme-dark) .app-shell .bg-slate-50\/80 {
+    background-color: var(--simanis-surface-soft) !important;
+  }
+
+  :root:not(.theme-dark) .app-shell .bg-slate-100,
+  :root:not(.theme-dark) .app-shell .bg-slate-100\/70,
+  :root:not(.theme-dark) .app-shell .bg-slate-100\/80 {
+    background-color: var(--simanis-accent-100) !important;
+  }
+
+  :root:not(.theme-dark) .app-shell section.rounded-3xl,
+  :root:not(.theme-dark) .app-shell .surface-card,
+  :root:not(.theme-dark) .app-shell .card {
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.08),
+      0 18px 44px -34px rgba(15, 23, 42, 0.7) !important;
+  }
+
+  :root:not(.theme-dark) .app-shell thead {
+    background-color: var(--simanis-table-head) !important;
+    color: #334155 !important;
+  }
+
+  :root:not(.theme-dark) .app-shell input,
+  :root:not(.theme-dark) .app-shell select,
+  :root:not(.theme-dark) .app-shell textarea {
+    border-color: #cbd5e1;
+  }
+
+  :root:not(.theme-dark) .app-shell input::placeholder,
+  :root:not(.theme-dark) .app-shell textarea::placeholder {
+    color: #64748b;
+  }
+
+  .app-shell .bg-blue-50 {
+    background-color: var(--simanis-accent-50) !important;
+  }
+
+  .app-shell .bg-blue-600 {
+    background-color: var(--simanis-accent-600) !important;
+  }
+
+  .app-shell .hover\:bg-blue-500:hover,
+  .app-shell .hover\:bg-blue-600:hover {
+    background-color: var(--simanis-accent-500) !important;
+  }
+
+  .app-shell .text-blue-500,
+  .app-shell .text-blue-600,
+  .app-shell .text-blue-700 {
+    color: var(--simanis-accent-600) !important;
+  }
+
+  .app-shell .border-blue-200,
+  .app-shell .border-blue-400 {
+    border-color: var(--simanis-accent-200) !important;
+  }
+
+  .app-shell .focus\:border-blue-400:focus {
+    border-color: var(--simanis-accent-500) !important;
+  }
+
+  .app-shell .focus\:ring-blue-100:focus {
+    --tw-ring-color: rgb(var(--simanis-accent-rgb) / 0.18) !important;
+  }
+
+  .app-shell .focus\:ring-blue-500:focus {
+    --tw-ring-color: rgb(var(--simanis-accent-rgb) / 0.48) !important;
+  }
+
+  .app-shell .from-blue-600 {
+    --tw-gradient-from: var(--simanis-accent-grad-from) var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: rgb(var(--simanis-accent-rgb) / 0) var(--tw-gradient-to-position) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  }
+
+  .app-shell .to-indigo-700 {
+    --tw-gradient-to: var(--simanis-accent-grad-to) var(--tw-gradient-to-position) !important;
+  }
+
+  .app-shell .from-cyan-100,
+  .app-shell .from-cyan-100\/60,
+  .app-shell .from-cyan-100\/80,
+  .app-shell .from-sky-100 {
+    --tw-gradient-from: var(--simanis-accent-100) var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: rgb(var(--simanis-accent-rgb) / 0) var(--tw-gradient-to-position) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to) !important;
+  }
+
+  .app-shell .to-indigo-100,
+  .app-shell .to-indigo-100\/60,
+  .app-shell .to-indigo-100\/80,
+  .app-shell .to-blue-100\/60 {
+    --tw-gradient-to: var(--simanis-accent-100) var(--tw-gradient-to-position) !important;
+  }
+
+  .app-shell .shadow-blue-100\/40,
+  .app-shell .shadow-blue-200,
+  .app-shell .shadow-sky-200\/50 {
+    --tw-shadow-color: var(--simanis-accent-shadow) !important;
+  }
+
+  .app-shell .simanis-brand-mark {
+    background-image: linear-gradient(135deg, var(--simanis-accent-grad-from), var(--simanis-accent-grad-to)) !important;
+    color: #ffffff !important;
+    box-shadow: 0 18px 32px -18px var(--simanis-accent-shadow);
+  }
+
+  .app-shell .simanis-gradient-button {
+    background-image: linear-gradient(135deg, var(--simanis-accent-grad-from), var(--simanis-accent-grad-to)) !important;
+    box-shadow: 0 14px 26px -18px var(--simanis-accent-shadow);
+  }
+
+  .app-shell .simanis-gradient-button:hover {
+    filter: saturate(1.08) brightness(0.96);
+  }
+
   .surface-card {
     @apply rounded-[28px] border border-slate-200/80 bg-white shadow-sm;
   }
@@ -138,12 +465,23 @@
     @apply text-slate-400;
   }
 
+  .theme-dark .app-shell {
+    background:
+      radial-gradient(circle at top left, rgb(var(--simanis-accent-rgb) / 0.2), transparent 34rem),
+      linear-gradient(135deg, #020617 0%, #0f172a 48%, color-mix(in srgb, #020617 82%, var(--simanis-accent-grad-from) 18%) 100%) !important;
+  }
+
   .theme-dark .app-shell .sidebar {
-    @apply border-slate-800 bg-slate-900 shadow-[0_24px_55px_-30px_rgba(2,6,23,0.95)];
+    background:
+      linear-gradient(180deg, rgb(15 23 42 / 0.98), color-mix(in srgb, #0f172a 84%, var(--simanis-accent-grad-from) 16%)) !important;
+    @apply border-slate-800 shadow-[0_24px_55px_-30px_rgba(2,6,23,0.95)];
   }
 
   .theme-dark .app-shell header {
-    @apply border-slate-800 bg-slate-950/90;
+    background:
+      radial-gradient(circle at right, rgb(var(--simanis-accent-rgb) / 0.16), transparent 24rem),
+      rgb(2 6 23 / 0.9) !important;
+    @apply border-slate-800;
   }
 
   .theme-dark .app-shell .bg-white,
@@ -156,7 +494,7 @@
   .theme-dark .app-shell .bg-slate-100\/70,
   .theme-dark .app-shell .bg-slate-100\/80,
   .theme-dark .app-shell .bg-blue-50 {
-    background-color: rgb(15 23 42 / 1) !important;
+    background-color: color-mix(in srgb, #0f172a 90%, var(--simanis-accent-grad-from) 10%) !important;
   }
 
   .theme-dark .app-shell .border-slate-100,
@@ -185,6 +523,134 @@
 
   .theme-dark .app-shell .hover\:bg-slate-50:hover,
   .theme-dark .app-shell .hover\:bg-slate-100:hover {
+    background-color: rgb(30 41 59 / 1) !important;
+  }
+
+  .akta-massal-dialog {
+    color: #0f172a;
+  }
+
+  .akta-massal-dialog > .absolute {
+    background:
+      radial-gradient(circle at top left, rgb(var(--simanis-accent-rgb) / 0.2), transparent 32rem),
+      rgb(2 6 23 / 0.68) !important;
+    backdrop-filter: blur(10px);
+  }
+
+  :root:not(.theme-dark) .akta-massal-dialog > .relative {
+    background:
+      radial-gradient(circle at top left, rgb(var(--simanis-accent-rgb) / 0.12), transparent 28rem),
+      linear-gradient(135deg, var(--simanis-surface) 0%, var(--simanis-surface-soft) 100%) !important;
+    border-color: var(--simanis-border) !important;
+    box-shadow: 0 30px 70px -42px rgba(15, 23, 42, 0.75);
+  }
+
+  :root.theme-dark .akta-massal-dialog > .relative {
+    background:
+      radial-gradient(circle at top left, rgb(var(--simanis-accent-rgb) / 0.16), transparent 30rem),
+      linear-gradient(135deg, #0f172a 0%, color-mix(in srgb, #020617 86%, var(--simanis-accent-grad-from) 14%) 100%) !important;
+    border-color: rgb(51 65 85 / 0.9) !important;
+    color: #e2e8f0;
+    box-shadow: 0 30px 80px -36px rgba(2, 6, 23, 0.96);
+  }
+
+  .akta-massal-dialog .text-violet-500,
+  .akta-massal-dialog .text-violet-700 {
+    color: var(--simanis-accent-600) !important;
+  }
+
+  .akta-massal-dialog .border-violet-200 {
+    border-color: var(--simanis-accent-200) !important;
+  }
+
+  .akta-massal-dialog .bg-violet-600 {
+    background-image: linear-gradient(135deg, var(--simanis-accent-grad-from), var(--simanis-accent-grad-to)) !important;
+    box-shadow: 0 14px 26px -18px var(--simanis-accent-shadow);
+  }
+
+  .akta-massal-dialog .hover\:bg-violet-50:hover {
+    background-color: var(--simanis-accent-50) !important;
+  }
+
+  .akta-massal-dialog .hover\:bg-violet-500:hover {
+    filter: saturate(1.08) brightness(0.96);
+  }
+
+  .akta-massal-dialog .focus\:border-violet-400:focus {
+    border-color: var(--simanis-accent-500) !important;
+  }
+
+  .akta-massal-dialog .focus\:ring-violet-100:focus,
+  .akta-massal-dialog .focus\:ring-violet-500:focus {
+    --tw-ring-color: rgb(var(--simanis-accent-rgb) / 0.25) !important;
+  }
+
+  :root:not(.theme-dark) .akta-massal-dialog .bg-white,
+  :root:not(.theme-dark) .akta-massal-dialog .bg-slate-50,
+  :root:not(.theme-dark) .akta-massal-dialog .bg-slate-100 {
+    background-color: var(--simanis-surface) !important;
+  }
+
+  :root:not(.theme-dark) .akta-massal-dialog .bg-slate-50,
+  :root:not(.theme-dark) .akta-massal-dialog .bg-slate-100 {
+    background-color: var(--simanis-surface-soft) !important;
+  }
+
+  :root:not(.theme-dark) .akta-massal-dialog .border-slate-200,
+  :root:not(.theme-dark) .akta-massal-dialog .border-slate-300,
+  :root:not(.theme-dark) .akta-massal-dialog .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+  :root:not(.theme-dark) .akta-massal-dialog .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--simanis-border) !important;
+  }
+
+  :root:not(.theme-dark) .akta-massal-dialog input,
+  :root:not(.theme-dark) .akta-massal-dialog select,
+  :root:not(.theme-dark) .akta-massal-dialog textarea {
+    border-color: color-mix(in srgb, var(--simanis-border) 82%, #94a3b8);
+    background-color: #ffffff;
+    color: #0f172a;
+  }
+
+  :root.theme-dark .akta-massal-dialog .bg-white,
+  :root.theme-dark .akta-massal-dialog .bg-slate-50,
+  :root.theme-dark .akta-massal-dialog .bg-slate-100 {
+    background-color: color-mix(in srgb, #0f172a 88%, var(--simanis-accent-grad-from) 12%) !important;
+  }
+
+  :root.theme-dark .akta-massal-dialog .border-slate-200,
+  :root.theme-dark .akta-massal-dialog .border-slate-300,
+  :root.theme-dark .akta-massal-dialog .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+  :root.theme-dark .akta-massal-dialog .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgb(51 65 85 / 0.92) !important;
+  }
+
+  :root.theme-dark .akta-massal-dialog .text-slate-950,
+  :root.theme-dark .akta-massal-dialog .text-slate-900,
+  :root.theme-dark .akta-massal-dialog .text-slate-800,
+  :root.theme-dark .akta-massal-dialog .text-slate-700 {
+    color: #f8fafc !important;
+  }
+
+  :root.theme-dark .akta-massal-dialog .text-slate-600,
+  :root.theme-dark .akta-massal-dialog .text-slate-500,
+  :root.theme-dark .akta-massal-dialog .text-slate-400 {
+    color: #94a3b8 !important;
+  }
+
+  :root.theme-dark .akta-massal-dialog input,
+  :root.theme-dark .akta-massal-dialog select,
+  :root.theme-dark .akta-massal-dialog textarea {
+    border-color: rgb(51 65 85 / 0.95) !important;
+    background-color: rgb(2 6 23 / 0.72) !important;
+    color: #f8fafc !important;
+  }
+
+  :root.theme-dark .akta-massal-dialog input::placeholder,
+  :root.theme-dark .akta-massal-dialog textarea::placeholder {
+    color: #94a3b8 !important;
+  }
+
+  :root.theme-dark .akta-massal-dialog .hover\:bg-slate-50:hover {
     background-color: rgb(30 41 59 / 1) !important;
   }
 }

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -e
+
+if [[ -x /usr/local/sbin/simanis-bothwa-stop ]]; then
+    /usr/local/sbin/simanis-bothwa-stop >/dev/null 2>&1 \
+        && logger -t simanis-ha "WhatsApp Gateway dihentikan pada BACKUP" \
+        || logger -t simanis-ha "Gagal menghentikan WhatsApp Gateway pada BACKUP"
+fi
+
+MYSQL=(mysql --defaults-extra-file=/root/.my.cnf)
+REPL_USER="notaris"
+REPL_PASSWORD="${SIMANIS_REPL_PASSWORD:?SIMANIS_REPL_PASSWORD wajib diisi}"
+
+case "$(hostname)" in
+    server1)
+        MASTER_HOST="192.168.0.11"
+        ;;
+    server2)
+        MASTER_HOST="192.168.0.10"
+        ;;
+    *)
+        MASTER_HOST=""
+        ;;
+esac
+
+"${MYSQL[@]}" -e "SET GLOBAL super_read_only=OFF; SET GLOBAL read_only=OFF;"
+
+if [[ -n "$MASTER_HOST" ]]; then
+    "${MYSQL[@]}" -e "STOP SLAVE" 2>/dev/null || true
+    "${MYSQL[@]}" -e "RESET SLAVE ALL" 2>/dev/null || true
+    "${MYSQL[@]}" -e "CHANGE MASTER TO MASTER_HOST='${MASTER_HOST}', MASTER_USER='${REPL_USER}', MASTER_PASSWORD='${REPL_PASSWORD}', MASTER_PORT=3306, MASTER_AUTO_POSITION=1"
+
+    if "${MYSQL[@]}" -e "START SLAVE"; then
+        logger -t simanis-ha "Server menjadi BACKUP, slave diarahkan ke ${MASTER_HOST}"
+    else
+        logger -t simanis-ha "Server menjadi BACKUP, tetapi START SLAVE ke ${MASTER_HOST} gagal. Cek GTID/replikasi manual."
+    fi
+else
+    logger -t simanis-ha "Server menjadi BACKUP, hostname tidak dikenali untuk konfigurasi slave otomatis"
+fi
+
+"${MYSQL[@]}" -e "SET GLOBAL read_only=ON; SET GLOBAL super_read_only=ON;"
+logger -t simanis-ha "Server menjadi BACKUP dan database dikunci read-only"

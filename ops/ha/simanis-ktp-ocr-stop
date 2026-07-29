@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NAME="${KTP_OCR_CONTAINER:-ktp-ocr-lab}"
+
+docker stop "${NAME}" >/dev/null 2>&1 || true
+docker update --restart=no "${NAME}" >/dev/null 2>&1 || true
+docker ps -a --filter name="${NAME}" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'

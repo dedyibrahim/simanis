@@ -9,6 +9,10 @@ class DataClient extends Model
 {
     use HasFactory;
 
+    protected $primaryKey = 'id_client';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
    /**
      * The attributes that are mass assignable.
      *

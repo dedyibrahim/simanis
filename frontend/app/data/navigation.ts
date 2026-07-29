@@ -21,6 +21,7 @@ export const navigationSections: NavigationSection[] = [
       { title: 'Pencarian Dokumen', path: '/pencarian-dokumen', icon: 'search', hint: 'Cari data lintas buku' },
       { title: 'Riwayat Reportorium', path: '/riwayat-reportorium', icon: 'report', hint: 'Riwayat kerja reportorium per asisten' },
       { title: 'Jadwal Notaris', path: '/jadwal-notaris', icon: 'calendar', hint: 'Agenda dan signing' },
+      { title: 'Dokumen Scan', path: '/dokumen-scan', icon: 'folder', hint: 'Hasil scan dari scanner kantor' },
       { title: 'Peminjaman Minuta', path: '/peminjaman-minuta', icon: 'briefcase', hint: 'Status pinjam minuta' },
     ],
   },
@@ -43,6 +44,14 @@ export const navigationSections: NavigationSection[] = [
     ],
   },
   {
+    title: 'PPAT Rekanan',
+    items: [
+      { title: 'Master Rekanan', path: '/ppat-rekanan?tab=master', icon: 'bank', hint: 'Master PPAT rekanan' },
+      { title: 'Rekanan Keluar', path: '/ppat-rekanan?tab=keluar', icon: 'bank', hint: 'Nomor PPAT kantor dipakai PPAT lain' },
+      { title: 'Rekanan Kedalam', path: '/ppat-rekanan?tab=kedalam', icon: 'bank', hint: 'Nomor PPAT rekanan masuk database' },
+    ],
+  },
+  {
     title: 'Surat',
     items: [
       { title: 'Surat Notaris', path: '/buku_surat_notaris', icon: 'clipboard', hint: 'Surat keluar notaris' },
@@ -57,20 +66,30 @@ export const navigationSections: NavigationSection[] = [
     ],
   },
   {
+    title: 'Client',
+    items: [
+      { title: 'Data Client Perorangan', path: '/perorangan', icon: 'users', hint: 'Master client individu' },
+      { title: 'Data Client Badan Hukum', path: '/badan_hukum', icon: 'office', hint: 'Master client entitas' },
+    ],
+  },
+  {
     title: 'Kontrol Admin',
     items: [
       { title: 'Kontrol Pekerjaan', path: '/admin-kontrol-pekerjaan', icon: 'settings', hint: 'Alihkan tugas reportorium', adminOnly: true },
+      { title: 'Kontrol Anomali', path: '/admin-kontrol-anomali', icon: 'settings', hint: 'Trace nomor ganda dan data tidak wajar', adminOnly: true },
+      { title: 'Rekonsiliasi Nomor', path: '/admin-rekonsiliasi-nomor', icon: 'settings', hint: 'Bandingkan nomor production dengan data matang 2016-2021', adminOnly: true },
       { title: 'Persetujuan Dokumen', path: '/admin-persetujuan-dokumen', icon: 'settings', hint: 'Approval download dokumen', adminOnly: true },
     ],
   },
   {
     title: 'Setting',
     items: [
-      { title: 'Data Client Perorangan', path: '/perorangan', icon: 'users', hint: 'Master client individu' },
-      { title: 'Data Client Badan Hukum', path: '/badan_hukum', icon: 'office', hint: 'Master client entitas' },
       { title: 'Data Layanan', path: '/data_layanan', icon: 'folder', hint: 'Master layanan kantor' },
       { title: 'Data Dokumen', path: '/data_dokumen', icon: 'folder', hint: 'Master dokumen standar' },
       { title: 'Pengaturan Laporan', path: '/pages/report-settings', icon: 'settings', hint: 'Header, invoice, dan backup SQL', adminOnly: true },
+      { title: 'Google Calendar', path: '/settings-google-calendar', icon: 'calendar', hint: 'Sinkron jadwal SIMANIS ke Google Calendar', adminOnly: true },
+      { title: 'Status Sinkronisasi', path: '/settings-sinkronisasi', icon: 'settings', hint: 'Kesehatan server, database, dan arsip', adminOnly: true },
+      { title: 'WhatsApp Gateway', path: '/settings-whatsapp-gateway', icon: 'settings', hint: 'Kontrol bothWA, WAHA, dan QR login', adminOnly: true },
       { title: 'Account Settings', path: '/pages/account-settings', icon: 'settings', hint: 'Profil dan security user' },
     ],
   },

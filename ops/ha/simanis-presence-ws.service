@@ -1,0 +1,15 @@
+[Unit]
+Description=SIMANIS Presence WebSocket
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=SIMANIS_PRESENCE_PORT=8789
+ExecStart=/usr/bin/python3 /var/www/apinotaris/tools/simanis_presence_ws.py
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

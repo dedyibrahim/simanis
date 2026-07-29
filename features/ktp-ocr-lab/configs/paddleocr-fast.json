@@ -1,0 +1,25 @@
+{
+  "name": "paddleocr-fast",
+  "description": "Preset PaddleOCR lebih cepat dengan model mobile dan resize lebih kecil.",
+  "preprocessing": {
+    "resize_scale": 1.0,
+    "grayscale": false,
+    "denoise": false,
+    "sharpen": false,
+    "contrast": "none",
+    "threshold": "none",
+    "deskew": false
+  },
+  "ocr": {
+    "engine": "paddleocr",
+    "language": "en",
+    "max_width": 760,
+    "text_detection_model_name": "PP-OCRv5_mobile_det",
+    "text_recognition_model_name": "PP-OCRv5_mobile_rec",
+    "text_det_limit_side_len": 640
+  },
+  "parser": {
+    "normalize_labels": true,
+    "strict_nik": true
+  }
+}

@@ -7,6 +7,7 @@ import {
   MagnifyingGlassIcon,
   TrophyIcon,
 } from '@heroicons/vue/24/outline'
+import type { Ref } from 'vue'
 
 definePageMeta({
   middleware: 'auth',
@@ -26,6 +27,7 @@ type Winner = {
   judul: string
   jumlah: number | string
   nama_lengkap: string
+  nama_lengkap_list?: string[]
 }
 
 type Workload = {
@@ -68,6 +70,9 @@ const defaultTotals: Workload[] = [
 
 const winners = ref<Winner[]>([...defaultWinners])
 const totals = ref<Workload[]>([...defaultTotals])
+const animatedWinnerTotals = ref<Record<string, number>>({})
+const animatedWorkloadTotals = ref<Record<string, number>>({})
+const animatedTotalCompleted = ref(0)
 const chartData = ref<ChartResponse>({
   categories: [],
   notaris: [],
@@ -113,6 +118,59 @@ const toData = <T>(payload: unknown, fallback: T): T => {
 const toNumber = (value: unknown) => {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 0
+}
+
+const normalizeWinnerNames = (winner: Winner) => {
+  if (Array.isArray(winner.nama_lengkap_list) && winner.nama_lengkap_list.length) {
+    return winner.nama_lengkap_list.filter(Boolean)
+  }
+
+  return String(winner.nama_lengkap || '-')
+    .split(',')
+    .map(name => name.trim())
+    .filter(Boolean)
+}
+
+const animateValue = (
+  from: number,
+  to: number,
+  duration: number,
+  update: (value: number) => void,
+) => {
+  if (typeof window === 'undefined') {
+    update(to)
+    return
+  }
+
+  const start = window.performance.now()
+  const change = to - from
+
+  const tick = (now: number) => {
+    const progress = Math.min((now - start) / duration, 1)
+    const eased = 1 - Math.pow(1 - progress, 3)
+    update(Math.round(from + change * eased))
+
+    if (progress < 1) {
+      window.requestAnimationFrame(tick)
+    }
+  }
+
+  window.requestAnimationFrame(tick)
+}
+
+const animateRecordValue = (
+  store: Ref<Record<string, number>>,
+  key: string,
+  to: number,
+  duration = 900,
+) => {
+  const from = store.value[key] || 0
+  animateValue(from, to, duration, value => {
+    store.value = {
+      ...store.value,
+      [key]: value,
+    }
+  })
 }
 
 const toQuery = (filter: FilterState) => {
@@ -312,8 +370,48 @@ const totalCompleted = computed(() =>
 const topWinner = computed(() => winners.value.at(0) || defaultWinners[0])
 const topWinnerSafe = computed(() => topWinner.value || defaultWinners[0] || fallbackWinner)
 
+const winnerNames = (winner: Winner) => {
+  const names = normalizeWinnerNames(winner)
+  return names.length ? names : ['-']
+}
+
+const animatedWinnerTotal = (winner: Winner) =>
+  animatedWinnerTotals.value[winner.judul] ?? toNumber(winner.jumlah)
+
+const animatedWorkloadTotal = (item: Workload) =>
+  animatedWorkloadTotals.value[item.title] ?? toNumber(item.total)
+
 const formatCompactNumber = (value: unknown) =>
   new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 1 }).format(toNumber(value))
+
+watch(
+  winners,
+  nextWinners => {
+    nextWinners.forEach(winner => {
+      animateRecordValue(animatedWinnerTotals, winner.judul, toNumber(winner.jumlah), 850)
+    })
+  },
+  { deep: true },
+)
+
+watch(
+  totals,
+  nextTotals => {
+    nextTotals.forEach(item => {
+      animateRecordValue(animatedWorkloadTotals, item.title, toNumber(item.total), 950)
+    })
+  },
+  { deep: true },
+)
+
+watch(
+  totalCompleted,
+  nextTotal => {
+    animateValue(animatedTotalCompleted.value, nextTotal, 1050, value => {
+      animatedTotalCompleted.value = value
+    })
+  },
+)
 
 onMounted(() => {
   void refreshDashboard()
@@ -342,7 +440,7 @@ onMounted(() => {
           </p>
           <div class="mt-5 flex flex-wrap gap-2">
             <span class="rounded-full border px-3 py-1 text-xs font-semibold" :class="isDark ? 'border-slate-700 bg-slate-900/85 text-slate-200' : 'border-white/80 bg-white/80 text-slate-700'">
-              Total pekerjaan {{ formatCompactNumber(totalCompleted) }}
+              Total pekerjaan {{ formatCompactNumber(animatedTotalCompleted) }}
             </span>
             <span class="rounded-full border px-3 py-1 text-xs font-semibold" :class="isDark ? 'border-slate-700 bg-slate-900/85 text-slate-200' : 'border-white/80 bg-white/80 text-slate-700'">
               Top performer {{ topWinnerSafe.nama_lengkap || '-' }}
@@ -365,7 +463,7 @@ onMounted(() => {
             </div>
             <button
               type="submit"
-              class="h-11 w-full rounded-xl bg-gradient-to-r from-blue-600 via-cyan-600 to-indigo-600 px-5 text-sm font-semibold text-white transition hover:from-blue-700 hover:via-cyan-700 hover:to-indigo-700"
+              class="simanis-gradient-button h-11 w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 text-sm font-semibold text-white transition"
             >
               Cari Dokumen
             </button>
@@ -400,13 +498,22 @@ onMounted(() => {
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-slate-900">{{ winner.judul }} terbanyak</p>
-                <p class="mt-1 text-sm text-slate-500">{{ winner.nama_lengkap || '-' }}</p>
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                  <span
+                    v-for="name in winnerNames(winner)"
+                    :key="`${winner.judul}-${name}`"
+                    class="rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="isDark ? 'bg-slate-800/80 text-slate-300' : 'bg-white/70 text-slate-600'"
+                  >
+                    {{ name }}
+                  </span>
+                </div>
               </div>
               <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br" :class="winnerIconClass(winnerIndex)">
                 <TrophyIcon class="h-5 w-5" />
               </div>
             </div>
-            <p class="mt-3 text-3xl font-semibold text-slate-900">{{ formatCompactNumber(winner.jumlah) }}</p>
+            <p class="mt-3 text-3xl font-semibold text-slate-900">{{ formatCompactNumber(animatedWinnerTotal(winner)) }}</p>
           </div>
         </div>
       </SurfaceCard>
@@ -454,7 +561,7 @@ onMounted(() => {
             </div>
             <div>
               <p class="text-xs text-slate-500">{{ item.title }}</p>
-              <p class="text-xl font-semibold text-slate-900">{{ formatCompactNumber(item.total) }}</p>
+              <p class="text-xl font-semibold text-slate-900">{{ formatCompactNumber(animatedWorkloadTotal(item)) }}</p>
             </div>
           </div>
         </div>

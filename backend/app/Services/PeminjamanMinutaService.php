@@ -37,7 +37,7 @@ class PeminjamanMinutaService
         }
     }
 
-    public function list($search = null, $month = null)
+    public function list($search = null, $month = null, $status = null)
     {
         $query = PeminjamanMinuta::query();
 
@@ -69,7 +69,14 @@ class PeminjamanMinutaService
             $this->refreshLateStatus($item);
         }
 
-        return $data->fresh();
+        $data = $data->map(fn ($item) => $item->fresh());
+
+        if ($status) {
+            $wanted = strtolower((string) $status);
+            $data = $data->filter(fn ($item) => strtolower((string) $item->status) === $wanted)->values();
+        }
+
+        return $data;
     }
 
     public function store(array $payload)

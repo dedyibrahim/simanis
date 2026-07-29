@@ -1,0 +1,11 @@
+[Unit]
+Description=Sinkronisasi folder public SIMANIS ke server standby
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/simanis-public-sync
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

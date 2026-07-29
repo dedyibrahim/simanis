@@ -21,9 +21,16 @@ class Event extends Model
         'end_datetime',
         'color',
         'creator_id', // <-- DITAMBAHKAN
+        'google_event_id',
+        'google_synced_at',
+        'google_sync_error',
     ];
 
-    protected $casts = ['start_datetime' => 'datetime', 'end_datetime' => 'datetime'];
+    protected $casts = [
+        'start_datetime' => 'datetime',
+        'end_datetime' => 'datetime',
+        'google_synced_at' => 'datetime',
+    ];
 
     /**
      * Relasi many-to-many ke User (sebagai peserta).

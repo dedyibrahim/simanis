@@ -1,0 +1,11 @@
+[Unit]
+Description=Jalankan sinkronisasi folder public SIMANIS setiap menit
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

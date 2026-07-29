@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+
+mysql --defaults-extra-file=/root/.my.cnf -e "STOP SLAVE" 2>/dev/null || true
+mysql --defaults-extra-file=/root/.my.cnf -e "SET GLOBAL super_read_only=OFF"
+mysql --defaults-extra-file=/root/.my.cnf -e "SET GLOBAL read_only=OFF"
+logger -t simanis-ha "Server menjadi MASTER dan database dibuka untuk write"
+
+if [[ -x /usr/local/sbin/simanis-bothwa-start ]]; then
+    /usr/local/sbin/simanis-bothwa-start >/dev/null 2>&1 \
+        && logger -t simanis-ha "WhatsApp Gateway dijalankan pada MASTER" \
+        || logger -t simanis-ha "Gagal menjalankan WhatsApp Gateway pada MASTER"
+fi

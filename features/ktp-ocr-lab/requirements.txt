@@ -1,0 +1,5 @@
+opencv-python>=4.10.0
+numpy>=1.26.0
+pydantic>=2.8.0
+python-dateutil>=2.9.0
+

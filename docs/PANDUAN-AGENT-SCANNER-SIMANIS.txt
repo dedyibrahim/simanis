@@ -1,0 +1,410 @@
+PANDUAN AGENT SCANNER SIMANIS
+=============================
+
+Tujuan:
+Dokumen ini dipakai untuk menyiapkan PC scanner agar bisa:
+1. Membuka halaman SIMANIS otomatis saat Windows login.
+2. Menjalankan local scanner agent di PC scanner.
+3. Membuka aplikasi Epson Scan dari tombol di web SIMANIS.
+4. Membaca file PDF/JPG hasil scan dari folder lokal.
+5. Upload file scan ke SIMANIS dari halaman web.
+
+
+FILE AGENT YANG DIPAKAI
+=======================
+
+1. Scanner Agent
+   Path:
+   C:\My Project\Simanis\tools\simanis-scanner-agent.ps1
+
+   Fungsi:
+   - Menjalankan local API di:
+     http://127.0.0.1:8787
+   - Membaca file hasil scan dari:
+     C:\SIMANIS_SCAN_INBOX
+   - Memindahkan file berhasil upload ke:
+     C:\SIMANIS_SCAN_ARCHIVE
+   - Menyimpan file gagal ke:
+     C:\SIMANIS_SCAN_FAILED
+   - Membuka/tutup aplikasi Epson Scan dari tombol web.
+
+2. Browser Startup Agent
+   Path:
+   C:\My Project\Simanis\tools\simanis-browser-startup.ps1
+
+   Fungsi:
+   - Membuka halaman SIMANIS otomatis saat Windows login.
+   - Default URL:
+     http://192.168.0.12
+
+
+FOLDER YANG HARUS ADA
+=====================
+
+Scanner agent akan membuat folder ini otomatis, tapi boleh juga dibuat manual.
+Default yang dipakai sekarang:
+
+C:\SIMANIS_SCAN_INBOX
+C:\SIMANIS_SCAN_ARCHIVE
+C:\SIMANIS_SCAN_FAILED
+
+Jika PC scanner memang punya drive D dan ingin memakai D, boleh jalankan agent dengan parameter khusus:
+
+D:\SIMANIS_SCAN_INBOX
+D:\SIMANIS_SCAN_ARCHIVE
+D:\SIMANIS_SCAN_FAILED
+
+Arti folder:
+- INBOX   : tempat Epson menyimpan hasil scan baru.
+- ARCHIVE : file yang sudah berhasil di-upload ke SIMANIS.
+- FAILED  : cadangan jika nanti ada proses gagal.
+
+
+SETTING OUTPUT EPSON
+====================
+
+Di aplikasi Epson Scan / Epson Scan 2 / Document Capture:
+
+1. Pilih output file: PDF.
+2. Jika multi-page, simpan sebagai satu dokumen PDF.
+3. Arahkan folder hasil scan ke:
+   C:\SIMANIS_SCAN_INBOX
+
+4. Nama file bebas, contoh:
+   as20260703_13523703.pdf
+
+Catatan:
+SIMANIS akan membaca file PDF/JPG/JPEG dari folder INBOX.
+Setelah berhasil upload, file akan dipindahkan ke ARCHIVE.
+
+
+PATH APLIKASI EPSON SCAN
+========================
+
+Path Epson yang biasa dipakai:
+
+C:\Program Files (x86)\epson\Epson Scan 2\Core\es2launcher.exe
+
+Di halaman Scan Dokumen SIMANIS, isi path tersebut pada pengaturan scanner.
+Path ini disimpan di browser PC tersebut.
+
+
+CARA MENJALANKAN SCANNER AGENT SECARA MANUAL
+============================================
+
+1. Buka PowerShell.
+
+2. Jalankan perintah ini:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1"
+
+3. Jika berhasil, muncul tulisan kira-kira:
+
+SIMANIS Scanner Agent berjalan.
+Local API   : http://127.0.0.1:8787/
+SIMANIS API : http://192.168.0.12:8000/api
+Watch folder: C:\SIMANIS_SCAN_INBOX
+Archive     : C:\SIMANIS_SCAN_ARCHIVE
+Failed      : C:\SIMANIS_SCAN_FAILED
+
+4. Jangan tutup PowerShell ini jika masih mode manual.
+   Kalau PowerShell ditutup, agent ikut mati.
+
+
+JIKA MUNCUL ERROR URLACL / ACCESS DENIED
+========================================
+
+Jika agent gagal start di http://127.0.0.1:8787, jalankan PowerShell sebagai Administrator,
+lalu jalankan:
+
+netsh http add urlacl url=http://127.0.0.1:8787/ user=Everyone
+
+Setelah itu jalankan lagi scanner agent:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1"
+
+
+JIKA AGENT CONFLICT / PORT 8787 SUDAH DIPAKAI
+=============================================
+
+Versi agent terbaru akan mencoba mematikan instance lama otomatis saat start.
+Jika masih conflict, matikan manual dari PowerShell Administrator:
+
+Get-CimInstance Win32_Process |
+Where-Object { $_.CommandLine -like '*simanis-scanner-agent.ps1*' } |
+ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
+Lalu cek apakah masih ada agent lama:
+
+Get-CimInstance Win32_Process |
+Where-Object { $_.CommandLine -like '*simanis-scanner-agent.ps1*' } |
+Select-Object ProcessId,CommandLine
+
+Jika hasilnya kosong, jalankan agent lagi:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1"
+
+Jika sudah pakai Startup, install ulang shortcut startup agar memakai parameter folder terbaru:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1" -InstallStartup
+
+
+CARA CEK AGENT AKTIF ATAU TIDAK
+===============================
+
+Buka browser di PC scanner, akses:
+
+http://127.0.0.1:8787/health
+
+Jika agent aktif, akan muncul JSON berisi:
+- status true
+- watch_folder
+- archive_folder
+- runtime
+
+Bisa juga cek daftar file scan:
+
+http://127.0.0.1:8787/files
+
+
+CARA INSTALL SCANNER AGENT AGAR OTOMATIS JALAN SAAT WINDOWS LOGIN
+=================================================================
+
+PENTING:
+Gunakan cara Startup user, bukan Scheduled Task background.
+Alasannya: tombol "Buka Aplikasi Scanner" butuh desktop aktif agar window Epson tampil.
+
+1. Buka PowerShell biasa, tidak harus Admin.
+
+2. Jalankan:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1" -InstallStartup
+
+3. Setelah berhasil, akan dibuat shortcut:
+
+%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\SIMANIS Scanner Agent.lnk
+
+4. Restart Windows atau logout-login.
+
+5. Setelah login, agent berjalan hidden/background.
+
+6. Cek:
+
+http://127.0.0.1:8787/health
+
+
+CARA INSTALL BROWSER AUTO-OPEN SIMANIS SAAT WINDOWS LOGIN
+=========================================================
+
+1. Buka PowerShell.
+
+2. Jalankan:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-browser-startup.ps1" -InstallStartup
+
+Defaultnya browser akan dibuka mode Fullscreen.
+
+3. Shortcut akan dibuat di Startup:
+
+%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\SIMANIS Dashboard.lnk
+
+4. Saat Windows login, browser akan otomatis membuka:
+
+http://192.168.0.12
+
+Jika sebelumnya sudah pernah install shortcut browser, jalankan ulang perintah install di atas agar shortcut lama terganti dengan mode Fullscreen.
+
+
+MENJALANKAN BROWSER STARTUP SECARA MANUAL
+=========================================
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-browser-startup.ps1"
+
+Mode lain:
+
+Fullscreen, default:
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-browser-startup.ps1" -Mode Fullscreen
+
+Kiosk, layar penuh tanpa address bar:
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-browser-startup.ps1" -Mode Kiosk
+
+Normal, untuk pengecekan/debug:
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-browser-startup.ps1" -Mode Normal
+
+Jika ingin buka URL lain:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-browser-startup.ps1" -Url "http://192.168.0.12/jadwal-publik"
+
+
+ALUR KERJA SCAN DARI WEB
+========================
+
+1. Buka:
+   http://192.168.0.12
+
+2. Klik menu Scan Dokumen.
+
+3. Buat sesi scan.
+   Pilih asisten aktif yang menjadi pemilik dokumen.
+
+4. Klik tombol Buka Aplikasi Scanner.
+   Jika path Epson benar, Epson Scan akan terbuka.
+
+5. Scan dokumen dari Epson.
+   Output harus masuk ke:
+   C:\SIMANIS_SCAN_INBOX
+
+6. Kembali ke halaman SIMANIS.
+
+7. Klik Refresh File.
+
+8. Pilih file hasil scan.
+
+9. Preview dan rename jika perlu.
+
+10. Klik Upload.
+
+11. Setelah masuk server, dokumen bisa diposting ke modul:
+    - Dokumen Client
+    - Buku Akta Notaris
+    - Buku PPAT
+    - Buku Legalisasi
+    - Buku Waarmerking
+    - Surat Notaris
+    - Surat PPAT
+    - Tanda Terima
+
+
+AGAR TOMBOL BUKA APLIKASI SCANNER BERFUNGSI
+===========================================
+
+Pastikan:
+
+1. Scanner agent aktif:
+   http://127.0.0.1:8787/health
+
+2. Agent berjalan di session user aktif, bukan background service.
+
+3. Path Epson benar:
+   C:\Program Files (x86)\epson\Epson Scan 2\Core\es2launcher.exe
+
+4. Tidak ada proses Epson yang nyangkut.
+   Jika tombol berubah menjadi "Tutup Aplikasi Scanner", klik tombol itu dulu.
+
+
+JIKA EPSON MUNCUL ERROR: SCANNER IS IN USE OR UNAVAILABLE
+=========================================================
+
+Biasanya penyebab:
+- Epson Scan masih terbuka di background.
+- Scanner USB belum siap.
+- Scanner sedang dipakai aplikasi lain.
+- Driver Epson nyangkut.
+
+Langkah:
+
+1. Klik tombol Tutup Aplikasi Scanner dari SIMANIS.
+
+2. Cabut-pasang USB scanner jika perlu.
+
+3. Matikan-nyalakan scanner Epson.
+
+4. Buka Task Manager, tutup proses Epson Scan jika masih ada.
+
+5. Buka lagi dari tombol Buka Aplikasi Scanner.
+
+6. Jika masih error, restart PC scanner.
+
+
+JIKA FILE TIDAK MUNCUL DI HALAMAN SCAN
+======================================
+
+Cek:
+
+1. File hasil scan benar-benar ada di:
+   C:\SIMANIS_SCAN_INBOX
+
+2. Format file:
+   .pdf, .jpg, atau .jpeg
+
+3. File sudah selesai ditulis oleh Epson.
+   Tunggu 2-5 detik lalu klik Refresh File.
+
+4. Agent aktif:
+   http://127.0.0.1:8787/files
+
+
+JIKA FILE BERHASIL UPLOAD TAPI NANTI HILANG DI SERVER
+=====================================================
+
+File lokal biasanya masih ada di:
+
+C:\SIMANIS_SCAN_ARCHIVE
+
+Jika perlu restore manual:
+1. Cari file di ARCHIVE.
+2. Upload ulang dari fitur scan, atau copy manual ke folder public server sesuai path database.
+
+Catatan:
+Sebaiknya jangan hapus isi ARCHIVE terlalu cepat. Simpan minimal beberapa minggu sebagai cadangan scan.
+
+
+COMMAND RINGKAS YANG PALING SERING DIPAKAI
+==========================================
+
+Run scanner agent manual:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1"
+
+Run scanner agent manual jika ingin pakai drive D:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1" -WatchFolder "D:\SIMANIS_SCAN_INBOX" -ArchiveFolder "D:\SIMANIS_SCAN_ARCHIVE" -FailedFolder "D:\SIMANIS_SCAN_FAILED"
+
+Install scanner agent startup:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1" -InstallStartup
+
+Install scanner agent startup jika ingin pakai drive D:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-scanner-agent.ps1" -WatchFolder "D:\SIMANIS_SCAN_INBOX" -ArchiveFolder "D:\SIMANIS_SCAN_ARCHIVE" -FailedFolder "D:\SIMANIS_SCAN_FAILED" -InstallStartup
+
+Install browser auto-open:
+
+powershell -ExecutionPolicy Bypass -File "C:\My Project\Simanis\tools\simanis-browser-startup.ps1" -InstallStartup
+
+Fix URLACL jika agent tidak bisa start:
+
+netsh http add urlacl url=http://127.0.0.1:8787/ user=Everyone
+
+Cek agent:
+
+http://127.0.0.1:8787/health
+
+Cek daftar file scan:
+
+http://127.0.0.1:8787/files
+
+
+REKOMENDASI SETUP FINAL PC SCANNER
+==================================
+
+1. Install scanner agent startup.
+2. Install browser startup.
+3. Set Epson output ke C:\SIMANIS_SCAN_INBOX.
+4. Simpan path Epson di halaman Scan Dokumen:
+   C:\Program Files (x86)\epson\Epson Scan 2\Core\es2launcher.exe
+5. Restart Windows.
+6. Setelah login:
+   - browser membuka SIMANIS otomatis
+   - scanner agent aktif di http://127.0.0.1:8787
+   - tombol Buka Aplikasi Scanner bisa membuka Epson
+
+
+CATATAN PENTING
+===============
+
+- Jangan jalankan scanner agent dari Scheduled Task background jika ingin tombol buka Epson tampil di layar.
+- Jalankan lewat Startup user supaya aplikasi Epson muncul di desktop user aktif.
+- Jangan tutup PowerShell jika menjalankan agent manual.
+- Kalau sudah pakai InstallStartup, PowerShell tidak terlihat karena jalan hidden.
+- Folder ARCHIVE adalah cadangan penting untuk file yang sudah di-upload.

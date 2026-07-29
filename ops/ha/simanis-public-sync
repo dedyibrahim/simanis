@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VIP_IP="192.168.0.12"
+case "$(hostname)" in
+  server1)
+    PEER="192.168.0.11"
+    ;;
+  server2)
+    PEER="192.168.0.10"
+    ;;
+  *)
+    if ip -o addr show | grep -q '192\.168\.0\.10/'; then
+      PEER="192.168.0.11"
+    else
+      PEER="192.168.0.10"
+    fi
+    ;;
+esac
+SSH_KEY="/root/.ssh/simanis_ha"
+SSH_OPTS=(-i "${SSH_KEY}" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/root/.ssh/known_hosts)
+PUBLIC_ROOT="/var/www/apinotaris/public"
+STATUS_DIR="/var/lib/simanis-ha"
+STATUS_FILE="${STATUS_DIR}/file-sync-status.json"
+LOCK_FILE="/run/lock/simanis-public-sync.lock"
+UPLOAD_DIRS=(
+  berkasclient
+  berkaslegalisasis
+  berkasnotaris
+  berkasppat
+  berkaswarmerkings
+  chat_attachments
+  foto
+  suratnotaris
+  suratppats
+  tandaterima
+)
+
+mkdir -p "${STATUS_DIR}"
+exec 9>"${LOCK_FILE}"
+flock -n 9 || exit 0
+
+iso_now() {
+  date --iso-8601=seconds
+}
+
+local_bytes() {
+  local total=0
+  local directory
+
+  for directory in "${UPLOAD_DIRS[@]}"; do
+    if [[ -d "${PUBLIC_ROOT}/${directory}" ]]; then
+      total=$((total + $(du -sb "${PUBLIC_ROOT}/${directory}" | awk '{print $1}')))
+    fi
+  done
+
+  echo "${total}"
+}
+
+remote_bytes() {
+  local paths=""
+  local directory
+
+  for directory in "${UPLOAD_DIRS[@]}"; do
+    paths="${paths} '${PUBLIC_ROOT}/${directory}'"
+  done
+
+  ssh "${SSH_OPTS[@]}" root@"${PEER}" \
+    "du -sb ${paths} 2>/dev/null | awk '{sum += \$1} END {print sum + 0}'"
+}
+
+write_status() {
+  local state="$1"
+  local started_at="$2"
+  local success_at="$3"
+  local error="$4"
+  local source_bytes="$5"
+  local destination_bytes="$6"
+  local percent=0
+
+  if [[ "${source_bytes}" -gt 0 ]]; then
+    percent=$((destination_bytes * 100 / source_bytes))
+    [[ "${percent}" -gt 100 ]] && percent=100
+  fi
+
+  if [[ "${state}" == "synced" ]]; then
+    percent=100
+  fi
+
+  local current_directory="${7:-}"
+  local activity_bytes="${8:-0}"
+  local process_running="${9:-false}"
+
+  cat > "${STATUS_FILE}" <<JSON
+{"status":"${state}","last_started_at":"${started_at}","last_success_at":"${success_at}","last_error":"${error}","source_bytes":${source_bytes},"destination_bytes":${destination_bytes},"progress_percent":${percent},"current_directory":"${current_directory}","activity_bytes":${activity_bytes},"updated_at":"$(iso_now)","process_running":${process_running}}
+JSON
+  scp -q "${SSH_OPTS[@]}" "${STATUS_FILE}" root@"${PEER}":"${STATUS_FILE}" || true
+}
+
+if ! ip -o addr show | grep -q "${VIP_IP}/"; then
+  source_size="$(local_bytes)"
+  cat > "${STATUS_FILE}" <<JSON
+{"status":"standby","last_started_at":"","last_success_at":"","last_error":"","source_bytes":${source_size},"destination_bytes":${source_size},"progress_percent":100,"current_directory":"","activity_bytes":0,"updated_at":"$(iso_now)","process_running":false}
+JSON
+  exit 0
+fi
+
+started_at="$(iso_now)"
+source_size="$(local_bytes)"
+destination_size="$(remote_bytes || echo 0)"
+write_status "syncing" "${started_at}" "" "" "${source_size}" "${destination_size}"
+
+sync_failed=0
+for directory in "${UPLOAD_DIRS[@]}"; do
+  mkdir -p "${PUBLIC_ROOT}/${directory}"
+  ssh "${SSH_OPTS[@]}" root@"${PEER}" \
+    "mkdir -p '${PUBLIC_ROOT}/${directory}'"
+
+  write_status "syncing" "${started_at}" "" "" "${source_size}" "${destination_size}" \
+    "${directory}" "0" "true"
+
+  if ! rsync -a --delete-delay --partial --numeric-ids \
+    -e "ssh -i ${SSH_KEY} -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/root/.ssh/known_hosts" \
+    "${PUBLIC_ROOT}/${directory}/" \
+    root@"${PEER}":"${PUBLIC_ROOT}/${directory}/"; then
+    sync_failed=1
+    break
+  fi
+
+  destination_size="$(remote_bytes || echo 0)"
+done
+
+destination_size="$(remote_bytes || echo 0)"
+if [[ "${sync_failed}" -eq 0 ]]; then
+  write_status "synced" "${started_at}" "$(iso_now)" "" "${source_size}" "${destination_size}"
+else
+  write_status "error" "${started_at}" "" "rsync gagal; periksa journalctl -u simanis-public-sync" "${source_size}" "${destination_size}"
+  exit 1
+fi

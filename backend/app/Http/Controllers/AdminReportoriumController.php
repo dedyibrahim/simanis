@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdminReportoriumController extends Controller
 {
@@ -335,6 +336,437 @@ class AdminReportoriumController extends Controller
                 ? 'Berhasil memuat kontrol pekerjaan reportorium.'
                 : 'Berhasil memuat riwayat pekerjaan reportorium Anda.',
             'data' => $sorted,
+        ], 200);
+    }
+
+    public function numberAnomalies(Request $request)
+    {
+        $guard = $this->denyIfNotAdmin($request);
+        if ($guard) {
+            return $guard;
+        }
+
+        $validated = $request->validate([
+            'module_path' => ['nullable', 'string'],
+            'date' => ['nullable', 'regex:/^\d{4}\-\d{2}$/'],
+            'search' => ['nullable', 'string'],
+        ]);
+
+        $modulePath = trim((string) ($validated['module_path'] ?? 'all'));
+        $date = trim((string) ($validated['date'] ?? ''));
+        $search = trim((string) ($validated['search'] ?? ''));
+
+        $rows = $this->collectRows($date !== '' ? $date : null);
+
+        if ($modulePath !== '' && strtolower($modulePath) !== 'all') {
+            if (!in_array($modulePath, self::MODULES, true)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'module_path tidak valid.',
+                    'data' => [],
+                ], 422);
+            }
+
+            $rows = $rows->where('module_path', $modulePath)->values();
+        }
+
+        if ($search !== '') {
+            $keyword = strtolower($search);
+            $rows = $rows->filter(function ($row) use ($keyword) {
+                $values = [
+                    $row->record_id ?? '',
+                    $row->nomor ?? '',
+                    $row->judul ?? '',
+                    $row->assignee_name ?? '',
+                    $row->assignee_id ?? '',
+                ];
+
+                foreach ($values as $value) {
+                    if (str_contains(strtolower((string) $value), $keyword)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })->values();
+        }
+
+        $normalizedRows = $rows
+            ->map(function ($row) {
+                $nomor = trim((string) ($row->nomor ?? ''));
+                $tanggal = (string) ($row->tanggal ?? $row->created_at ?? '');
+                $timestamp = strtotime($tanggal) ?: 0;
+                $month = $timestamp > 0 ? date('Y-m', $timestamp) : 'tanpa-tanggal';
+
+                return [
+                    'module_path' => (string) ($row->module_path ?? ''),
+                    'module_label' => $this->moduleLabel((string) ($row->module_path ?? '')),
+                    'record_id' => (string) ($row->record_id ?? ''),
+                    'nomor' => $nomor,
+                    'nomor_key' => strtolower(preg_replace('/\s+/', '', $nomor) ?: $nomor),
+                    'month' => $month,
+                    'judul' => (string) ($row->judul ?? ''),
+                    'assignee_id' => (string) ($row->assignee_id ?? ''),
+                    'assignee_name' => (string) ($row->assignee_name ?? ''),
+                    'tanggal' => $tanggal,
+                    'created_at' => (string) ($row->created_at ?? ''),
+                    'timestamp' => $timestamp,
+                ];
+            })
+            ->filter(function ($row) {
+                return $row['module_path'] !== '' && $row['nomor_key'] !== '';
+            })
+            ->values();
+
+        $groups = $normalizedRows
+            ->groupBy(function ($row) {
+                return $row['module_path'].'|'.$row['month'].'|'.$row['nomor_key'];
+            })
+            ->filter(function ($items) {
+                return $items->count() > 1;
+            })
+            ->map(function ($items) {
+                $sortedItems = $items
+                    ->sortBy(function ($row) {
+                        return $row['timestamp'];
+                    })
+                    ->values();
+                $first = $sortedItems->first();
+
+                return [
+                    'type' => 'duplicate_number_month',
+                    'severity' => 'high',
+                    'module_path' => $first['module_path'],
+                    'module_label' => $first['module_label'],
+                    'month' => $first['month'],
+                    'nomor' => $first['nomor'],
+                    'count' => $sortedItems->count(),
+                    'first_date' => $sortedItems->first()['tanggal'] ?? '',
+                    'last_date' => $sortedItems->last()['tanggal'] ?? '',
+                    'rows' => $sortedItems->map(function ($row) {
+                        unset($row['nomor_key'], $row['timestamp']);
+                        return $row;
+                    })->values()->all(),
+                ];
+            })
+            ->sortBy(function ($group) {
+                return strtolower((string) ($group['module_label'] ?? '')).'|'.strtolower((string) ($group['month'] ?? '')).'|'.strtolower((string) ($group['nomor'] ?? ''));
+            })
+            ->values();
+
+        $moduleSummary = $normalizedRows
+            ->groupBy('module_path')
+            ->map(function ($items, $path) use ($groups) {
+                return [
+                    'module_path' => (string) $path,
+                    'module_label' => $this->moduleLabel((string) $path),
+                    'total_rows' => $items->count(),
+                    'duplicate_groups' => $groups->where('module_path', $path)->count(),
+                    'duplicate_rows' => $groups
+                        ->where('module_path', $path)
+                        ->sum(function ($group) {
+                            return (int) ($group['count'] ?? 0);
+                        }),
+                ];
+            })
+            ->sortBy('module_label')
+            ->values()
+            ->all();
+
+        return response()->json([
+            'status' => true,
+            'message' => $groups->isEmpty()
+                ? 'Tidak ditemukan nomor ganda pada periode ini.'
+                : 'Ditemukan '.$groups->count().' kelompok nomor ganda.',
+            'data' => [
+                'month' => $date,
+                'filters' => [
+                    'module_path' => $modulePath,
+                    'search' => $search,
+                ],
+                'summary' => [
+                    'total_rows' => $normalizedRows->count(),
+                    'duplicate_groups' => $groups->count(),
+                    'duplicate_rows' => $groups->sum(function ($group) {
+                        return (int) ($group['count'] ?? 0);
+                    }),
+                ],
+                'modules' => $moduleSummary,
+                'groups' => $groups->all(),
+            ],
+        ], 200);
+    }
+
+    private function resolveDeleteTarget(string $modulePath): ?array
+    {
+        return match ($modulePath) {
+            '/buku_akta' => [
+                'table' => 'buku_notaris',
+                'id_field' => 'id_buku_notaris',
+                'children' => [
+                    ['table' => 'tb_dokumen_notaris', 'field' => 'id_buku_notaris'],
+                    ['table' => 'penghadap_notaris', 'field' => 'id_buku_notaris'],
+                ],
+            ],
+            '/buku_ppat' => [
+                'table' => 'buku_ppats',
+                'id_field' => 'id_buku_ppat',
+                'children' => [
+                    ['table' => 'tb_dokumen_ppat', 'field' => 'id_buku_ppat'],
+                    ['table' => 'penghadap_ppats', 'field' => 'id_buku_ppat'],
+                ],
+            ],
+            '/buku_legalisasi' => [
+                'table' => 'buku_legalisasis',
+                'id_field' => 'id_buku_legalisasi',
+                'children' => [
+                    ['table' => 'tb_dokumen_legalisasis', 'field' => 'id_buku_legalisasi'],
+                    ['table' => 'penghadap_legalisasis', 'field' => 'id_buku_legalisasi'],
+                ],
+            ],
+            '/buku_waarmerking' => [
+                'table' => 'buku_warmerkings',
+                'id_field' => 'id_buku_warmerking',
+                'children' => [
+                    ['table' => 'tb_dokumen_warmerkings', 'field' => 'id_buku_warmerking'],
+                    ['table' => 'penghadap_warmerkings', 'field' => 'id_buku_warmerking'],
+                ],
+            ],
+            '/buku_surat_notaris' => [
+                'table' => 'buku_surat_notaris',
+                'id_field' => 'id_surat_notaris',
+                'children' => [],
+            ],
+            '/buku_surat_ppat' => [
+                'table' => 'buku_surat_ppats',
+                'id_field' => 'id_surat_ppat',
+                'children' => [],
+            ],
+            '/tanda_terima', '/tanda_terima_masuk' => [
+                'table' => 'tanda_terima',
+                'id_field' => 'id',
+                'children' => [
+                    ['table' => 'isi_diterima', 'field' => 'tanda_terima_id'],
+                ],
+            ],
+            default => null,
+        };
+    }
+
+    private function serializeRecordRow(object $row): array
+    {
+        return collect((array) $row)
+            ->map(function ($value) {
+                if ($value instanceof \DateTimeInterface) {
+                    return $value->format('Y-m-d H:i:s');
+                }
+
+                return $value;
+            })
+            ->all();
+    }
+
+    public function showNumberAnomalyRecord(Request $request)
+    {
+        $guard = $this->denyIfNotAdmin($request);
+        if ($guard) {
+            return $guard;
+        }
+
+        $validated = $request->validate([
+            'module_path' => ['required', 'string'],
+            'record_id' => ['required', 'string'],
+        ]);
+
+        $modulePath = trim((string) $validated['module_path']);
+        $recordId = trim((string) $validated['record_id']);
+        $target = $this->resolveDeleteTarget($modulePath);
+
+        if (!$target) {
+            return response()->json([
+                'status' => false,
+                'message' => 'module_path tidak didukung untuk edit anomali.',
+                'data' => [],
+            ], 422);
+        }
+
+        $row = DB::table($target['table'])
+            ->where($target['id_field'], $recordId)
+            ->first();
+
+        if (!$row) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data anomali tidak ditemukan.',
+                'data' => [],
+            ], 404);
+        }
+
+        $columns = Schema::getColumnListing($target['table']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Berhasil memuat detail data anomali.',
+            'data' => [
+                'module_path' => $modulePath,
+                'module_label' => $this->moduleLabel($modulePath),
+                'record_id' => $recordId,
+                'table' => $target['table'],
+                'id_field' => $target['id_field'],
+                'columns' => $columns,
+                'editable_columns' => collect($columns)->reject(fn ($column) => $column === $target['id_field'])->values()->all(),
+                'record' => $this->serializeRecordRow($row),
+            ],
+        ], 200);
+    }
+
+    public function updateNumberAnomalyRecord(Request $request)
+    {
+        $guard = $this->denyIfNotAdmin($request);
+        if ($guard) {
+            return $guard;
+        }
+
+        $validated = $request->validate([
+            'module_path' => ['required', 'string'],
+            'record_id' => ['required', 'string'],
+            'fields' => ['required', 'array'],
+        ]);
+
+        $modulePath = trim((string) $validated['module_path']);
+        $recordId = trim((string) $validated['record_id']);
+        $target = $this->resolveDeleteTarget($modulePath);
+
+        if (!$target) {
+            return response()->json([
+                'status' => false,
+                'message' => 'module_path tidak didukung untuk edit anomali.',
+                'data' => [],
+            ], 422);
+        }
+
+        $columns = collect(Schema::getColumnListing($target['table']));
+        $allowedColumns = $columns
+            ->reject(fn ($column) => $column === $target['id_field'])
+            ->values();
+
+        $payload = collect((array) $validated['fields'])
+            ->only($allowedColumns->all())
+            ->reject(fn ($value, $column) => $column === $target['id_field'])
+            ->all();
+
+        if (empty($payload)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tidak ada field yang bisa disimpan.',
+                'data' => [],
+            ], 422);
+        }
+
+        $updatedRecord = DB::transaction(function () use ($target, $recordId, $payload) {
+            $exists = DB::table($target['table'])
+                ->where($target['id_field'], $recordId)
+                ->exists();
+
+            if (!$exists) {
+                return null;
+            }
+
+            DB::table($target['table'])
+                ->where($target['id_field'], $recordId)
+                ->update($payload);
+
+            return DB::table($target['table'])
+                ->where($target['id_field'], $recordId)
+                ->first();
+        });
+
+        if (!$updatedRecord) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data anomali tidak ditemukan atau sudah terhapus.',
+                'data' => [],
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data anomali berhasil diperbarui.',
+            'data' => [
+                'module_path' => $modulePath,
+                'module_label' => $this->moduleLabel($modulePath),
+                'record_id' => $recordId,
+                'table' => $target['table'],
+                'id_field' => $target['id_field'],
+                'columns' => $columns->all(),
+                'editable_columns' => $allowedColumns->all(),
+                'record' => $this->serializeRecordRow($updatedRecord),
+            ],
+        ], 200);
+    }
+
+    public function deleteNumberAnomaly(Request $request)
+    {
+        $guard = $this->denyIfNotAdmin($request);
+        if ($guard) {
+            return $guard;
+        }
+
+        $validated = $request->validate([
+            'module_path' => ['required', 'string'],
+            'record_id' => ['required', 'string'],
+        ]);
+
+        $modulePath = trim((string) $validated['module_path']);
+        $recordId = trim((string) $validated['record_id']);
+        $target = $this->resolveDeleteTarget($modulePath);
+
+        if (!$target) {
+            return response()->json([
+                'status' => false,
+                'message' => 'module_path tidak didukung untuk hapus anomali.',
+                'data' => [],
+            ], 422);
+        }
+
+        $deleted = DB::transaction(function () use ($target, $recordId) {
+            $row = DB::table($target['table'])
+                ->where($target['id_field'], $recordId)
+                ->first();
+
+            if (!$row) {
+                return false;
+            }
+
+            foreach ($target['children'] as $child) {
+                DB::table($child['table'])
+                    ->where($child['field'], $recordId)
+                    ->delete();
+            }
+
+            DB::table($target['table'])
+                ->where($target['id_field'], $recordId)
+                ->delete();
+
+            return true;
+        });
+
+        if (!$deleted) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data anomali tidak ditemukan atau sudah terhapus.',
+                'data' => [],
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data anomali berhasil dihapus.',
+            'data' => [
+                'module_path' => $modulePath,
+                'module_label' => $this->moduleLabel($modulePath),
+                'record_id' => $recordId,
+            ],
         ], 200);
     }
 

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+curl -fsS --max-time 3 http://127.0.0.1/ >/dev/null \
+  && timeout 3 bash -c "</dev/tcp/127.0.0.1/8000" \
+  && mysqladmin --defaults-extra-file=/root/.my.cnf ping --silent

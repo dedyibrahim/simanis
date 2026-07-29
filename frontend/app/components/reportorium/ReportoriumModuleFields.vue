@@ -123,7 +123,7 @@ const onSuratClientInput = (event: Event) => {
         <input v-model="notarisForm.sudah_tanda_tangan" type="checkbox" class="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-400" />
         Dokumen sudah ditandatangani
       </label>
-      <select v-if="requireAsisten" v-model="notarisForm.nama_asisten" :class="inputClass" :disabled="isEdit">
+      <select v-if="requireAsisten" v-model="notarisForm.nama_asisten" :class="inputClass">
         <option value="">{{ loadingAsisten ? 'Memuat asisten...' : 'Pilih asisten' }}</option>
         <option v-for="item in asistenOptions" :key="String(item.id_user)" :value="String(item.id_user)">{{ item.nama_lengkap || item.id_user }}</option>
       </select>

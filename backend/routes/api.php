@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\HaStatusController;
 use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\AdminReportoriumController;
@@ -10,14 +11,17 @@ use App\Http\Controllers\DocumentAccessController;
 use App\Http\Controllers\EmployeeChatController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GoogleCalendarController;
+use App\Http\Controllers\GoogleCalendarSyncController;
 use App\Http\Controllers\JadwalNotarisController;
 use App\Http\Controllers\LayananController;
 use App\Http\Controllers\Login;
 use App\Http\Controllers\Order;
 use App\Http\Controllers\PembuatanNomor;
 use App\Http\Controllers\Pencarian;
+use App\Http\Controllers\PpatRekananController;
 use App\Http\Controllers\Report;
 use App\Http\Controllers\ReportSettingController;
+use App\Http\Controllers\ScannedDocumentController;
 use App\Http\Controllers\TandaTerimaController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PeminjamanMinutaController;
@@ -76,12 +80,24 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 });
 
 Route::get('/get-user-schedule', [EventController::class, 'getScheduleForChatbot']);
+Route::get('/public/events', [EventController::class, 'publicIndex']);
+Route::get('/public/scan/assistants', [ScannedDocumentController::class, 'publicAssistants']);
+Route::post('/public/scan/sessions', [ScannedDocumentController::class, 'createPublicSession']);
+Route::get('/public/scan/sessions/latest-waiting', [ScannedDocumentController::class, 'latestWaitingSession']);
+Route::get('/public/scan/sessions/{token}', [ScannedDocumentController::class, 'showPublicSession']);
+Route::get('/public/scan/sessions/{token}/documents', [ScannedDocumentController::class, 'publicSessionDocuments']);
+Route::post('/public/scan/upload', [ScannedDocumentController::class, 'uploadFromAgent']);
+Route::get('/public/scan/posting-targets', [ScannedDocumentController::class, 'publicSearchPostingTargets']);
+Route::get('/public/scan/documents/{id}/download', [ScannedDocumentController::class, 'publicDownload']);
+Route::post('/public/scan/documents/{id}/post', [ScannedDocumentController::class, 'publicPostToModule']);
 Route::get('/chatbot-assistants', [EventController::class, 'getAssistantsForChatbot']);
 Route::post('/create-event-from-chat', [EventController::class, 'createEventFromChatbot']);
 Route::post('/delete-event-from-chat', [EventController::class, 'deleteEventFromChatbot']);
 Route::get('/chatbot-search-client', [ClientController::class, 'searchForChatbot']);
+Route::post('/chatbot/clients/confirm-ktp-ocr', [ClientController::class, 'confirmKtpOcrFromChatbot']);
 Route::post('/document-access/decision-from-chat', [DocumentAccessController::class, 'decideFromChatbot']);
 Route::get('/chatbot-reportorium-monthly', [AdminReportoriumController::class, 'monthlyReportForChatbot']);
+Route::get('/internal/ha-status', [HaStatusController::class, 'internal']);
 
 
 //Route::get('/data-user', [UserController::class, 'DataUser']);
@@ -104,6 +120,21 @@ Route::group(['prefix' => 'auth/user', 'middleware' => 'auth:sanctum'], function
 
 Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::get('/getDashboard', [DashboardController::class, 'getDashboard']);
+    Route::get('/ha-status', [HaStatusController::class, 'show']);
+    Route::get('/ha-whatsapp', [HaStatusController::class, 'whatsapp']);
+    Route::put('/ha-whatsapp/settings', [HaStatusController::class, 'updateWhatsappSettings']);
+    Route::post('/ha-whatsapp/webhook/sync', [HaStatusController::class, 'syncWhatsappWebhook']);
+    Route::post('/ha-whatsapp/start', [HaStatusController::class, 'startWhatsapp']);
+    Route::post('/ha-whatsapp/stop', [HaStatusController::class, 'stopWhatsapp']);
+    Route::get('/ha-ktp-ocr', [HaStatusController::class, 'ktpOcr']);
+    Route::put('/ha-ktp-ocr/settings', [HaStatusController::class, 'updateKtpOcrSettings']);
+    Route::post('/ha-ktp-ocr/start', [HaStatusController::class, 'startKtpOcr']);
+    Route::post('/ha-ktp-ocr/stop', [HaStatusController::class, 'stopKtpOcr']);
+    Route::post('/ha-ktp-ocr/restart', [HaStatusController::class, 'restartKtpOcr']);
+    Route::get('/google-calendar/status', [GoogleCalendarSyncController::class, 'show']);
+    Route::put('/google-calendar/settings', [GoogleCalendarSyncController::class, 'update']);
+    Route::post('/google-calendar/sync', [GoogleCalendarSyncController::class, 'sync']);
+    Route::post('/google-calendar/clear-errors', [GoogleCalendarSyncController::class, 'clearErrors']);
     Route::get('/report-settings', [ReportSettingController::class, 'show']);
     Route::put('/report-settings', [ReportSettingController::class, 'update']);
     Route::post('/report-settings/logo', [ReportSettingController::class, 'uploadLogo']);
@@ -118,14 +149,20 @@ Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::get('/getDaftarAsisten', [DashboardController::class, 'getDaftarAsisten']);
 
     Route::post('/SimpanNomorNotaris', [PembuatanNomor::class, 'SimpanNomorNotaris']);
+    Route::post('/PreviewAktaNotarisMassal', [PembuatanNomor::class, 'PreviewAktaNotarisMassal']);
+    Route::post('/SimpanAktaNotarisMassal', [PembuatanNomor::class, 'SimpanAktaNotarisMassal']);
     Route::post('/DeleteNomorNotaris', [PembuatanNomor::class, 'DeleteNomorNotaris']);
     Route::post('/SimpanNomorNotarisLama', [PembuatanNomor::class, 'SimpanNomorNotarisLama']);
     Route::post('/SimpanNomorPPAT', [PembuatanNomor::class, 'SimpanNomorPPAT']);
     Route::post('/DeleteNomorPPAT', [PembuatanNomor::class, 'DeleteNomorPPAT']);
     Route::post('/SimpanNomorLegalisasi', [PembuatanNomor::class, 'SimpanNomorLegalisasi']);
+    Route::post('/DeleteNomorLegalisasi', [PembuatanNomor::class, 'DeleteNomorLegalisasi']);
     Route::post('/SimpanNomorWarmerking', [PembuatanNomor::class, 'SimpanNomorWarmerking']);
+    Route::post('/DeleteNomorWarmerking', [PembuatanNomor::class, 'DeleteNomorWarmerking']);
     Route::post('/SimpanNomorSuratNotaris', [PembuatanNomor::class, 'SimpanNomorSuratNotaris']);
     Route::post('/SimpanNomorSuratPPAT', [PembuatanNomor::class, 'SimpanNomorSuratPPAT']);
+    Route::post('/DeleteNomorSuratNotaris', [PembuatanNomor::class, 'DeleteNomorSuratNotaris']);
+    Route::post('/DeleteNomorSuratPPAT', [PembuatanNomor::class, 'DeleteNomorSuratPPAT']);
     Route::post('/SimpanPesanan', [PembuatanNomor::class, 'SimpanPesanan']);
 
     Route::post('/SimpanNomorInvoiceTax', [PembuatanNomor::class, 'SimpanNomorInvoiceTax']);
@@ -161,7 +198,22 @@ Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::post('/UploadExcelLegalisasi', [PembuatanNomor::class, 'UploadExcelLegalisasi']);
     Route::post('/UploadExcelPPAT', [PembuatanNomor::class, 'UploadExcelPPAT']);
 
+    Route::prefix('ppat-rekanan')->group(function () {
+        Route::get('/master', [PpatRekananController::class, 'master']);
+        Route::post('/master', [PpatRekananController::class, 'storeMaster']);
+        Route::put('/master/{id}', [PpatRekananController::class, 'updateMaster']);
+        Route::delete('/master/{id}', [PpatRekananController::class, 'destroyMaster']);
+        Route::get('/keluar', [PpatRekananController::class, 'keluar']);
+        Route::post('/keluar/mark', [PpatRekananController::class, 'markKeluar']);
+        Route::post('/keluar/unmark', [PpatRekananController::class, 'unmarkKeluar']);
+        Route::get('/kedalam', [PpatRekananController::class, 'kedalam']);
+        Route::post('/kedalam', [PpatRekananController::class, 'storeKedalam']);
+        Route::put('/kedalam/{id}', [PpatRekananController::class, 'updateKedalam']);
+        Route::delete('/kedalam/{id}', [PpatRekananController::class, 'destroyKedalam']);
+    });
+
     Route::post('/getDataClient', [ClientController::class, 'getDataClient']);
+    Route::post('/checkClientIdentity', [ClientController::class, 'checkClientIdentity']);
     Route::post('/SimpanClientBaru', [ClientController::class, 'SimpanClientBaru']);
 
     Route::post('/UploadDokumenNotaris', [DokumenNotaris::class, 'UploadDokumenNotaris']);
@@ -222,6 +274,10 @@ Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
 
     Route::prefix('admin-work')->group(function () {
         Route::get('/reportorium-jobs', [AdminReportoriumController::class, 'reportoriumJobs']);
+        Route::get('/number-anomalies', [AdminReportoriumController::class, 'numberAnomalies']);
+        Route::get('/number-anomalies/record', [AdminReportoriumController::class, 'showNumberAnomalyRecord']);
+        Route::put('/number-anomalies/record', [AdminReportoriumController::class, 'updateNumberAnomalyRecord']);
+        Route::delete('/number-anomalies', [AdminReportoriumController::class, 'deleteNumberAnomaly']);
         Route::get('/asisten', [AdminReportoriumController::class, 'asisten']);
         Route::post('/reassign', [AdminReportoriumController::class, 'reassign']);
     });
@@ -229,8 +285,18 @@ Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::prefix('document-access')->group(function () {
         Route::post('/request-download', [DocumentAccessController::class, 'requestDownload']);
         Route::get('/requests', [DocumentAccessController::class, 'listRequests']);
+        Route::post('/requests/bulk-decision', [DocumentAccessController::class, 'decideBulk']);
         Route::post('/requests/{id}/decision', [DocumentAccessController::class, 'decide']);
+        Route::get('/download-bulk', [DocumentAccessController::class, 'downloadBulk']);
         Route::get('/download/{id}', [DocumentAccessController::class, 'download']);
+    });
+
+    Route::prefix('scanned-documents')->group(function () {
+        Route::get('/', [ScannedDocumentController::class, 'index']);
+        Route::get('/posting-targets', [ScannedDocumentController::class, 'searchPostingTargets']);
+        Route::post('/{id}/post', [ScannedDocumentController::class, 'postToModule']);
+        Route::get('/{id}/download', [ScannedDocumentController::class, 'download']);
+        Route::delete('/{id}', [ScannedDocumentController::class, 'destroy']);
     });
 
 

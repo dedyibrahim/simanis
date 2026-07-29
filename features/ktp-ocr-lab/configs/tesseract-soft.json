@@ -1,0 +1,24 @@
+{
+  "name": "tesseract-soft",
+  "description": "Preset Tesseract lembut untuk foto KTP berwarna yang teksnya sudah kontras.",
+  "preprocessing": {
+    "resize_scale": 2.5,
+    "grayscale": true,
+    "denoise": false,
+    "sharpen": true,
+    "contrast": "none",
+    "threshold": "none",
+    "deskew": false
+  },
+  "ocr": {
+    "engine": "tesseract",
+    "language": "eng",
+    "psm": 6,
+    "oem": 3
+  },
+  "parser": {
+    "normalize_labels": true,
+    "strict_nik": true
+  }
+}
+

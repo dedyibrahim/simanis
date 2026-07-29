@@ -32,7 +32,7 @@
                 <div class="flex h-full flex-col bg-gradient-to-b from-white to-slate-50">
                   <div class="flex flex-shrink-0 items-start justify-between px-6 py-6">
                     <div class="flex items-center space-x-3">
-                      <div class="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 p-2 shadow-lg">
+                      <div class="simanis-brand-mark rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 p-2 shadow-lg">
                         <component :is="iconMap.folder" class="h-7 w-7 text-white" />
                       </div>
                       <div>
@@ -93,7 +93,7 @@
         >
           <div class="flex flex-shrink-0 items-center px-8 py-10">
             <div class="flex items-center space-x-3">
-              <div class="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-2.5 shadow-xl shadow-blue-200">
+              <div class="simanis-brand-mark rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-2.5 shadow-xl shadow-blue-200">
                 <component :is="iconMap.folder" class="h-8 w-8 text-white" />
               </div>
               <div>
@@ -186,6 +186,72 @@
               <SunIcon v-if="isDark" class="h-5 w-5" />
               <MoonIcon v-else class="h-5 w-5" />
             </button>
+
+            <Menu as="div" class="relative">
+              <MenuButton
+                class="group inline-flex h-11 items-center gap-2 rounded-xl border px-2.5 text-sm font-bold transition-all"
+                :class="isDark ? 'border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                title="Pilih tema warna"
+              >
+                <span
+                  class="h-6 w-6 rounded-lg shadow-sm ring-2 ring-white transition-transform group-hover:scale-105"
+                  :style="{ background: activeAccentTheme.swatch }"
+                />
+                <SwatchIcon class="h-5 w-5" />
+              </MenuButton>
+
+              <transition
+                enter-active-class="transition duration-100 ease-out"
+                enter-from-class="transform scale-95 opacity-0"
+                enter-to-class="transform scale-100 opacity-100"
+                leave-active-class="transition duration-75 ease-in"
+                leave-from-class="transform scale-100 opacity-100"
+                leave-to-class="transform scale-95 opacity-0"
+              >
+                <MenuItems class="absolute right-0 mt-3 w-80 origin-top-right overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 focus:outline-none">
+                  <div class="border-b border-slate-100 bg-slate-50 px-4 py-3">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Tema Warna</p>
+                    <p class="mt-0.5 text-xs text-slate-500">
+                      Pilih aksen dan gradasi tampilan SIMANIS.
+                    </p>
+                  </div>
+
+                  <div class="grid gap-2 p-2">
+                    <MenuItem
+                      v-for="option in accentThemeOptions"
+                      :key="option.value"
+                      v-slot="{ active }"
+                    >
+                      <button
+                        type="button"
+                        class="flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all"
+                        :class="[
+                          accentTheme === option.value
+                            ? 'border-blue-200 bg-blue-50 shadow-sm'
+                            : active
+                              ? 'border-slate-200 bg-slate-50'
+                              : 'border-transparent bg-white',
+                        ]"
+                        @click="setAccentTheme(option.value)"
+                      >
+                        <span
+                          class="h-11 w-14 flex-shrink-0 rounded-2xl shadow-inner ring-1 ring-black/10"
+                          :style="{ background: option.swatch }"
+                        />
+                        <span class="min-w-0 flex-1">
+                          <span class="block text-sm font-extrabold text-slate-900">{{ option.name }}</span>
+                          <span class="mt-0.5 block text-xs font-medium leading-5 text-slate-500">{{ option.description }}</span>
+                        </span>
+                        <span
+                          v-if="accentTheme === option.value"
+                          class="h-2.5 w-2.5 rounded-full bg-blue-600 shadow-[0_0_0_4px_rgba(37,99,235,0.12)]"
+                        />
+                      </button>
+                    </MenuItem>
+                  </div>
+                </MenuItems>
+              </transition>
+            </Menu>
 
             <Menu as="div" class="relative hidden sm:block">
               <MenuButton
@@ -398,7 +464,10 @@
         </header>
 
         <main class="flex-1 overflow-y-auto transition-colors duration-300" :class="isDark ? 'bg-slate-950/60' : 'bg-slate-50/50'">
-          <div class="mx-auto max-w-7xl px-4 py-8 sm:px-8">
+          <div
+            class="mx-auto px-4 py-8 sm:px-8"
+            :class="route.path === '/ppat-rekanan' ? 'w-full max-w-none' : 'max-w-7xl'"
+          >
             <slot />
           </div>
         </main>
@@ -479,12 +548,20 @@
                 >
                   <option value="global">Semua Karyawan (Chat Umum)</option>
                   <option v-for="contact in chatContacts" :key="contact.id" :value="`direct:${contact.id}`">
-                    {{ contact.nama_lengkap }} ({{ contact.level_user || '-' }})
+                    {{ chatContactOptionLabel(contact) }}
                   </option>
                 </select>
-                <p class="mt-1.5 truncate text-[10px] font-semibold text-slate-500">
-                  Mengobrol di:
-                  <span class="font-bold text-slate-700">{{ activeChatLabel }}</span>
+                <p class="mt-1.5 flex items-center justify-between gap-2 text-[10px] font-semibold text-slate-500">
+                  <span class="truncate">
+                    Mengobrol di:
+                    <span class="font-bold text-slate-700">{{ activeChatLabel }}</span>
+                  </span>
+                  <span
+                    class="shrink-0 rounded-full px-2 py-0.5 font-extrabold"
+                    :class="presenceConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'"
+                  >
+                    {{ presenceConnected ? `${onlineContactsCount} online` : 'offline' }}
+                  </span>
                 </p>
               </div>
 
@@ -638,7 +715,7 @@
           </transition>
 
           <button
-            class="group relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.5rem] bg-gradient-to-tr from-blue-600 to-indigo-700 text-white shadow-2xl shadow-blue-300 transition-all hover:scale-110 active:scale-95"
+            class="simanis-brand-mark group relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.5rem] bg-gradient-to-tr from-blue-600 to-indigo-700 text-white shadow-2xl shadow-blue-300 transition-all hover:scale-110 active:scale-95"
             @click="toggleChat"
           >
             <div class="absolute inset-0 translate-y-full bg-white/20 transition-transform duration-300 group-hover:translate-y-0"></div>
@@ -688,6 +765,7 @@ import {
   PaperClipIcon,
   PaperAirplaneIcon,
   RectangleStackIcon,
+  SwatchIcon,
   SunIcon,
   UserCircleIcon,
   XMarkIcon,
@@ -777,6 +855,20 @@ type ChatToast = {
   senderId?: number
 }
 
+type PresenceUser = {
+  id_user?: string | number
+  nama_lengkap?: string
+  level_user?: string
+  connections?: number
+  last_seen_at?: string
+}
+
+type PresencePayload = {
+  type?: string
+  users?: PresenceUser[]
+  online_id_users?: Array<string | number>
+}
+
 type DownloadRequestRow = {
   id?: number
   module_path?: string
@@ -800,7 +892,7 @@ const sectionIcons: Record<string, Component> = {
 const route = useRoute()
 const { user, clearSession } = useSession()
 const business = useLegacyBusiness()
-const { isDark, toggleTheme } = useThemeMode()
+const { activeAccentTheme, accentTheme, accentThemeOptions, isDark, setAccentTheme, toggleTheme } = useThemeMode()
 
 const DESKTOP_SIDEBAR_STORAGE_KEY = 'simanis.desktop-sidebar-open'
 const sidebarOpen = ref(false)
@@ -823,8 +915,13 @@ const chatMessages = ref<ChatRecord[]>([])
 const selectedAttachment = ref<File | null>(null)
 const showEmojiPicker = ref(false)
 const currentAuthUserId = ref<number | null>(null)
+const presenceConnected = ref(false)
+const onlineChatIdUsers = ref<Set<string>>(new Set())
 let chatPollingTimer: ReturnType<typeof setInterval> | null = null
 let downloadPollingTimer: ReturnType<typeof setInterval> | null = null
+let presenceSocket: WebSocket | null = null
+let presenceReconnectTimer: ReturnType<typeof setTimeout> | null = null
+let presenceHeartbeatTimer: ReturnType<typeof setInterval> | null = null
 const unreadLoading = ref(false)
 const unreadError = ref('')
 const unreadSummary = ref<ChatUnreadSummary>({
@@ -885,6 +982,7 @@ const selectedChatValue = computed(() =>
 )
 const hasChatTarget = computed(() => isGlobalChat.value || Boolean(selectedChatUserId.value))
 const activeChatLabel = computed(() => (isGlobalChat.value ? 'Semua Karyawan' : selectedChatContactName.value))
+const onlineContactsCount = computed(() => chatContacts.value.filter(contact => isChatContactOnline(contact)).length)
 
 const unreadTotal = computed(() => Number(unreadSummary.value.total_unread || 0))
 const unreadConversations = computed(() =>
@@ -925,7 +1023,14 @@ const canSendChat = computed(() =>
   ),
 )
 
-const isActive = (path: string) => route.path === path
+const normalizePathOnly = (path: string) => String(path || '').split('?')[0] || path
+const isActive = (path: string) => {
+  const target = String(path || '')
+  if (target.includes('?')) {
+    return route.fullPath === target
+  }
+  return route.path === normalizePathOnly(target)
+}
 const isGroupActive = (group: NavigationGroup) => group.children.some(child => isActive(child.href))
 
 const submitTopbarSearch = async () => {
@@ -968,6 +1073,19 @@ const toData = <T>(payload: unknown, fallback: T): T => {
 const toNumber = (value: unknown): number | null => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+const normalizePresenceId = (value: unknown) => String(value ?? '').trim()
+
+const isChatContactOnline = (contact: ChatContact) => {
+  const legacyId = normalizePresenceId(contact.id_user)
+  return Boolean(legacyId && onlineChatIdUsers.value.has(legacyId))
+}
+
+const chatContactOptionLabel = (contact: ChatContact) => {
+  const name = String(contact.nama_lengkap || 'Karyawan').trim()
+  const role = String(contact.level_user || '-').trim()
+  return `${isChatContactOnline(contact) ? 'Online - ' : ''}${name} (${role})`
 }
 
 const unreadPreview = (conversation: ChatUnreadConversation) => {
@@ -1275,6 +1393,114 @@ const startDownloadPolling = () => {
   }, 9000)
 }
 
+const presenceWsUrl = () => {
+  if (!import.meta.client) return ''
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.hostname || '127.0.0.1'}:8789`
+}
+
+const sendPresenceHello = () => {
+  if (!presenceSocket || presenceSocket.readyState !== WebSocket.OPEN || !user.value) return
+
+  presenceSocket.send(JSON.stringify({
+    type: 'hello',
+    user: {
+      id_user: user.value.id_user,
+      nama_lengkap: user.value.name || user.value.email,
+      level_user: user.value.level_user,
+    },
+  }))
+}
+
+const stopPresenceSocket = () => {
+  if (presenceReconnectTimer) {
+    clearTimeout(presenceReconnectTimer)
+    presenceReconnectTimer = null
+  }
+  if (presenceHeartbeatTimer) {
+    clearInterval(presenceHeartbeatTimer)
+    presenceHeartbeatTimer = null
+  }
+  if (presenceSocket) {
+    presenceSocket.onopen = null
+    presenceSocket.onmessage = null
+    presenceSocket.onclose = null
+    presenceSocket.onerror = null
+    try {
+      presenceSocket.close()
+    } catch {
+      // Abaikan koneksi yang sudah tertutup.
+    }
+    presenceSocket = null
+  }
+  presenceConnected.value = false
+  onlineChatIdUsers.value = new Set()
+}
+
+const schedulePresenceReconnect = () => {
+  if (!import.meta.client || !user.value || presenceReconnectTimer) return
+  presenceReconnectTimer = setTimeout(() => {
+    presenceReconnectTimer = null
+    connectPresenceSocket()
+  }, 3000)
+}
+
+const handlePresenceMessage = (event: MessageEvent) => {
+  let payload: PresencePayload
+  try {
+    payload = JSON.parse(String(event.data || '{}')) as PresencePayload
+  } catch {
+    return
+  }
+
+  if (payload.type !== 'presence') return
+
+  const ids = Array.isArray(payload.online_id_users)
+    ? payload.online_id_users
+    : (payload.users || []).map(item => item.id_user)
+
+  onlineChatIdUsers.value = new Set(ids.map(normalizePresenceId).filter(Boolean))
+}
+
+function connectPresenceSocket() {
+  if (!import.meta.client || !user.value || presenceSocket) return
+
+  try {
+    presenceSocket = new WebSocket(presenceWsUrl())
+  } catch {
+    schedulePresenceReconnect()
+    return
+  }
+
+  presenceSocket.onopen = () => {
+    presenceConnected.value = true
+    sendPresenceHello()
+    if (presenceHeartbeatTimer) {
+      clearInterval(presenceHeartbeatTimer)
+    }
+    presenceHeartbeatTimer = setInterval(() => {
+      if (presenceSocket?.readyState === WebSocket.OPEN) {
+        presenceSocket.send(JSON.stringify({ type: 'heartbeat' }))
+      }
+    }, 25000)
+  }
+
+  presenceSocket.onmessage = handlePresenceMessage
+  presenceSocket.onerror = () => {
+    presenceConnected.value = false
+  }
+  presenceSocket.onclose = () => {
+    presenceSocket = null
+    presenceConnected.value = false
+    onlineChatIdUsers.value = new Set()
+    if (presenceHeartbeatTimer) {
+      clearInterval(presenceHeartbeatTimer)
+      presenceHeartbeatTimer = null
+    }
+    schedulePresenceReconnect()
+  }
+}
+
 const toggleChat = () => {
   showChatBalloon.value = !showChatBalloon.value
 
@@ -1504,6 +1730,16 @@ watch(
   },
 )
 
+watch(
+  () => user.value?.id_user,
+  (idUser) => {
+    stopPresenceSocket()
+    if (idUser) {
+      connectPresenceSocket()
+    }
+  },
+)
+
 watch(selectedChatUserId, () => {
   if (showChatBalloon.value && hasChatTarget.value) {
     void loadChatMessages()
@@ -1542,6 +1778,7 @@ onMounted(() => {
     syncBaseDocumentTitle()
     void ensureNotificationPermission()
     window.addEventListener('simanis:download-request-created', onDownloadRequestCreated as EventListener)
+    connectPresenceSocket()
   }
   void loadAllNotifications()
   startDownloadPolling()
@@ -1554,5 +1791,6 @@ onBeforeUnmount(() => {
   }
   stopChatPolling()
   stopDownloadPolling()
+  stopPresenceSocket()
 })
 </script>

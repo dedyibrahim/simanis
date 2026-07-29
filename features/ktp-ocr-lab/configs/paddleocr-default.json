@@ -1,0 +1,22 @@
+{
+  "name": "paddleocr-default",
+  "description": "Preset awal untuk PaddleOCR dengan preprocessing moderat.",
+  "preprocessing": {
+    "resize_scale": 2.0,
+    "grayscale": true,
+    "denoise": true,
+    "sharpen": true,
+    "contrast": "clahe",
+    "threshold": "none",
+    "deskew": true
+  },
+  "ocr": {
+    "engine": "paddleocr",
+    "language": "id"
+  },
+  "parser": {
+    "normalize_labels": true,
+    "strict_nik": true
+  }
+}
+

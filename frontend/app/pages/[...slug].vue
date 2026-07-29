@@ -50,6 +50,19 @@ type AssistantOption = {
   id_user?: string | number
   nama_lengkap?: string
 }
+type AktaMassalPreview = {
+  period?: string
+  tanggal_akta?: string
+  judul_pekerjaan?: string
+  jumlah?: number
+  nomor_terakhir?: number
+  nomor_mulai?: number
+  nomor_selesai?: number
+  duplicate_numbers?: number[]
+  can_save?: boolean
+  preview_rows?: Array<{ no_akta: number, tgl_akta: string, judul_pekerjaan: string }>
+  rows?: Array<{ no_akta: number, tgl_akta: string, judul_pekerjaan: string }>
+}
 definePageMeta({
   middleware: 'auth',
 })
@@ -233,6 +246,8 @@ const hasSearchFilter = computed(() => moduleEntry.value?.path === '/pencarian-d
 const isSuperAdmin = computed(() => currentUserRole.value === 'super admin' || currentUserRole.value === 'superadmin')
 const isAdmin = computed(() => currentUserRole.value === 'admin')
 const canManageReportSettings = computed(() => isSuperAdmin.value || isAdmin.value)
+const isBukuAktaModule = computed(() => moduleEntry.value?.path === '/buku_akta')
+const canCreateAktaMassal = computed(() => isBukuAktaModule.value && isSuperAdmin.value)
 const isRestrictedSettingsPage = computed(() =>
   moduleEntry.value?.path === '/pages/report-settings' && !canManageReportSettings.value,
 )
@@ -244,8 +259,21 @@ const masterPage = ref(1)
 const masterPerPage = ref(10)
 const masterPerPageOptions = [10, 20, 50]
 const hasReportoriumSearch = computed(() => {
-  const path = moduleEntry.value?.path || ''
-  return path === '/tanda_terima' || path === '/tanda_terima_masuk'
+  return isReportoriumModule.value
+})
+const aktaMassalDialogOpen = ref(false)
+const aktaMassalSubmitting = ref(false)
+const aktaMassalPreviewing = ref(false)
+const aktaMassalError = ref('')
+const aktaMassalMessage = ref('')
+const aktaMassalPreview = ref<AktaMassalPreview | null>(null)
+const aktaMassalForm = reactive({
+  period: monthFilter.value,
+  tanggal_akta: `${monthFilter.value}-01`,
+  judul_pekerjaan: 'Akta Lampau',
+  jumlah: 1,
+  nomor_mulai: '',
+  gunakan_nomor_di_judul: true,
 })
 
 const accountRows = computed(() => rows.value as UserRow[])
@@ -1128,6 +1156,23 @@ const unwrapPayload = (payload: unknown) => {
   return payload
 }
 
+const toMessage = (payload: unknown, fallback: string): string => {
+  if (payload && typeof payload === 'object' && 'message' in payload) {
+    const msg = String((payload as ApiEnvelope).message || '').trim()
+    if (msg) return msg
+  }
+
+  return fallback
+}
+
+const toData = <T>(payload: unknown): T => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return ((payload as ApiEnvelope<T>).data || {}) as T
+  }
+
+  return (payload || {}) as T
+}
+
 const toRows = (payload: unknown): Array<Record<string, unknown>> => {
   if (Array.isArray(payload)) {
     return payload.map(item =>
@@ -1246,6 +1291,87 @@ const onReportoriumSaved = async (message?: string) => {
   await loadModuleData()
 }
 
+const resetAktaMassalState = () => {
+  aktaMassalError.value = ''
+  aktaMassalMessage.value = ''
+  aktaMassalPreview.value = null
+}
+
+const openAktaMassalDialog = () => {
+  resetAktaMassalState()
+  aktaMassalForm.period = monthFilter.value
+  aktaMassalForm.tanggal_akta = `${monthFilter.value}-01`
+  if (!aktaMassalForm.judul_pekerjaan.trim()) {
+    aktaMassalForm.judul_pekerjaan = 'Akta Lampau'
+  }
+  aktaMassalDialogOpen.value = true
+}
+
+const closeAktaMassalDialog = () => {
+  if (aktaMassalSubmitting.value || aktaMassalPreviewing.value) {
+    return
+  }
+  aktaMassalDialogOpen.value = false
+}
+
+const aktaMassalPayload = () => ({
+  period: aktaMassalForm.period,
+  tanggal_akta: aktaMassalForm.tanggal_akta,
+  judul_pekerjaan: aktaMassalForm.judul_pekerjaan,
+  jumlah: Number(aktaMassalForm.jumlah || 0),
+  nomor_mulai: aktaMassalForm.nomor_mulai ? Number(aktaMassalForm.nomor_mulai) : undefined,
+  gunakan_nomor_di_judul: Boolean(aktaMassalForm.gunakan_nomor_di_judul),
+})
+
+const previewAktaMassal = async () => {
+  resetAktaMassalState()
+  if (!aktaMassalForm.tanggal_akta.startsWith(aktaMassalForm.period)) {
+    aktaMassalError.value = 'Tanggal akta harus berada di bulan periode yang dipilih.'
+    return
+  }
+
+  aktaMassalPreviewing.value = true
+  try {
+    const response = await business.bukuNotaris.PreviewAktaNotarisMassal(aktaMassalPayload()) as ApiEnvelope<AktaMassalPreview>
+    aktaMassalPreview.value = toData<AktaMassalPreview>(response)
+    aktaMassalMessage.value = toMessage(response, 'Preview akta massal berhasil dibuat.')
+  } catch (error) {
+    aktaMassalPreview.value = null
+    aktaMassalError.value = (error as { data?: { message?: string } })?.data?.message || 'Gagal membuat preview akta massal.'
+  } finally {
+    aktaMassalPreviewing.value = false
+  }
+}
+
+const saveAktaMassal = async () => {
+  aktaMassalError.value = ''
+  aktaMassalMessage.value = ''
+  if (!aktaMassalPreview.value?.can_save) {
+    aktaMassalError.value = 'Preview belum aman untuk disimpan. Jalankan preview dan pastikan tidak ada duplikat.'
+    return
+  }
+
+  const confirmed = window.confirm(
+    `Simpan ${aktaMassalPreview.value.jumlah || aktaMassalForm.jumlah} akta massal nomor ${aktaMassalPreview.value.nomor_mulai} - ${aktaMassalPreview.value.nomor_selesai}?`,
+  )
+  if (!confirmed) {
+    return
+  }
+
+  aktaMassalSubmitting.value = true
+  try {
+    const response = await business.bukuNotaris.SimpanAktaNotarisMassal(aktaMassalPayload()) as ApiEnvelope<AktaMassalPreview>
+    aktaMassalMessage.value = toMessage(response, 'Akta massal berhasil dibuat.')
+    responseMessage.value = aktaMassalMessage.value
+    aktaMassalDialogOpen.value = false
+    await loadModuleData()
+  } catch (error) {
+    aktaMassalError.value = (error as { data?: { message?: string } })?.data?.message || 'Gagal menyimpan akta massal.'
+  } finally {
+    aktaMassalSubmitting.value = false
+  }
+}
+
 const reportUrl = computed(() => {
   switch (moduleEntry.value?.path) {
     case '/buku_akta':
@@ -1301,15 +1427,12 @@ const reportoriumColumnsMap: Record<string, ReportoriumColumn[]> = {
     { key: 'no_surat', label: 'No Surat' },
     { key: 'nama_lengkap', label: 'Pengirim' },
     { key: 'nama_client', label: 'Tujuan' },
-    { key: 'keterangan', label: 'Keterangan' },
     { key: 'created_at', label: 'Tanggal Dibuat' },
   ],
   '/buku_surat_ppat': [
-    { key: 'id_surat_ppat', label: 'ID Buku' },
     { key: 'no_surat', label: 'No Surat' },
     { key: 'nama_lengkap', label: 'Pengirim' },
     { key: 'nama_client', label: 'Tujuan' },
-    { key: 'keterangan', label: 'Keterangan' },
     { key: 'created_at', label: 'Tanggal Dibuat' },
   ],
   '/tanda_terima': [
@@ -1330,13 +1453,13 @@ const reportoriumColumnsMap: Record<string, ReportoriumColumn[]> = {
 
 const reportoriumActionMap: Record<string, ReportoriumAction[]> = {
   '/buku_akta': ['expand', 'edit', 'upload', 'delete'],
-  '/buku_legalisasi': ['expand', 'edit', 'upload'],
-  '/buku_waarmerking': ['expand', 'edit', 'upload'],
+  '/buku_legalisasi': ['expand', 'edit', 'upload', 'delete'],
+  '/buku_waarmerking': ['expand', 'edit', 'upload', 'delete'],
   '/buku_ppat': ['expand', 'edit', 'upload', 'delete'],
-  '/buku_surat_notaris': ['expand', 'edit'],
-  '/buku_surat_ppat': ['expand', 'edit'],
-  '/tanda_terima': ['expand', 'edit', 'print'],
-  '/tanda_terima_masuk': ['expand', 'edit', 'print'],
+  '/buku_surat_notaris': ['edit', 'delete'],
+  '/buku_surat_ppat': ['edit', 'delete'],
+  '/tanda_terima': ['expand', 'edit', 'delete', 'print'],
+  '/tanda_terima_masuk': ['expand', 'edit', 'delete', 'print'],
 }
 
 const reportoriumColumns = computed(() => reportoriumColumnsMap[moduleEntry.value?.path || ''] || [])
@@ -1362,12 +1485,22 @@ const rowIdentity = (row: RowRecord, index: number) =>
     || row.id_buku_ppat
     || row.id_surat_notaris
     || row.id_surat_ppat
+    || row.id_buku_surat_notaris
+    || row.id_buku_surat_ppat
     || row.no_akta
     || row.no_order
     || index,
   )
 
 const reportoriumRowKey = (row: RowRecord, index: number) => `rp-${rowIdentity(row, index)}`
+
+const highlightedReportoriumRecordId = computed(() => String(route.query.record_id || '').trim())
+
+const isHighlightedReportoriumRow = (row: RowRecord, index: number) =>
+  Boolean(highlightedReportoriumRecordId.value && rowIdentity(row, index) === highlightedReportoriumRecordId.value)
+
+const isPpatRekananKeluarRow = (row: RowRecord) =>
+  moduleEntry.value?.path === '/buku_ppat' && Boolean(row.rekanan_keluar || row.ppat_rekanan_keluar_id)
 
 const toggleRowExpand = (row: RowRecord, index: number) => {
   const key = reportoriumRowKey(row, index)
@@ -1407,6 +1540,40 @@ const formatReportoriumCell = (row: RowRecord, key: string) => {
 const badgeColumns = ['no_akta', 'no_legalisasi', 'no_warmerking', 'no_surat', 'nomor_tanda_terima']
 const isBadgeColumn = (key: string) => badgeColumns.includes(key)
 
+const copyTextToClipboard = async (text: string) => {
+  if (navigator?.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textArea = document.createElement('textarea')
+  textArea.value = text
+  textArea.setAttribute('readonly', '')
+  textArea.style.position = 'fixed'
+  textArea.style.left = '-9999px'
+  document.body.appendChild(textArea)
+  textArea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textArea)
+}
+
+const copyReportoriumCell = async (row: RowRecord, key: string) => {
+  const value = formatReportoriumCell(row, key)
+  if (!value || value === '-') return
+
+  try {
+    await copyTextToClipboard(value)
+    const label = key === 'no_surat'
+      ? 'No surat'
+      : key === 'nomor_tanda_terima'
+        ? 'No tanda terima'
+        : 'Data'
+    responseMessage.value = `${label} berhasil disalin.`
+  } catch {
+    errorMessage.value = 'Gagal menyalin data.'
+  }
+}
+
 const getPenghadapRows = (row: RowRecord) => {
   const candidates = [
     row.daftarpenghadap,
@@ -1422,102 +1589,134 @@ const getPenghadapRows = (row: RowRecord) => {
 const hasAdditionalDetails = (row: RowRecord) => {
   if (getPenghadapRows(row).length > 0) return true
   if (moduleEntry.value?.path === '/buku_ppat') return true
-  if (moduleEntry.value?.path === '/buku_surat_notaris' || moduleEntry.value?.path === '/buku_surat_ppat') return true
   if (moduleEntry.value?.path === '/tanda_terima' || moduleEntry.value?.path === '/tanda_terima_masuk') return true
   return false
 }
 
-const isCurrentMonth = (dateValue: unknown) => {
-  const d = new Date(String(dateValue || ''))
-  if (Number.isNaN(d.getTime())) return false
-  const now = new Date()
-  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+const extractLeadingNumber = (value: unknown) => {
+  if (value === null || value === undefined) return 0
+  const match = String(value).match(/\d+/)
+  return match ? Number(match[0]) : 0
 }
 
-const maxNoAkta = computed(() => {
-  if (!rows.value.length) return 0
+const deleteNumberFieldByPath: Record<string, string> = {
+  '/buku_akta': 'no_akta',
+  '/buku_legalisasi': 'no_legalisasi',
+  '/buku_waarmerking': 'no_warmerking',
+  '/buku_ppat': 'no_akta',
+  '/buku_surat_notaris': 'no_surat',
+  '/buku_surat_ppat': 'no_surat',
+  '/tanda_terima': 'nomor_tanda_terima',
+  '/tanda_terima_masuk': 'nomor_tanda_terima',
+}
+
+const maxDeleteNumber = computed(() => {
+  const field = deleteNumberFieldByPath[moduleEntry.value?.path || '']
+  if (!field || !rows.value.length) return 0
   return Math.max(
     ...rows.value
-      .map(row => Number(row.no_akta))
+      .map(row => extractLeadingNumber(row[field]))
       .filter(value => Number.isFinite(value)),
   )
 })
 
+const rowOwnerId = (row: RowRecord) => {
+  if (row.id_user) return String(row.id_user)
+  if (row.pengirim) return String(row.pengirim)
+  if (row.pembuat && typeof row.pembuat === 'object') {
+    return String((row.pembuat as Record<string, unknown>).id_user || '')
+  }
+  if (row.pembuat) return String(row.pembuat)
+  return ''
+}
+
 const canDeleteRow = (row: RowRecord) => {
   const path = moduleEntry.value?.path || ''
-  if (path === '/buku_akta') {
-    return Number(row.no_akta) === maxNoAkta.value
-      && String(row.id_user || '') === String(user.value?.id_user || '')
-      && isCurrentMonth(row.tgl_akta)
-  }
-  if (path === '/buku_ppat') {
-    return Number(row.no_akta) === maxNoAkta.value
-      && String(row.id_user || '') === String(user.value?.id_user || '')
-      && isCurrentMonth(row.tanggal_akta)
-  }
-  return false
+  const field = deleteNumberFieldByPath[path]
+  if (!field) return false
+  if (isSuperAdmin.value) return true
+  return extractLeadingNumber(row[field]) === maxDeleteNumber.value
+    && rowOwnerId(row) === String(user.value?.id_user || '')
 }
 
 const hasAction = (action: ReportoriumAction) => reportoriumActions.value.includes(action)
 
 const suratBookPaths = ['/buku_surat_notaris', '/buku_surat_ppat']
+const isSuratBookPath = (path: string) => suratBookPaths.includes(path)
+const tandaTerimaPaths = ['/tanda_terima', '/tanda_terima_masuk']
+const isTandaTerimaPath = (path: string) => tandaTerimaPaths.includes(path)
 
 const isSuratBookModule = computed(() =>
-  suratBookPaths.includes(moduleEntry.value?.path || ''),
+  isSuratBookPath(moduleEntry.value?.path || ''),
 )
 
+const isStickyActionReportoriumModule = computed(() => {
+  const path = moduleEntry.value?.path || ''
+  return isSuratBookPath(path) || isTandaTerimaPath(path)
+})
+
 const reportoriumWrapperClass = computed(() =>
-  isSuratBookModule.value
+  isStickyActionReportoriumModule.value
     ? 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm'
     : 'overflow-hidden rounded-2xl border border-slate-200',
 )
 
 const reportoriumTableClass = computed(() =>
-  isSuratBookModule.value
-    ? 'min-w-[1180px] divide-y divide-slate-200'
+  isStickyActionReportoriumModule.value
+    ? 'min-w-[980px] divide-y divide-slate-200'
     : 'min-w-full table-fixed divide-y divide-slate-200',
 )
 
 const reportoriumRowClass = computed(() =>
-  isSuratBookModule.value
+  isStickyActionReportoriumModule.value
     ? 'bg-white transition hover:bg-sky-50/40'
     : 'hover:bg-slate-50/70',
 )
 
 const reportoriumActionHeaderClass = computed(() =>
-  isSuratBookModule.value
-    ? 'w-[170px] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600'
+  isStickyActionReportoriumModule.value
+    ? 'sticky right-0 z-10 w-[240px] bg-slate-100/95 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 shadow-[-10px_0_18px_-18px_rgba(15,23,42,0.7)]'
     : 'w-[220px] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600',
+)
+
+const reportoriumActionCellClass = computed(() =>
+  isStickyActionReportoriumModule.value
+    ? 'sticky right-0 z-10 w-[240px] bg-white px-3 py-3 text-sm shadow-[-10px_0_18px_-18px_rgba(15,23,42,0.7)]'
+    : 'px-3 py-3 text-sm',
 )
 
 const reportoriumColumnHeaderClass = (key: string) => {
   const base = 'px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600'
-  if (!isSuratBookModule.value) {
+  if (!isStickyActionReportoriumModule.value) {
     return base
   }
 
-  if (key === 'no_surat') return `w-[230px] ${base}`
-  if (key === 'nama_lengkap' || key === 'nama_client') return `w-[220px] ${base}`
-  if (key === 'keterangan') return `w-[220px] ${base}`
-  if (key === 'created_at') return `w-[160px] ${base}`
+  if (key === 'no_surat') return `w-[240px] ${base}`
+  if (key === 'nomor_tanda_terima') return `w-[220px] ${base}`
+  if (key === 'nama_lengkap') return `w-[190px] ${base}`
+  if (key === 'nama_client') return `w-[250px] ${base}`
+  if (key === 'nama_pengirim' || key === 'nama_penerima') return `w-[190px] ${base}`
+  if (key === 'pembuat') return `w-[160px] ${base}`
+  if (key === 'created_at') return `w-[140px] ${base}`
 
   return base
 }
 
 const reportoriumCellClass = (key: string) => {
   const base = 'px-3 py-3 text-sm text-slate-700 align-top'
-  if (!isSuratBookModule.value) {
+  if (!isStickyActionReportoriumModule.value) {
     return `max-w-[220px] ${base}`
   }
 
-  if (key === 'created_at') return `w-[160px] ${base}`
-  if (key === 'no_surat') return `w-[230px] ${base}`
+  if (key === 'created_at') return `w-[140px] ${base}`
+  if (key === 'no_surat') return `w-[240px] ${base}`
+  if (key === 'nomor_tanda_terima') return `w-[220px] ${base}`
 
   return `max-w-[240px] ${base}`
 }
 
 const reportoriumValueClass = (key: string) => {
-  if (!isSuratBookModule.value) {
+  if (!isStickyActionReportoriumModule.value) {
     return 'block truncate'
   }
 
@@ -1529,7 +1728,7 @@ const reportoriumValueClass = (key: string) => {
 }
 
 const reportoriumExpandButtonClass = computed(() =>
-  isSuratBookModule.value
+  isStickyActionReportoriumModule.value
     ? 'inline-flex h-8 items-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 text-xs font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100'
     : 'rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50',
 )
@@ -2032,13 +2231,21 @@ const filteredReportoriumRows = computed(() => {
   if (!keyword) return rows.value
 
   return rows.value.filter((row) => {
-    const pembuat = row.pembuat as Record<string, unknown> | undefined
-    const values = [
-      row.nomor_tanda_terima,
-      row.nama_pengirim,
-      row.nama_penerima,
-      pembuat?.nama_lengkap,
-    ]
+    const values: string[] = []
+    const collectValues = (value: unknown) => {
+      if (value === null || value === undefined) return
+      if (Array.isArray(value)) {
+        value.forEach(collectValues)
+        return
+      }
+      if (typeof value === 'object') {
+        Object.values(value as Record<string, unknown>).forEach(collectValues)
+        return
+      }
+      values.push(String(value))
+    }
+
+    collectValues(row)
     return values.some(value => String(value || '').toLowerCase().includes(keyword))
   })
 })
@@ -2075,6 +2282,13 @@ type UploadConfig = UploadConfigBasic | UploadConfigStandard
 type ExcelUploadConfig = {
   title: string
   upload: (formData: FormData) => Promise<unknown>
+}
+
+type ExcelTemplateConfig = {
+  title: string
+  fileName: string
+  headers: string[]
+  sampleRow: Array<string | number>
 }
 
 const uploadDialog = reactive({
@@ -2124,6 +2338,126 @@ const getExcelUploadConfig = (): ExcelUploadConfig | null => {
 }
 
 const canUploadExcel = computed(() => isSuperAdmin.value && Boolean(getExcelUploadConfig()))
+
+const getExcelTemplateConfig = (): ExcelTemplateConfig | null => {
+  switch (moduleEntry.value?.path) {
+    case '/buku_akta':
+      return {
+        title: 'Template Excel Notaris',
+        fileName: 'template-upload-buku-akta-notaris.xls',
+        headers: ['id_sementara', 'no_akta', 'tgl_akta', 'judul_pekerjaan', 'nama_client'],
+        sampleRow: ['TEMP001', 1, '2026-07-01', 'Akta Lampau No 1', 'Nama Client'],
+      }
+    case '/buku_legalisasi':
+      return {
+        title: 'Template Excel Legalisasi',
+        fileName: 'template-upload-buku-legalisasi.xls',
+        headers: ['no_legalisasi', 'tgl_surat', 'judul_surat', 'nama_client'],
+        sampleRow: [1, '2026-07-01', 'Legalisasi Dokumen', 'Nama Client'],
+      }
+    case '/buku_waarmerking':
+      return {
+        title: 'Template Excel Waarmerking',
+        fileName: 'template-upload-buku-waarmerking.xls',
+        headers: ['no_warmerking', 'tgl_surat', 'tgl_didaftarkan', 'judul_surat', 'nama_client'],
+        sampleRow: [1, '2026-07-01', '2026-07-01', 'Waarmerking Dokumen', 'Nama Client'],
+      }
+    case '/buku_ppat':
+      return {
+        title: 'Template Excel PPAT',
+        fileName: 'template-upload-buku-ppat.xls',
+        headers: [
+          'no',
+          'no_akta',
+          'tanggal_akta',
+          'bentuk_hukum',
+          'pihak_mengalihkan',
+          'pihak_menerima',
+          'no_hak_milik',
+          'tanah_bangunan',
+          'luas_tanah',
+          'bangunan',
+          'harga_transaksi',
+          'nop',
+          'total_njop',
+          'tgl_bphtb',
+          'harga_bphtb',
+          'tgl_pph',
+          'harga_pph',
+          'keterangan',
+        ],
+        sampleRow: [
+          1,
+          1,
+          '2026-07-01',
+          'Jual Beli',
+          'Nama Pihak Mengalihkan',
+          'Nama Pihak Menerima',
+          'SHM 001',
+          'Tanah dan Bangunan',
+          100,
+          80,
+          100000000,
+          '32.71.000.000.000-0000.0',
+          100000000,
+          '2026-07-01',
+          5000000,
+          '2026-07-01',
+          2500000,
+          'Keterangan',
+        ],
+      }
+    default:
+      return null
+  }
+}
+
+const canDownloadExcelTemplate = computed(() => isSuperAdmin.value && Boolean(getExcelTemplateConfig()))
+
+const escapeExcelCell = (value: string | number) => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+
+const downloadExcelTemplate = () => {
+  const config = getExcelTemplateConfig()
+  if (!config || !import.meta.client) return
+
+  const headerCells = config.headers
+    .map((header) => `<th style="background:#dbeafe;border:1px solid #94a3b8;font-weight:bold;">${escapeExcelCell(header)}</th>`)
+    .join('')
+  const sampleCells = config.sampleRow
+    .map((cell) => `<td style="border:1px solid #cbd5e1;">${escapeExcelCell(cell)}</td>`)
+    .join('')
+  const guideCells = config.headers
+    .map(() => '<td style="border:1px solid #cbd5e1;"></td>')
+    .join('')
+  const workbook = `
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+      </head>
+      <body>
+        <table>
+          <tr>${headerCells}</tr>
+          <tr>${sampleCells}</tr>
+          <tr>${guideCells}</tr>
+        </table>
+      </body>
+    </html>
+  `.trim()
+
+  const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = config.fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
 
 const triggerExcelUploadSelect = () => {
   if (!canUploadExcel.value || excelUploadState.submitting) return
@@ -2501,7 +2835,33 @@ const editReportoriumRow = async (row: RowRecord) => {
 
 const canDeleteTandaTerima = (row: RowRecord) => {
   const pembuat = row.pembuat as Record<string, unknown> | undefined
-  return String(pembuat?.id_user || '') === String(user.value?.id_user || '')
+  return isSuperAdmin.value || String(pembuat?.id_user || '') === String(user.value?.id_user || '')
+}
+
+const deleteReportoriumFile = async (row: RowRecord) => {
+  const path = moduleEntry.value?.path || ''
+  if (!import.meta.client) return
+
+  const confirmed = window.confirm(path === '/tanda_terima' || path === '/tanda_terima_masuk'
+    ? 'Yakin ingin menghapus file tanda terima ini?'
+    : 'Yakin ingin menghapus file surat ini?')
+  if (!confirmed) return
+
+  try {
+    let response: ApiEnvelope | undefined
+    if (path === '/buku_surat_notaris') {
+      response = await business.surat.DeleteSuratNotaris({ id_surat_notaris: row.id_surat_notaris }) as ApiEnvelope
+    } else if (path === '/buku_surat_ppat') {
+      response = await business.surat.DeleteSuratPPAT({ id_surat_ppat: row.id_surat_ppat }) as ApiEnvelope
+    } else if (path === '/tanda_terima' || path === '/tanda_terima_masuk') {
+      response = await business.tandaTerima.DeleteTandaTerima({ id: row.id }) as ApiEnvelope
+    }
+
+    responseMessage.value = response?.message || 'File berhasil dihapus.'
+    await loadModuleData()
+  } catch (error) {
+    errorMessage.value = (error as { data?: { message?: string } })?.data?.message || 'Gagal menghapus file.'
+  }
 }
 
 const deleteReportoriumRow = async (row: RowRecord) => {
@@ -2509,16 +2869,16 @@ const deleteReportoriumRow = async (row: RowRecord) => {
   if (!import.meta.client) return
 
   let confirmed = false
-  if (path === '/buku_akta' || path === '/buku_ppat') {
-    confirmed = window.confirm('Yakin ingin menghapus nomor akta ini?')
+  if (path === '/buku_akta' || path === '/buku_ppat' || path === '/buku_legalisasi' || path === '/buku_waarmerking') {
+    confirmed = window.confirm('Yakin ingin menghapus data ini? Data penghadap dan dokumen terkait juga akan dihapus.')
   } else if (path === '/buku_surat_notaris' || path === '/buku_surat_ppat') {
-    confirmed = window.confirm('Yakin ingin menghapus file surat ini?')
+    confirmed = window.confirm('Yakin ingin menghapus data surat ini? File surat terkait juga akan dihapus.')
   } else if (path === '/tanda_terima' || path === '/tanda_terima_masuk') {
-    if (!canDeleteTandaTerima(row)) {
-      errorMessage.value = 'Hanya pembuat data yang dapat menghapus tanda terima.'
+    if (!canDeleteRow(row)) {
+      errorMessage.value = 'Hanya Super Admin atau pembuat data nomor terakhir yang dapat menghapus tanda terima.'
       return
     }
-    confirmed = window.confirm('Yakin ingin menghapus tanda terima ini?')
+    confirmed = window.confirm('Yakin ingin menghapus tanda terima ini? Isi diterima dan file terkait juga akan dihapus.')
   }
 
   if (!confirmed) {
@@ -2529,14 +2889,18 @@ const deleteReportoriumRow = async (row: RowRecord) => {
     let response: ApiEnvelope | undefined
     if (path === '/buku_akta') {
       response = await business.bukuNotaris.DeleteNomorNotaris(row) as ApiEnvelope
+    } else if (path === '/buku_legalisasi') {
+      response = await business.bukuLegalisasi.DeleteNomorLegalisasi(row) as ApiEnvelope
+    } else if (path === '/buku_waarmerking') {
+      response = await business.bukuWarmerking.DeleteNomorWarmerking(row) as ApiEnvelope
     } else if (path === '/buku_ppat') {
       response = await business.bukuPpat.DeleteNomorPPAT(row) as ApiEnvelope
     } else if (path === '/buku_surat_notaris') {
-      response = await business.surat.DeleteSuratNotaris({ id_surat_notaris: row.id_surat_notaris }) as ApiEnvelope
+      response = await business.surat.DeleteNomorSuratNotaris({ id_surat_notaris: row.id_surat_notaris }) as ApiEnvelope
     } else if (path === '/buku_surat_ppat') {
-      response = await business.surat.DeleteSuratPPAT({ id_surat_ppat: row.id_surat_ppat }) as ApiEnvelope
+      response = await business.surat.DeleteNomorSuratPPAT({ id_surat_ppat: row.id_surat_ppat }) as ApiEnvelope
     } else if (path === '/tanda_terima' || path === '/tanda_terima_masuk') {
-      response = await business.tandaTerima.DeleteTandaTerima({ id: row.id }) as ApiEnvelope
+      response = await business.tandaTerima.delete(row.id as string | number) as ApiEnvelope
     }
 
     responseMessage.value = response?.message || 'Data berhasil dihapus.'
@@ -2885,14 +3249,23 @@ watch(
 )
 
 watch(
-  () => route.path,
+  () => [route.path, route.query.q, route.query.date, route.query.record_id] as const,
   () => {
+    const queryKeyword = typeof route.query.q === 'string' ? route.query.q : ''
+    const queryDate = typeof route.query.date === 'string' ? route.query.date : ''
+
+    if (queryDate && hasDateFilter.value) {
+      monthFilter.value = queryDate.slice(0, 7)
+    }
+
     if (moduleEntry.value?.path !== '/pencarian-dokumen') {
       searchFilter.value = ''
+    } else {
+      searchFilter.value = queryKeyword
     }
-    if (!hasReportoriumSearch.value) {
-      reportoriumSearch.value = ''
-    }
+
+    reportoriumSearch.value = hasReportoriumSearch.value ? queryKeyword : ''
+
     if (!isOrderModule.value) {
       orderSearchQuery.value = ''
       invoiceStatusFilter.value = 'all'
@@ -3032,6 +3405,15 @@ watch(
         </button>
 
         <button
+          v-if="canDownloadExcelTemplate"
+          type="button"
+          class="h-11 rounded-xl border border-blue-200 bg-blue-50 px-5 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+          @click="downloadExcelTemplate"
+        >
+          Download Template
+        </button>
+
+        <button
           v-if="canUploadExcel"
           type="button"
           class="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -3039,6 +3421,15 @@ watch(
           @click="triggerExcelUploadSelect"
         >
           {{ excelUploadState.submitting ? 'Mengupload...' : 'Upload Excel' }}
+        </button>
+
+        <button
+          v-if="canCreateAktaMassal"
+          type="button"
+          class="h-11 rounded-xl border border-violet-200 bg-violet-50 px-5 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100"
+          @click="openAktaMassalDialog"
+        >
+          Buat Akta Massal
         </button>
         <input
           v-if="canUploadExcel"
@@ -3075,6 +3466,177 @@ watch(
       :path="moduleEntry.path"
       @saved="onReportoriumSaved"
     />
+
+    <Teleport to="body">
+      <div v-if="aktaMassalDialogOpen" class="akta-massal-dialog fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-950/60" @click="closeAktaMassalDialog" />
+        <div class="relative z-10 flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+          <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
+            <div>
+              <p class="text-xs font-black uppercase tracking-[0.25em] text-violet-500">Super Admin</p>
+              <h3 class="mt-1 text-2xl font-bold text-slate-950">Buat Akta Massal</h3>
+              <p class="mt-1 text-sm text-slate-500">Membuat nomor akta berurutan untuk data lampau. Jika ada duplikat, seluruh proses ditolak.</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              @click="closeAktaMassalDialog"
+            >
+              Tutup
+            </button>
+          </div>
+
+          <div class="min-h-0 flex-1 overflow-y-auto p-6">
+            <div class="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+              <div class="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Periode</span>
+                    <input
+                      v-model="aktaMassalForm.period"
+                      type="month"
+                      class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </label>
+                  <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Tanggal Akta</span>
+                    <input
+                      v-model="aktaMassalForm.tanggal_akta"
+                      type="date"
+                      class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </label>
+                </div>
+
+                <label class="block">
+                  <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Judul Akta</span>
+                  <input
+                    v-model="aktaMassalForm.judul_pekerjaan"
+                    type="text"
+                    placeholder="Contoh: Akta Lampau"
+                    class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                  />
+                </label>
+
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Jumlah</span>
+                    <input
+                      v-model.number="aktaMassalForm.jumlah"
+                      type="number"
+                      min="1"
+                      max="1000"
+                      class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </label>
+                  <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Nomor Mulai Opsional</span>
+                    <input
+                      v-model="aktaMassalForm.nomor_mulai"
+                      type="number"
+                      min="1"
+                      placeholder="Otomatis"
+                      class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </label>
+                </div>
+
+                <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-700">
+                  <input v-model="aktaMassalForm.gunakan_nomor_di_judul" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
+                  <span>
+                    Tambahkan nomor ke judul
+                    <span class="block text-xs font-medium text-slate-500">Contoh: Akta Lampau No 101</span>
+                  </span>
+                </label>
+
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    class="h-11 rounded-xl border border-violet-200 bg-white px-5 text-sm font-bold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="aktaMassalPreviewing || aktaMassalSubmitting"
+                    @click="previewAktaMassal"
+                  >
+                    {{ aktaMassalPreviewing ? 'Membuat Preview...' : 'Preview' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="h-11 rounded-xl bg-violet-600 px-5 text-sm font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="aktaMassalSubmitting || !aktaMassalPreview?.can_save"
+                    @click="saveAktaMassal"
+                  >
+                    {{ aktaMassalSubmitting ? 'Menyimpan...' : 'Simpan Massal' }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+                <div v-if="aktaMassalError" class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {{ aktaMassalError }}
+                </div>
+                <div v-if="aktaMassalMessage" class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                  {{ aktaMassalMessage }}
+                </div>
+
+                <div v-if="aktaMassalPreview" class="space-y-4">
+                  <div class="grid gap-3 sm:grid-cols-4">
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Nomor Terakhir</p>
+                      <p class="mt-1 text-2xl font-black text-slate-950">{{ aktaMassalPreview.nomor_terakhir }}</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Mulai</p>
+                      <p class="mt-1 text-2xl font-black text-slate-950">{{ aktaMassalPreview.nomor_mulai }}</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Selesai</p>
+                      <p class="mt-1 text-2xl font-black text-slate-950">{{ aktaMassalPreview.nomor_selesai }}</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Status</p>
+                      <p class="mt-1 text-sm font-black" :class="aktaMassalPreview.can_save ? 'text-emerald-600' : 'text-red-600'">
+                        {{ aktaMassalPreview.can_save ? 'Aman' : 'Duplikat' }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div v-if="aktaMassalPreview.duplicate_numbers?.length" class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    Nomor duplikat: {{ aktaMassalPreview.duplicate_numbers.join(', ') }}
+                  </div>
+
+                  <div class="overflow-hidden rounded-2xl border border-slate-200">
+                    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                      <p class="text-sm font-bold text-slate-800">Preview 25 Data Pertama</p>
+                    </div>
+                    <div class="max-h-72 overflow-auto">
+                      <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="sticky top-0 bg-slate-100">
+                          <tr>
+                            <th class="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-500">No Akta</th>
+                            <th class="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Tanggal</th>
+                            <th class="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Judul</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                          <tr v-for="row in aktaMassalPreview.preview_rows" :key="`akta-massal-${row.no_akta}`">
+                            <td class="px-4 py-2 font-bold text-slate-800">{{ row.no_akta }}</td>
+                            <td class="px-4 py-2 text-slate-600">{{ row.tgl_akta }}</td>
+                            <td class="px-4 py-2 text-slate-700">{{ row.judul_pekerjaan }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                  Isi form lalu klik Preview untuk melihat range nomor yang akan dibuat.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <SurfaceCard class="overflow-hidden p-0">
       <div class="border-b border-slate-100 bg-slate-50/80 px-6 py-4">
@@ -3701,7 +4263,7 @@ watch(
             <thead class="bg-slate-100/80">
               <tr>
                 <th class="w-14 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">No</th>
-                <th class="w-16 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Detail</th>
+                <th v-if="hasAction('expand')" class="w-16 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Detail</th>
                 <th
                   v-for="column in reportoriumColumns"
                   :key="column.key"
@@ -3714,9 +4276,15 @@ watch(
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
               <template v-for="(row, index) in filteredReportoriumRows" :key="reportoriumRowKey(row, index)">
-                <tr :class="reportoriumRowClass">
+                <tr
+                  :class="[
+                    reportoriumRowClass,
+                    isHighlightedReportoriumRow(row, index) ? 'ring-2 ring-amber-400 bg-amber-50/80 shadow-inner' : '',
+                    isPpatRekananKeluarRow(row) ? 'bg-amber-50/80 hover:bg-amber-100/80' : '',
+                  ]"
+                >
                   <td class="px-3 py-3 text-sm text-slate-600">{{ index + 1 }}</td>
-                  <td class="px-3 py-3">
+                  <td v-if="hasAction('expand')" class="px-3 py-3">
                     <button
                       v-if="hasAdditionalDetails(row)"
                       type="button"
@@ -3732,17 +4300,34 @@ watch(
                     :key="`${reportoriumRowKey(row, index)}-${column.key}`"
                     :class="reportoriumCellClass(column.key)"
                   >
-                    <span
-                      v-if="isBadgeColumn(column.key)"
-                      class="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700"
+                    <button
+                      v-if="column.key === 'no_surat' || column.key === 'nomor_tanda_terima'"
+                      type="button"
+                      class="inline-flex min-w-[86px] items-center justify-center rounded-lg bg-blue-50 px-2 py-1 text-left text-xs font-semibold text-blue-700 transition hover:bg-blue-100 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      :title="`Klik untuk copy: ${formatReportoriumCell(row, column.key)}`"
+                      @click="copyReportoriumCell(row, column.key)"
                     >
                       {{ formatReportoriumCell(row, column.key) }}
-                    </span>
+                    </button>
+                    <template v-else-if="isBadgeColumn(column.key)">
+                      <span
+                        class="inline-flex min-w-[86px] items-center justify-center rounded-lg px-2 py-1 text-xs font-semibold"
+                        :class="isPpatRekananKeluarRow(row) && column.key === 'no_akta' ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300' : 'bg-blue-50 text-blue-700'"
+                      >
+                        {{ formatReportoriumCell(row, column.key) }}
+                      </span>
+                      <p
+                        v-if="isPpatRekananKeluarRow(row) && column.key === 'no_akta'"
+                        class="mt-1 text-[11px] font-bold text-amber-700"
+                      >
+                        Dipakai rekanan: {{ row.nama_ppat_rekanan || '-' }}
+                      </p>
+                    </template>
                     <span v-else :class="reportoriumValueClass(column.key)" :title="formatReportoriumCell(row, column.key)">
                       {{ formatReportoriumCell(row, column.key) }}
                     </span>
                   </td>
-                  <td class="px-3 py-3 text-sm">
+                  <td :class="reportoriumActionCellClass">
                     <div class="flex flex-wrap gap-2">
                       <button
                         v-if="hasAction('edit')"
@@ -3753,6 +4338,39 @@ watch(
                       >
                         Edit
                       </button>
+                      <template v-if="isSuratBookPath(moduleEntry.path)">
+                        <button
+                          type="button"
+                          :class="reportoriumActionButtonClass('upload')"
+                          :disabled="isArsipUser"
+                          @click="openUploadDialog(row)"
+                        >
+                          {{ row.file ? 'Upload Ulang Surat' : 'Upload Surat' }}
+                        </button>
+                        <button
+                          v-if="getFilePreviewUrl(row)"
+                          type="button"
+                          :class="reportoriumActionButtonClass('file')"
+                          @click="openReport(getFilePreviewUrl(row), `Preview ${formatCell(row.file)}`)"
+                        >
+                          Lihat
+                        </button>
+                        <button
+                          v-if="row.file"
+                          type="button"
+                          :class="reportoriumActionButtonClass('print')"
+                          :disabled="downloadRequestLoading"
+                          @click="requestReportoriumDownload(row)"
+                        >
+                          {{ downloadRequestLoading ? 'Memproses...' : 'Download' }}
+                        </button>
+                        <span
+                          v-else
+                          class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700"
+                        >
+                          Tolong upload suratnya
+                        </span>
+                      </template>
                       <button
                         v-if="hasAction('upload')"
                         type="button"
@@ -3840,48 +4458,21 @@ watch(
                         </div>
                       </div>
 
-                      <div v-if="moduleEntry.path === '/buku_surat_notaris' || moduleEntry.path === '/buku_surat_ppat'" class="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          :class="reportoriumActionButtonClass('upload')"
-                          :disabled="isArsipUser"
-                          @click="openUploadDialog(row)"
-                        >
-                          {{ row.file ? 'Upload Ulang Surat' : 'Upload Surat' }}
-                        </button>
+                      <div v-if="moduleEntry.path === '/buku_surat_notaris' || moduleEntry.path === '/buku_surat_ppat'" class="rounded-xl border border-slate-200 bg-white p-3">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-600">Status File Surat</p>
+                        <p v-if="row.file" class="mt-1 text-sm text-slate-700">File: {{ formatCell(row.file) }}</p>
+                        <p v-else class="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
+                          Tolong upload suratnya lewat tombol Upload Surat di kolom Aksi.
+                        </p>
                         <button
                           v-if="row.file"
                           type="button"
                           :class="reportoriumActionButtonClass('delete')"
-                          @click="deleteReportoriumRow(row)"
+                          class="mt-3"
+                          @click="deleteReportoriumFile(row)"
                         >
-                          Hapus Surat
+                          Hapus File Surat
                         </button>
-                        <button
-                          v-if="getFilePreviewUrl(row)"
-                          type="button"
-                          :class="reportoriumActionButtonClass('file')"
-                          @click="openReport(getFilePreviewUrl(row), `Preview ${formatCell(row.file)}`)"
-                        >
-                          Lihat File
-                        </button>
-                        <button
-                          v-if="row.file"
-                          type="button"
-                          :class="reportoriumActionButtonClass('print')"
-                          :disabled="downloadRequestLoading"
-                          @click="requestReportoriumDownload(row)"
-                        >
-                          {{ downloadRequestLoading ? 'Memproses...' : 'Download' }}
-                        </button>
-                        <p class="self-center text-xs text-slate-500">File: {{ formatCell(row.file) }}</p>
-                      </div>
-                      <div v-if="getFilePreviewUrl(row)" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                        <iframe
-                          :src="getFileIframePreviewUrl(row)"
-                          class="h-[520px] w-full"
-                          frameborder="0"
-                        />
                       </div>
 
                       <div v-if="moduleEntry.path === '/tanda_terima' || moduleEntry.path === '/tanda_terima_masuk'" class="space-y-3">
@@ -3898,7 +4489,7 @@ watch(
                             v-if="canDeleteTandaTerima(row)"
                             type="button"
                             :class="reportoriumActionButtonClass('delete')"
-                            @click="deleteReportoriumRow(row)"
+                            @click="deleteReportoriumFile(row)"
                           >
                             Hapus Tanda Terima
                           </button>
@@ -4468,9 +5059,9 @@ watch(
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="reportPreviewDialog.open" class="fixed inset-0 z-[58] flex items-center justify-center p-4">
+      <div v-if="reportPreviewDialog.open" class="fixed inset-0 z-[58] flex items-center justify-center">
         <button type="button" class="absolute inset-0 bg-slate-900/60" @click="closeReportPreviewDialog" />
-        <div class="relative z-10 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div class="relative z-10 flex h-screen w-screen flex-col overflow-hidden bg-white shadow-2xl">
           <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Preview</p>
@@ -4485,11 +5076,11 @@ watch(
             </button>
           </div>
 
-          <div class="min-h-0 flex-1 bg-slate-100/70 p-4">
+          <div class="min-h-0 flex-1 bg-slate-100/70 p-3">
             <iframe
               v-if="reportPreviewDialog.url"
               :src="reportPreviewDialog.url"
-              class="h-full min-h-[72vh] w-full rounded-xl border border-slate-200 bg-white"
+              class="h-full w-full rounded-xl border border-slate-200 bg-white"
               frameborder="0"
             />
           </div>

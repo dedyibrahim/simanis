@@ -20,7 +20,11 @@ type ApiEnvelope<T = unknown> = {
 
 type DownloadRequestPayload = {
   request_id?: string | number
+  request_ids?: Array<string | number>
+  batch_id?: string
   approved?: boolean
+  approved_count?: number
+  pending_count?: number
   request_status?: 'pending' | 'approved' | 'rejected' | string
 }
 
@@ -63,6 +67,16 @@ type BookConfig = {
   numberField: string
   columns: Array<{ key: string; label: string; badge?: boolean }>
   assetUrl: (fileName: string) => string
+}
+
+type DownloadCartItem = {
+  key: string
+  module_path: string
+  row_id: string
+  file_name: string
+  file_category: string
+  label: string
+  display_name: string
 }
 
 definePageMeta({
@@ -133,6 +147,8 @@ const bookDocumentDialog = reactive({
 })
 
 const downloadRequestLoading = ref(false)
+const downloadCart = ref<DownloadCartItem[]>([])
+const downloadCartOpen = ref(false)
 
 const bookDownloadMetaMap: Record<AktaType, { modulePath: string; fileCategory: string }> = {
   'Akta Notaris': {
@@ -211,6 +227,14 @@ const truncateText = (value: unknown, maxLength = 40) => {
   if (!text) return '-'
   if (text.length <= maxLength) return text
   return `${text.slice(0, maxLength)}...`
+}
+
+const displayFileName = (title: unknown, storedFileName: unknown) => {
+  const stored = toString(storedFileName, '')
+  const base = toString(title, stored || 'dokumen')
+  const extension = stored.includes('.') ? stored.split('.').pop()?.toLowerCase() || '' : ''
+  const currentExtension = base.includes('.') ? base.split('.').pop()?.toLowerCase() || '' : ''
+  return extension && currentExtension !== extension ? `${base}.${extension}` : base
 }
 
 const resolveClientType = (client: SearchClient) => {
@@ -497,6 +521,35 @@ const emitDownloadRequestEvent = (detail: Record<string, unknown>) => {
   window.dispatchEvent(new CustomEvent('simanis:download-request-created', { detail }))
 }
 
+const downloadCartCount = computed(() => downloadCart.value.length)
+
+const downloadCartKey = (payload: Pick<DownloadCartItem, 'module_path' | 'row_id' | 'file_name' | 'file_category'>) =>
+  `${payload.module_path}|${payload.row_id}|${payload.file_category}|${payload.file_name}`
+
+const isInDownloadCart = (key: string) => downloadCart.value.some(item => item.key === key)
+
+const addDownloadCartItem = (item: Omit<DownloadCartItem, 'key'>) => {
+  const key = downloadCartKey(item)
+  if (isInDownloadCart(key)) {
+    responseMessage.value = 'Dokumen sudah ada di keranjang download.'
+    downloadCartOpen.value = true
+    return
+  }
+
+  downloadCart.value = [...downloadCart.value, { ...item, key }]
+  responseMessage.value = 'Dokumen ditambahkan ke keranjang download.'
+  errorMessage.value = ''
+  downloadCartOpen.value = true
+}
+
+const removeDownloadCartItem = (key: string) => {
+  downloadCart.value = downloadCart.value.filter(item => item.key !== key)
+}
+
+const clearDownloadCart = () => {
+  downloadCart.value = []
+}
+
 const downloadApprovedFile = async (requestId: string | number, fileName: string) => {
   if (!import.meta.client) return
 
@@ -520,6 +573,46 @@ const downloadApprovedFile = async (requestId: string | number, fileName: string
 
   const blob = await response.blob()
   const safeFileName = String(fileName || '').trim() || `dokumen-${requestId}`
+  const blobUrl = window.URL.createObjectURL(blob)
+  const link = window.document.createElement('a')
+  link.href = blobUrl
+  link.download = safeFileName
+  window.document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(blobUrl)
+}
+
+const downloadApprovedFiles = async (requestIds: Array<string | number>, fileName: string) => {
+  if (!import.meta.client || !requestIds.length) return
+  if (requestIds.length === 1) {
+    const requestId = requestIds[0]
+    if (requestId !== undefined) {
+      await downloadApprovedFile(requestId, fileName)
+    }
+    return
+  }
+
+  const response = await fetch(business.documentAccess.downloadBulkUrl(requestIds), {
+    method: 'GET',
+    headers: {
+      Accept: 'application/zip,application/octet-stream',
+      ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
+    },
+  })
+
+  if (!response.ok) {
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase()
+    let reason = 'Gagal download file.'
+    if (contentType.includes('application/json')) {
+      const json = await response.json() as ApiEnvelope
+      reason = json.message || reason
+    }
+    throw new Error(reason)
+  }
+
+  const blob = await response.blob()
+  const safeFileName = String(fileName || '').trim() || 'dokumen-simanis.zip'
   const blobUrl = window.URL.createObjectURL(blob)
   const link = window.document.createElement('a')
   link.href = blobUrl
@@ -563,6 +656,99 @@ const requestDownloadWithApproval = async (payload: Record<string, unknown>, fil
   }
 }
 
+const submitDownloadCart = async () => {
+  if (downloadRequestLoading.value || !downloadCart.value.length) return
+
+  downloadRequestLoading.value = true
+  errorMessage.value = ''
+
+  const documents = downloadCart.value.map(item => ({
+    module_path: item.module_path,
+    row_id: item.row_id,
+    file_name: item.file_name,
+    display_name: item.display_name,
+    file_category: item.file_category,
+  }))
+
+  try {
+    const response = await business.documentAccess.requestDownload({
+      documents,
+      batch_label: `Keranjang download ${new Date().toLocaleString('id-ID')}`,
+    }) as ApiEnvelope<DownloadRequestPayload>
+    const data = response.data || {}
+    const requestIds = Array.isArray(data.request_ids)
+      ? data.request_ids
+      : (data.request_id ? [data.request_id] : [])
+    const pendingCount = Number(data.pending_count || 0)
+
+    responseMessage.value = response.message || 'Request download massal diproses.'
+    emitDownloadRequestEvent({
+      status: data.request_status || (pendingCount > 0 ? 'pending' : 'approved'),
+      file_name: `${downloadCart.value.length} dokumen`,
+      request_id: data.request_id,
+      request_ids: requestIds,
+      batch_id: data.batch_id,
+      message: response.message || 'Permintaan download massal berhasil dikirim.',
+    })
+
+    if (data.approved && requestIds.length) {
+      await downloadApprovedFiles(requestIds, `dokumen-simanis-${Date.now()}.zip`)
+      responseMessage.value = 'Download massal berhasil diproses.'
+    }
+
+    clearDownloadCart()
+    downloadCartOpen.value = false
+  } catch (error) {
+    const rawMessage = (error as { data?: { message?: string }; message?: string })?.data?.message
+      || (error as { message?: string })?.message
+    errorMessage.value = rawMessage || 'Gagal memproses request download massal.'
+  } finally {
+    downloadRequestLoading.value = false
+  }
+}
+
+const addClientDocumentToCart = (document: ClientDocument) => {
+  const clientId = toString(clientDocumentDialog.client?.id_client, '')
+  const clientName = toString(clientDocumentDialog.client?.nama_client, 'Client')
+  const folder = toString(document.nama_folder, '')
+  const fileName = toString(document.nama_berkas, '')
+  const rowDocId = toString(document.id_berkas, '')
+
+  if (!clientId || !folder || !fileName) {
+    errorMessage.value = 'Data dokumen client tidak valid untuk masuk keranjang.'
+    return
+  }
+
+  const rowId = rowDocId ? `${clientId}:${rowDocId}` : `${clientId}:${fileName}`
+  const displayName = displayFileName(document.nama_dokumen, fileName)
+  addDownloadCartItem({
+    module_path: '/pencarian-dokumen',
+    row_id: rowId,
+    file_name: `${folder}/${fileName}`,
+    file_category: 'client_document',
+    label: `${clientName} - ${displayName}`,
+    display_name: displayName,
+  })
+}
+
+const addBookDocumentToCart = (document: StandardDocument) => {
+  const fileName = toString(document.nama_berkas, '')
+  if (!fileName || !bookDocumentDialog.rowId || !bookDocumentDialog.modulePath || !bookDocumentDialog.fileCategory) {
+    errorMessage.value = 'Data dokumen buku tidak valid untuk masuk keranjang.'
+    return
+  }
+
+  const displayName = displayFileName(document.nama_dokumen, fileName)
+  addDownloadCartItem({
+    module_path: bookDocumentDialog.modulePath,
+    row_id: bookDocumentDialog.rowId,
+    file_name: fileName,
+    file_category: bookDocumentDialog.fileCategory,
+    label: `${bookDocumentDialog.title} - ${displayName}`,
+    display_name: displayName,
+  })
+}
+
 const requestClientDocumentDownload = async (document: ClientDocument) => {
   const clientId = toString(clientDocumentDialog.client?.id_client, '')
   const folder = toString(document.nama_folder, '')
@@ -575,13 +761,15 @@ const requestClientDocumentDownload = async (document: ClientDocument) => {
   }
 
   const rowId = rowDocId ? `${clientId}:${rowDocId}` : `${clientId}:${fileName}`
+  const displayName = displayFileName(document.nama_dokumen, fileName)
 
   await requestDownloadWithApproval({
     module_path: '/pencarian-dokumen',
     row_id: rowId,
     file_name: `${folder}/${fileName}`,
+    display_name: displayName,
     file_category: 'client_document',
-  }, fileName)
+  }, displayName)
 }
 
 const requestBookDocumentDownload = async (document: StandardDocument) => {
@@ -591,12 +779,14 @@ const requestBookDocumentDownload = async (document: StandardDocument) => {
     return
   }
 
+  const displayName = displayFileName(document.nama_dokumen, fileName)
   await requestDownloadWithApproval({
     module_path: bookDocumentDialog.modulePath,
     row_id: bookDocumentDialog.rowId,
     file_name: fileName,
+    display_name: displayName,
     file_category: bookDocumentDialog.fileCategory,
-  }, fileName)
+  }, displayName)
 }
 
 const barcodeImageUrl = (row: RowRecord) => {
@@ -846,6 +1036,63 @@ watch(
 
 <template>
   <div class="space-y-6">
+    <div
+      v-if="downloadCartCount"
+      class="fixed bottom-6 right-6 z-[90] w-[min(92vw,420px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20"
+    >
+      <button
+        type="button"
+        class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left"
+        @click="downloadCartOpen = !downloadCartOpen"
+      >
+        <span>
+          <span class="block text-sm font-semibold text-slate-900">Keranjang Download</span>
+          <span class="text-xs text-slate-500">{{ downloadCartCount }} dokumen siap direquest</span>
+        </span>
+        <span class="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white">{{ downloadCartCount }}</span>
+      </button>
+
+      <div v-if="downloadCartOpen" class="space-y-3 p-4">
+        <div class="max-h-56 space-y-2 overflow-y-auto pr-1">
+          <div
+            v-for="item in downloadCart"
+            :key="item.key"
+            class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-slate-800" :title="item.label">{{ item.label }}</p>
+              <p class="truncate text-xs text-slate-500" :title="item.display_name">{{ item.display_name }}</p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 transition hover:bg-white"
+              @click="removeDownloadCartItem(item.key)"
+            >
+              Hapus
+            </button>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="downloadRequestLoading"
+            @click="submitDownloadCart"
+          >
+            {{ downloadRequestLoading ? 'Mengirim...' : 'Kirim Request Massal' }}
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            :disabled="downloadRequestLoading"
+            @click="clearDownloadCart"
+          >
+            Kosongkan
+          </button>
+        </div>
+      </div>
+    </div>
+
     <SurfaceCard
       class="relative overflow-hidden p-0"
       :class="isDark ? 'border-slate-700/80 shadow-xl shadow-slate-950/60' : 'border-slate-200/80 shadow-xl shadow-blue-100/40'"
@@ -1249,6 +1496,14 @@ watch(
                     >
                       {{ downloadRequestLoading ? 'Memproses...' : 'Request Download' }}
                     </button>
+                    <button
+                      v-if="getClientDocumentUrl(document)"
+                      type="button"
+                      class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+                      @click="addClientDocumentToCart(document)"
+                    >
+                      Tambah Keranjang
+                    </button>
                     <span class="text-xs text-slate-500">
                       File: {{ toString(document.nama_berkas) }}
                     </span>
@@ -1516,6 +1771,13 @@ watch(
                           @click="requestBookDocumentDownload(document)"
                         >
                           {{ downloadRequestLoading ? 'Memproses...' : 'Request Download' }}
+                        </button>
+                        <button
+                          type="button"
+                          class="inline-flex rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+                          @click="addBookDocumentToCart(document)"
+                        >
+                          Keranjang
                         </button>
                       </div>
                       <span v-else class="text-xs text-slate-400">-</span>

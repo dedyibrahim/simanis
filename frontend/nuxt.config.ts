@@ -23,8 +23,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       appName: 'SIMANIS - Sistem Informasi Administrasi Kantor Notaris',
-      apiBase: 'http://127.0.0.1:8000/api',
-      assetBase: 'http://127.0.0.1:8000',
+      apiBase: 'http://192.168.0.12:8000/api',
+      assetBase: 'http://192.168.0.12:8000',
     },
   },
   vite: {

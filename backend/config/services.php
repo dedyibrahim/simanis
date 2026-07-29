@@ -46,6 +46,10 @@ return [
         'status_endpoint' => env('WAHA_STATUS_ENDPOINT', '/api/sessions'),
         'timeout_seconds' => env('WAHA_TIMEOUT_SECONDS', 30),
         'enabled' => env('WAHA_ENABLED', true),
+        'webhook_url' => env('WAHA_WEBHOOK_URL', 'http://bothwa:8020/webhook/waha'),
+        'webhook_events' => env('WAHA_WEBHOOK_EVENTS', 'message'),
+        'webhook_secret' => env('WAHA_WEBHOOK_SECRET', ''),
+        'webhook_auto_configure' => env('WAHA_WEBHOOK_AUTO_CONFIGURE', true),
     ],
 
 ];

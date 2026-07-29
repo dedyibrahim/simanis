@@ -21,6 +21,7 @@ class PeminjamanMinutaController extends Controller
         $validated = $request->validate([
             'search' => ['nullable', 'string'],
             'date' => ['nullable', 'regex:/^\d{4}\-\d{2}$/'],
+            'status' => ['nullable', Rule::in(['Dipinjam', 'Terlambat', 'Dikembalikan'])],
         ]);
 
         return response()->json([
@@ -29,6 +30,7 @@ class PeminjamanMinutaController extends Controller
             'data' => $this->service->list(
                 $validated['search'] ?? null,
                 $validated['date'] ?? null,
+                $validated['status'] ?? null,
             ),
         ]);
     }

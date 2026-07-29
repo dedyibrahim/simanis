@@ -30,6 +30,9 @@ class BukuPPATS extends Model
         'tgl_pph',
         'harga_pph',
         'keterangan',
+        'ppat_rekanan_keluar_id',
+        'rekanan_keluar_catatan',
+        'rekanan_keluar_at',
         'created_at',
         'updated_at',
     ];

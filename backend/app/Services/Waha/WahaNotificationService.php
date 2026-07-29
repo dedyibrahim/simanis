@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 class WahaNotificationService
 {
     private $wahaClient;
+    private const ADMIN_LEVELS = ['Admin', 'Super Admin', 'SuperAdmin'];
 
     public function __construct(WahaClient $wahaClient)
     {
@@ -37,10 +38,7 @@ class WahaNotificationService
 
     public function notifyEventCreated(Event $event, Collection $usersToNotify, string $creatorName): void
     {
-        $nonAdminParticipants = $usersToNotify->filter(function ($user) {
-            return $user->level_user !== 'Admin';
-        });
-        $allParticipantNames = $nonAdminParticipants->pluck('nama_lengkap')->all();
+        $allParticipantNames = $this->picNames($usersToNotify);
 
         foreach ($usersToNotify as $user) {
             if (!$user instanceof User || empty($user->phone)) {
@@ -90,12 +88,7 @@ class WahaNotificationService
     {
         $eventStartTime = $this->formatEventRange($event);
 
-        $participantListString = $usersToNotify
-            ->filter(function ($user) {
-                return $user->level_user !== 'Admin';
-            })
-            ->pluck('nama_lengkap')
-            ->implode(', ');
+        $participantListString = implode(', ', $this->picNames($usersToNotify));
 
         foreach ($usersToNotify as $user) {
             if (!$user instanceof User || empty($user->phone)) {
@@ -172,12 +165,7 @@ class WahaNotificationService
     {
         $eventStartTime = $this->formatEventRange($event);
 
-        $participantListString = $usersToNotify
-            ->filter(function ($user) {
-                return $user->level_user !== 'Admin';
-            })
-            ->pluck('nama_lengkap')
-            ->implode(', ');
+        $participantListString = implode(', ', $this->picNames($usersToNotify));
 
         foreach ($usersToNotify as $user) {
             if (!$user instanceof User || empty($user->phone)) {
@@ -218,5 +206,19 @@ class WahaNotificationService
                 ]);
             }
         }
+    }
+
+    private function picNames(Collection $users): array
+    {
+        return $users
+            ->filter(function ($user) {
+                return $user instanceof User
+                    && !in_array((string) $user->level_user, self::ADMIN_LEVELS, true);
+            })
+            ->pluck('nama_lengkap')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

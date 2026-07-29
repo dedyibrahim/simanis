@@ -1,0 +1,32 @@
+{
+  "name": "paddleocr-roi-balanced",
+  "description": "Preset hybrid lebih cepat: full image + ROI hanya untuk field kritis.",
+  "preprocessing": {
+    "resize_scale": 1.0,
+    "grayscale": false,
+    "denoise": false,
+    "sharpen": false,
+    "contrast": "none",
+    "threshold": "none",
+    "deskew": false
+  },
+  "ocr": {
+    "engine": "paddleocr",
+    "language": "en",
+    "max_width": 900,
+    "text_detection_model_name": "PP-OCRv5_mobile_det",
+    "text_recognition_model_name": "PP-OCRv5_mobile_rec",
+    "text_det_limit_side_len": 736
+  },
+  "parser": {
+    "normalize_labels": true,
+    "strict_nik": true
+  },
+  "roi_fields": [
+    { "key": "nik", "x": 0.02, "y": 0.12, "w": 0.70, "h": 0.13, "upscale": 2.0 },
+    { "key": "nama", "x": 0.03, "y": 0.24, "w": 0.58, "h": 0.08, "upscale": 2.0 },
+    { "key": "tempat_tanggal_lahir", "x": 0.03, "y": 0.29, "w": 0.61, "h": 0.075, "upscale": 2.0 },
+    { "key": "jenis_kelamin", "x": 0.03, "y": 0.34, "w": 0.48, "h": 0.07, "upscale": 2.0 },
+    { "key": "golongan_darah", "x": 0.47, "y": 0.34, "w": 0.22, "h": 0.07, "upscale": 2.0 }
+  ]
+}

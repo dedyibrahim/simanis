@@ -1,0 +1,42 @@
+﻿{
+  "name": "paddleocr-roi-max",
+  "description": "Preset tuning lokal: full image + ROI field pass untuk KTP foto nyata.",
+  "preprocessing": {
+    "resize_scale": 1.0,
+    "grayscale": false,
+    "denoise": false,
+    "sharpen": false,
+    "contrast": "none",
+    "threshold": "none",
+    "deskew": false
+  },
+  "ocr": {
+    "engine": "paddleocr",
+    "language": "en",
+    "max_width": 980,
+    "text_detection_model_name": "PP-OCRv5_mobile_det",
+    "text_recognition_model_name": "PP-OCRv5_mobile_rec",
+    "text_det_limit_side_len": 960
+  },
+  "parser": {
+    "normalize_labels": true,
+    "strict_nik": true
+  },
+  "roi_fields": [
+    { "key": "nik", "x": 0.02, "y": 0.12, "w": 0.70, "h": 0.13, "upscale": 2.4 },
+    { "key": "nama", "x": 0.03, "y": 0.24, "w": 0.58, "h": 0.08, "upscale": 2.6 },
+    { "key": "tempat_tanggal_lahir", "x": 0.03, "y": 0.29, "w": 0.61, "h": 0.075, "upscale": 2.6 },
+    { "key": "jenis_kelamin", "x": 0.03, "y": 0.34, "w": 0.48, "h": 0.07, "upscale": 2.6 },
+    { "key": "golongan_darah", "x": 0.47, "y": 0.34, "w": 0.22, "h": 0.07, "upscale": 2.8 },
+    { "key": "alamat", "x": 0.03, "y": 0.39, "w": 0.60, "h": 0.13, "upscale": 2.4 },
+    { "key": "rt_rw", "x": 0.08, "y": 0.49, "w": 0.40, "h": 0.07, "upscale": 2.6 },
+    { "key": "kel_desa", "x": 0.08, "y": 0.54, "w": 0.52, "h": 0.07, "upscale": 2.6 },
+    { "key": "kecamatan", "x": 0.08, "y": 0.59, "w": 0.55, "h": 0.07, "upscale": 2.6 },
+    { "key": "agama", "x": 0.03, "y": 0.64, "w": 0.38, "h": 0.065, "upscale": 2.6 },
+    { "key": "status_perkawinan", "x": 0.03, "y": 0.69, "w": 0.48, "h": 0.065, "upscale": 2.6 },
+    { "key": "pekerjaan", "x": 0.03, "y": 0.74, "w": 0.50, "h": 0.065, "upscale": 2.6 },
+    { "key": "kewarganegaraan", "x": 0.03, "y": 0.79, "w": 0.40, "h": 0.065, "upscale": 2.6 },
+    { "key": "berlaku_hingga", "x": 0.03, "y": 0.84, "w": 0.48, "h": 0.065, "upscale": 2.6 }
+  ]
+}
+

@@ -82,7 +82,19 @@ class PembuatanNomor extends ApiController
         $levelUser = auth()->user()->level_user;
 
         if (in_array($levelUser, ['Admin', 'Super Admin'])) {
-            $id_user_input = $b['nama_asisten'];
+            $id_user_input = (string) ($b['nama_asisten'] ?? '');
+
+            if ($id_user_input === '') {
+                return $this->errorResponse(null, 'Nama asisten wajib dipilih.', 422);
+            }
+
+            $asistenExists = DB::table('users')
+                ->where('id_user', $id_user_input)
+                ->exists();
+
+            if (!$asistenExists) {
+                return $this->errorResponse(null, 'Asisten yang dipilih tidak valid.', 422);
+            }
         } else {
             $id_user_input = auth()->user()->id_user;
         }
@@ -197,13 +209,11 @@ class PembuatanNomor extends ApiController
                 return $this->errorResponse(null, 'Data buku notaris tidak ditemukan.', 404);
             }
 
-            // Saat edit, tanggal akta wajib tetap mengikuti data existing (abaikan input request).
-            $b['tgl_akta'] = (string) $tanggalSebelumnya;
-
             $data_buku = [
                 'id_akta' => $b['jenis_akta'],
                 'judul_pekerjaan' => $b['judul_pekerjaan'],
                 'tgl_akta' => $b['tgl_akta'],
+                'id_user' => $id_user_input,
                 'updated_at' => now(),
             ];
 
@@ -268,28 +278,386 @@ class PembuatanNomor extends ApiController
         }
     }
 
+    public function PreviewAktaNotarisMassal(Request $request)
+    {
+        if (!$this->isSuperAdminUser($request)) {
+            return $this->errorResponse(null, 'Akses ditolak. Hanya Super Admin yang dapat membuat akta massal.', 403);
+        }
+
+        $validated = $request->validate([
+            'period' => ['required', 'date_format:Y-m'],
+            'tanggal_akta' => ['required', 'date_format:Y-m-d'],
+            'judul_pekerjaan' => ['required', 'string', 'max:500'],
+            'jumlah' => ['required', 'integer', 'min:1', 'max:1000'],
+            'nomor_mulai' => ['nullable', 'integer', 'min:1'],
+            'gunakan_nomor_di_judul' => ['nullable', 'boolean'],
+        ]);
+
+        $period = (string) $validated['period'];
+        $tanggalAkta = (string) $validated['tanggal_akta'];
+        if (!$this->dateInPeriod($tanggalAkta, $period)) {
+            return $this->errorResponse(null, 'Tanggal akta harus berada di bulan periode yang dipilih.', 422);
+        }
+
+        $preview = $this->buildAktaNotarisMassalPreview($validated);
+
+        return $this->successResponse($preview, 'Preview akta massal berhasil dibuat.');
+    }
+
+    public function SimpanAktaNotarisMassal(Request $request)
+    {
+        if (!$this->isSuperAdminUser($request)) {
+            return $this->errorResponse(null, 'Akses ditolak. Hanya Super Admin yang dapat membuat akta massal.', 403);
+        }
+
+        $validated = $request->validate([
+            'period' => ['required', 'date_format:Y-m'],
+            'tanggal_akta' => ['required', 'date_format:Y-m-d'],
+            'judul_pekerjaan' => ['required', 'string', 'max:500'],
+            'jumlah' => ['required', 'integer', 'min:1', 'max:1000'],
+            'nomor_mulai' => ['nullable', 'integer', 'min:1'],
+            'gunakan_nomor_di_judul' => ['nullable', 'boolean'],
+        ]);
+
+        $period = (string) $validated['period'];
+        $tanggalAkta = (string) $validated['tanggal_akta'];
+        if (!$this->dateInPeriod($tanggalAkta, $period)) {
+            return $this->errorResponse(null, 'Tanggal akta harus berada di bulan periode yang dipilih.', 422);
+        }
+
+        try {
+            $created = DB::transaction(function () use ($validated, $request) {
+                $preview = $this->buildAktaNotarisMassalPreview($validated, true);
+                if (!empty($preview['duplicate_numbers'])) {
+                    throw new \RuntimeException('Nomor akta duplikat ditemukan: '.implode(', ', $preview['duplicate_numbers']));
+                }
+
+                $lastBuku = DB::table('buku_notaris')
+                    ->lockForUpdate()
+                    ->orderBy('id_buku_notaris', 'desc')
+                    ->first();
+                $idSequence = $lastBuku && isset($lastBuku->id_buku_notaris)
+                    ? ((int) preg_replace('/\D+/', '', (string) $lastBuku->id_buku_notaris) + 1)
+                    : 1;
+
+                $now = now();
+                $rows = [];
+                foreach ($preview['rows'] as $row) {
+                    $rows[] = [
+                        'id_buku_notaris' => 'BKN'.str_pad((string) $idSequence, 7, '0', STR_PAD_LEFT),
+                        'id_akta' => null,
+                        'id_user' => (string) $request->user()->id_user,
+                        'status_akta' => 'Lama',
+                        'judul_pekerjaan' => (string) $row['judul_pekerjaan'],
+                        'no_akta' => (string) $row['no_akta'],
+                        'nama_client' => null,
+                        'tgl_akta' => (string) $validated['tanggal_akta'],
+                        'tgl_signing' => null,
+                        'created_by' => (string) $request->user()->id_user,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                    $idSequence++;
+                }
+
+                BukuNotaris::insert($rows);
+
+                return [
+                    'period' => $preview['period'],
+                    'tanggal_akta' => $preview['tanggal_akta'],
+                    'jumlah' => count($rows),
+                    'nomor_mulai' => $preview['nomor_mulai'],
+                    'nomor_selesai' => $preview['nomor_selesai'],
+                ];
+            });
+        } catch (\RuntimeException $exception) {
+            return $this->errorResponse(null, $exception->getMessage(), 422);
+        }
+
+        return $this->successResponse($created, 'Akta massal berhasil dibuat.');
+    }
+
+    private function isSuperAdminUser(Request $request): bool
+    {
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+
+        return in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+    }
+
+    private function dateInPeriod(string $date, string $period): bool
+    {
+        return substr($date, 0, 7) === $period;
+    }
+
+    private function buildAktaNotarisMassalPreview(array $payload, bool $lock = false): array
+    {
+        [$year, $month] = explode('-', (string) $payload['period']);
+        $query = DB::table('buku_notaris')
+            ->whereYear('tgl_akta', (int) $year)
+            ->whereMonth('tgl_akta', (int) $month);
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $existingNumbers = $query
+            ->pluck('no_akta')
+            ->map(fn ($number) => (int) $number)
+            ->filter(fn ($number) => $number > 0)
+            ->values();
+
+        $lastNumber = (int) ($existingNumbers->max() ?? 0);
+        $startNumber = isset($payload['nomor_mulai']) && $payload['nomor_mulai']
+            ? (int) $payload['nomor_mulai']
+            : $lastNumber + 1;
+        $count = (int) $payload['jumlah'];
+        $endNumber = $startNumber + $count - 1;
+        $range = range($startNumber, $endNumber);
+        $existingLookup = array_flip($existingNumbers->all());
+        $duplicates = array_values(array_filter($range, fn ($number) => isset($existingLookup[$number])));
+        $baseTitle = trim((string) $payload['judul_pekerjaan']);
+        $appendNumber = (bool) ($payload['gunakan_nomor_di_judul'] ?? false);
+
+        $rows = array_map(function ($number) use ($baseTitle, $appendNumber, $payload) {
+            return [
+                'no_akta' => $number,
+                'tgl_akta' => (string) $payload['tanggal_akta'],
+                'judul_pekerjaan' => $appendNumber ? $baseTitle.' No '.$number : $baseTitle,
+            ];
+        }, $range);
+
+        return [
+            'period' => (string) $payload['period'],
+            'tanggal_akta' => (string) $payload['tanggal_akta'],
+            'judul_pekerjaan' => $baseTitle,
+            'jumlah' => $count,
+            'nomor_terakhir' => $lastNumber,
+            'nomor_mulai' => $startNumber,
+            'nomor_selesai' => $endNumber,
+            'duplicate_numbers' => $duplicates,
+            'can_save' => empty($duplicates),
+            'rows' => $rows,
+            'preview_rows' => array_slice($rows, 0, 25),
+        ];
+    }
+
     public function DeleteNomorNotaris(Request $request)
     {
-        PenghadapNotaris::where('id_buku_notaris', $request->input('id_buku_notaris'))->delete();
-        BukuNotaris::where('id_buku_notaris', $request->input('id_buku_notaris'))->delete();
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $idBukuNotaris = $request->input('id_buku_notaris');
 
-        return $this->successResponse(null, "Berhasil Menghapus Akta No '.$request->input('no_kata').'");
+        $buku = BukuNotaris::where('id_buku_notaris', $idBukuNotaris)->first();
+        if (!$buku) {
+            return $this->errorResponse(null, 'Data buku akta tidak ditemukan.', 404);
+        }
+
+        if (!$isSuperAdmin) {
+            if ((string) $buku->id_user !== (string) optional($request->user())->id_user) {
+                return $this->errorResponse(null, 'Anda hanya bisa menghapus akta yang Anda buat sendiri.', 403);
+            }
+
+            $tanggalAkta = strtotime((string) $buku->tgl_akta);
+            if ($tanggalAkta === false) {
+                return $this->errorResponse(null, 'Tanggal akta tidak valid.', 422);
+            }
+
+            $latestNoAkta = BukuNotaris::whereYear('tgl_akta', date('Y', $tanggalAkta))
+                ->whereMonth('tgl_akta', date('m', $tanggalAkta))
+                ->max('no_akta');
+
+            if ((int) $buku->no_akta !== (int) $latestNoAkta) {
+                return $this->errorResponse(null, 'Hanya nomor akta terakhir yang bisa dihapus.', 403);
+            }
+        }
+
+        DB::transaction(function () use ($idBukuNotaris) {
+            DB::table('tb_dokumen_notaris')
+                ->where('id_buku_notaris', $idBukuNotaris)
+                ->delete();
+            PenghadapNotaris::where('id_buku_notaris', $idBukuNotaris)->delete();
+            BukuNotaris::where('id_buku_notaris', $idBukuNotaris)->delete();
+        });
+
+        return $this->successResponse(null, 'Berhasil menghapus Akta No '.$buku->no_akta);
     }
-public function DeleteNomorPPAT(Request $request)
-{
-    $id = $request->input('id_buku_ppat');
+    public function DeleteNomorPPAT(Request $request)
+    {
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $id = $request->input('id_buku_ppat');
 
-    // Hapus dokumen dulu
-    tb_dokumen_ppat::where('id_buku_ppat', $id)->delete();
+        $buku = BukuPPATS::where('id_buku_ppat', $id)->first();
+        if (!$buku) {
+            return $this->errorResponse(null, 'Data buku PPAT tidak ditemukan.', 404);
+        }
 
-    // Hapus child (penghadap)
-    PenghadapPPATS::where('id_buku_ppat', $id)->delete();
+        if (!$isSuperAdmin) {
+            if ((string) $buku->id_user !== (string) optional($request->user())->id_user) {
+                return $this->errorResponse(null, 'Anda hanya bisa menghapus data yang Anda buat sendiri.', 403);
+            }
 
-    // Hapus parent
-    BukuPPATS::where('id_buku_ppat', $id)->delete();
+            $tanggalAkta = strtotime((string) $buku->tanggal_akta);
+            if ($tanggalAkta === false) {
+                return $this->errorResponse(null, 'Tanggal akta tidak valid.', 422);
+            }
 
-    return $this->successResponse(null, "Berhasil Menghapus Akta");
-}
+            $latestNoAkta = BukuPPATS::whereYear('tanggal_akta', date('Y', $tanggalAkta))->max('no_akta');
+            if ((int) $buku->no_akta !== (int) $latestNoAkta) {
+                return $this->errorResponse(null, 'Hanya nomor terakhir yang bisa dihapus.', 403);
+            }
+        }
+
+        DB::transaction(function () use ($id) {
+            tb_dokumen_ppat::where('id_buku_ppat', $id)->delete();
+            PenghadapPPATS::where('id_buku_ppat', $id)->delete();
+            BukuPPATS::where('id_buku_ppat', $id)->delete();
+        });
+
+        return $this->successResponse(null, 'Berhasil menghapus Akta PPAT No '.$buku->no_akta);
+    }
+
+    public function DeleteNomorLegalisasi(Request $request)
+    {
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $id = $request->input('id_buku_legalisasi');
+
+        $buku = BukuLegalisasi::where('id_buku_legalisasi', $id)->first();
+        if (!$buku) {
+            return $this->errorResponse(null, 'Data buku legalisasi tidak ditemukan.', 404);
+        }
+
+        if (!$isSuperAdmin) {
+            if ((string) $buku->id_user !== (string) optional($request->user())->id_user) {
+                return $this->errorResponse(null, 'Anda hanya bisa menghapus data yang Anda buat sendiri.', 403);
+            }
+
+            $latestNo = BukuLegalisasi::max('no_legalisasi');
+            if ((int) $buku->no_legalisasi !== (int) $latestNo) {
+                return $this->errorResponse(null, 'Hanya nomor terakhir yang bisa dihapus.', 403);
+            }
+        }
+
+        DB::transaction(function () use ($id) {
+            DB::table('tb_dokumen_legalisasis')
+                ->where('id_buku_legalisasi', $id)
+                ->delete();
+            PenghadapLegalisasi::where('id_buku_legalisasi', $id)->delete();
+            BukuLegalisasi::where('id_buku_legalisasi', $id)->delete();
+        });
+
+        return $this->successResponse(null, 'Berhasil menghapus Legalisasi No '.$buku->no_legalisasi);
+    }
+
+    public function DeleteNomorWarmerking(Request $request)
+    {
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $id = $request->input('id_buku_warmerking');
+
+        $buku = BukuWarmerking::where('id_buku_warmerking', $id)->first();
+        if (!$buku) {
+            return $this->errorResponse(null, 'Data buku waarmerking tidak ditemukan.', 404);
+        }
+
+        if (!$isSuperAdmin) {
+            if ((string) $buku->id_user !== (string) optional($request->user())->id_user) {
+                return $this->errorResponse(null, 'Anda hanya bisa menghapus data yang Anda buat sendiri.', 403);
+            }
+
+            $latestNo = BukuWarmerking::max('no_warmerking');
+            if ((int) $buku->no_warmerking !== (int) $latestNo) {
+                return $this->errorResponse(null, 'Hanya nomor terakhir yang bisa dihapus.', 403);
+            }
+        }
+
+        DB::transaction(function () use ($id) {
+            DB::table('tb_dokumen_warmerkings')
+                ->where('id_buku_warmerking', $id)
+                ->delete();
+            PenghadapWarmerking::where('id_buku_warmerking', $id)->delete();
+            BukuWarmerking::where('id_buku_warmerking', $id)->delete();
+        });
+
+        return $this->successResponse(null, 'Berhasil menghapus Waarmerking No '.$buku->no_warmerking);
+    }
+
+    public function DeleteNomorSuratNotaris(Request $request)
+    {
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $id = $request->input('id_surat_notaris');
+
+        $buku = BukuSuratNotaris::where('id_surat_notaris', $id)->first();
+        if (!$buku) {
+            return $this->errorResponse(null, 'Data surat notaris tidak ditemukan.', 404);
+        }
+
+        if (!$isSuperAdmin) {
+            if ((string) $buku->pengirim !== (string) optional($request->user())->id_user) {
+                return $this->errorResponse(null, 'Anda hanya bisa menghapus data yang Anda buat sendiri.', 403);
+            }
+
+            $tanggalSurat = strtotime((string) $buku->created_at);
+            if ($tanggalSurat === false) {
+                return $this->errorResponse(null, 'Tanggal surat tidak valid.', 422);
+            }
+
+            $latestNo = BukuSuratNotaris::whereYear('created_at', date('Y', $tanggalSurat))->max('no_surat');
+            if ((int) $buku->no_surat !== (int) $latestNo) {
+                return $this->errorResponse(null, 'Hanya nomor terakhir yang bisa dihapus.', 403);
+            }
+        }
+
+        $path = public_path('suratnotaris/'.$buku->file);
+        DB::transaction(function () use ($id) {
+            BukuSuratNotaris::where('id_surat_notaris', $id)->delete();
+        });
+        if ($buku->file && is_file($path)) {
+            @unlink($path);
+        }
+
+        return $this->successResponse(null, 'Berhasil menghapus Surat Notaris No '.$buku->no_surat);
+    }
+
+    public function DeleteNomorSuratPPAT(Request $request)
+    {
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $id = $request->input('id_surat_ppat');
+
+        $buku = BukuSuratPPAT::where('id_surat_ppat', $id)->first();
+        if (!$buku) {
+            return $this->errorResponse(null, 'Data surat PPAT tidak ditemukan.', 404);
+        }
+
+        if (!$isSuperAdmin) {
+            if ((string) $buku->pengirim !== (string) optional($request->user())->id_user) {
+                return $this->errorResponse(null, 'Anda hanya bisa menghapus data yang Anda buat sendiri.', 403);
+            }
+
+            $tanggalSurat = strtotime((string) $buku->created_at);
+            if ($tanggalSurat === false) {
+                return $this->errorResponse(null, 'Tanggal surat tidak valid.', 422);
+            }
+
+            $latestNo = BukuSuratPPAT::whereYear('created_at', date('Y', $tanggalSurat))->max('no_surat');
+            if ((int) $buku->no_surat !== (int) $latestNo) {
+                return $this->errorResponse(null, 'Hanya nomor terakhir yang bisa dihapus.', 403);
+            }
+        }
+
+        $path = public_path('suratppats/'.$buku->file);
+        DB::transaction(function () use ($id) {
+            BukuSuratPPAT::where('id_surat_ppat', $id)->delete();
+        });
+        if ($buku->file && is_file($path)) {
+            @unlink($path);
+        }
+
+        return $this->successResponse(null, 'Berhasil menghapus Surat PPAT No '.$buku->no_surat);
+    }
 
 
 
@@ -365,6 +733,7 @@ public function DeleteNomorPPAT(Request $request)
         $query = DB::table('buku_ppats')
             ->leftjoin('daftar_aktas', 'buku_ppats.id_akta', '=', 'daftar_aktas.id_akta')
             ->leftjoin('users', 'buku_ppats.id_user', '=', 'users.id_user')
+            ->leftjoin('ppat_rekanans', 'buku_ppats.ppat_rekanan_keluar_id', '=', 'ppat_rekanans.id')
             ->whereYear('buku_ppats.tanggal_akta', $tgl[0])
             ->whereMonth('buku_ppats.tanggal_akta', $tgl[1])
             ->select(
@@ -388,6 +757,10 @@ public function DeleteNomorPPAT(Request $request)
                 'buku_ppats.tgl_pph',
                 'buku_ppats.harga_pph',
                 'buku_ppats.keterangan',
+                'buku_ppats.ppat_rekanan_keluar_id',
+                'buku_ppats.rekanan_keluar_catatan',
+                'buku_ppats.rekanan_keluar_at',
+                'ppat_rekanans.nama_ppat as nama_ppat_rekanan',
             )
             ->orderByDesc('buku_ppats.id_buku_ppat')
             ->get();
@@ -426,6 +799,11 @@ public function DeleteNomorPPAT(Request $request)
                 'tgl_pph' => $r->tgl_pph,
                 'harga_pph' => 'Rp. '.number_format($r->harga_pph),
                 'keterangan' => $r->keterangan,
+                'rekanan_keluar' => (bool) $r->ppat_rekanan_keluar_id,
+                'ppat_rekanan_keluar_id' => $r->ppat_rekanan_keluar_id,
+                'nama_ppat_rekanan' => $r->nama_ppat_rekanan,
+                'rekanan_keluar_catatan' => $r->rekanan_keluar_catatan,
+                'rekanan_keluar_at' => $r->rekanan_keluar_at,
                 'barcode' => base64_encode(QrCode::format('svg')->margin(3)->size(250)->generate($barcode)),
             ];
         }
@@ -1839,6 +2217,7 @@ public function DeleteNomorPPAT(Request $request)
                 'buku_surat_notaris.keterangan',
                 'buku_surat_notaris.file',
                 'buku_surat_notaris.created_at',
+                'users.id_user',
                 'users.nama_lengkap')
             ->orderBy('buku_surat_notaris.id_surat_notaris', 'DESC')
             ->get();
@@ -1852,6 +2231,8 @@ public function DeleteNomorPPAT(Request $request)
                 'keterangan' => $r->keterangan,
                 'file' => $r->file,
                 'created_at' => $r->created_at,
+                'id_user' => $r->id_user,
+                'pengirim' => $r->id_user,
                 'nama_lengkap' => $r->nama_lengkap,
             ];
         }
@@ -1879,6 +2260,7 @@ public function DeleteNomorPPAT(Request $request)
                 'buku_surat_ppats.keterangan',
                 'buku_surat_ppats.file',
                 'buku_surat_ppats.created_at',
+                'users.id_user',
                 'users.nama_lengkap')
             ->orderByDesc('buku_surat_ppats.id_surat_ppat')
             ->get();
@@ -1892,6 +2274,8 @@ public function DeleteNomorPPAT(Request $request)
                 'keterangan' => $r->keterangan,
                 'file' => $r->file,
                 'created_at' => $r->created_at,
+                'id_user' => $r->id_user,
+                'pengirim' => $r->id_user,
                 'nama_lengkap' => $r->nama_lengkap,
             ];
         }

@@ -15,6 +15,20 @@ yarn-error.log*
 # Backup metadata
 .git-backups/
 
+# Generated deployment/test artifacts
+*.tar.gz
+tmp-*.js
+production-numbers-*.json
+reports/
+frontend/public/reports/
+
+# Python/OCR lab generated files
+features/**/.venv/
+features/**/__pycache__/
+features/**/*.egg-info/
+features/**/outputs/*
+!features/**/outputs/README.md
+
 # Backend
 backend/.git/
 backend/.env

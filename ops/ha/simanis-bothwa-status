@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+names=(bothwa simanis-waha)
+
+for name in "${names[@]}"; do
+  if docker inspect "$name" >/dev/null 2>&1; then
+    docker inspect --format '{{.Name}}|{{.State.Status}}|{{.State.Running}}|{{.Config.Image}}|{{.RestartCount}}' "$name"
+  else
+    printf '/%s|missing|false||\n' "$name"
+  fi
+done

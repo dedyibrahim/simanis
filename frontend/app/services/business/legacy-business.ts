@@ -176,10 +176,26 @@ export function useLegacyBusinessService() {
     runDatabaseBackup: (payload?: BodyPayload) => post('/auth/database-backups', payload),
     pruneOldDatabaseBackups: () => del('/auth/database-backups/old'),
     downloadDatabaseBackup: (fileName: string) => downloadBlob(`/auth/database-backups/download/${encodeURIComponent(fileName)}`),
+    getHaStatus: () => get('/auth/ha-status'),
+    getHaWhatsapp: () => get('/auth/ha-whatsapp'),
+    saveHaWhatsappSettings: (payload: BodyPayload) => put('/auth/ha-whatsapp/settings', payload),
+    syncHaWhatsappWebhook: () => post('/auth/ha-whatsapp/webhook/sync'),
+    startHaWhatsapp: () => post('/auth/ha-whatsapp/start'),
+    stopHaWhatsapp: () => post('/auth/ha-whatsapp/stop'),
+    getHaKtpOcr: () => get('/auth/ha-ktp-ocr'),
+    saveHaKtpOcrSettings: (payload: BodyPayload) => put('/auth/ha-ktp-ocr/settings', payload),
+    startHaKtpOcr: () => post('/auth/ha-ktp-ocr/start'),
+    stopHaKtpOcr: () => post('/auth/ha-ktp-ocr/stop'),
+    restartHaKtpOcr: () => post('/auth/ha-ktp-ocr/restart'),
+    getGoogleCalendarStatus: () => get('/auth/google-calendar/status'),
+    saveGoogleCalendarSettings: (payload: BodyPayload) => put('/auth/google-calendar/settings', payload),
+    syncGoogleCalendar: (payload?: BodyPayload) => post('/auth/google-calendar/sync', payload),
+    clearGoogleCalendarErrors: () => post('/auth/google-calendar/clear-errors'),
   }
 
   const client = {
     getDataClient: (payload: BodyPayload) => post('/auth/getDataClient', payload),
+    checkClientIdentity: (payload: BodyPayload) => post('/auth/checkClientIdentity', payload),
     SimpanClientBaru: (payload: BodyPayload) => post('/auth/SimpanClientBaru', payload),
     getDataDokumenClient: (payload: BodyPayload) => post('/auth/getDataDokumenClient', payload),
     UploadDokumenClient: (formData: FormData) => postForm('/auth/UploadDokumenClient', formData),
@@ -213,6 +229,8 @@ export function useLegacyBusinessService() {
     getBukuNotaris: (payload: BodyPayload) => post('/auth/getBukuNotaris', payload),
     getBukuLamaNotaris: () => get('/auth/getBukuLamaNotaris'),
     SimpanNomorNotaris: (payload: BodyPayload) => post('/auth/SimpanNomorNotaris', payload),
+    PreviewAktaNotarisMassal: (payload: BodyPayload) => post('/auth/PreviewAktaNotarisMassal', payload),
+    SimpanAktaNotarisMassal: (payload: BodyPayload) => post('/auth/SimpanAktaNotarisMassal', payload),
     SimpanNomorNotarisLama: (payload: BodyPayload) => post('/auth/SimpanNomorNotarisLama', payload),
     DeleteNomorNotaris: (payload: BodyPayload) => post('/auth/DeleteNomorNotaris', payload),
     EditAktaNotaris: (payload: BodyPayload) => post('/auth/EditAktaNotaris', payload),
@@ -223,6 +241,7 @@ export function useLegacyBusinessService() {
   const bukuLegalisasi = {
     getBukuLegalisasi: (payload: BodyPayload) => post('/auth/getBukuLegalisasi', payload),
     SimpanNomorLegalisasi: (payload: BodyPayload) => post('/auth/SimpanNomorLegalisasi', payload),
+    DeleteNomorLegalisasi: (payload: BodyPayload) => post('/auth/DeleteNomorLegalisasi', payload),
     EditLegalisasi: (payload: BodyPayload) => post('/auth/EditLegalisasi', payload),
     UploadExcelLegalisasi: (formData: FormData) => postForm('/auth/UploadExcelLegalisasi', formData),
   }
@@ -230,6 +249,7 @@ export function useLegacyBusinessService() {
   const bukuWarmerking = {
     getBukuWarmerking: (payload: BodyPayload) => post('/auth/getBukuWarmerking', payload),
     SimpanNomorWarmerking: (payload: BodyPayload) => post('/auth/SimpanNomorWarmerking', payload),
+    DeleteNomorWarmerking: (payload: BodyPayload) => post('/auth/DeleteNomorWarmerking', payload),
     EditWarmerking: (payload: BodyPayload) => post('/auth/EditWarmerking', payload),
     UploadExcelWarmerking: (formData: FormData) => postForm('/auth/UploadExcelWarmerking', formData),
   }
@@ -247,6 +267,17 @@ export function useLegacyBusinessService() {
     UploadExcelrekanan: (formData: FormData) => postForm('/auth/UploadExcelrekanan', formData),
     SimpanNomorRekanan: (payload: BodyPayload) => post('/auth/SimpanNomorPPAT', payload),
     EditAktaRekanan: (payload: BodyPayload) => post('/auth/EditAktaPPAT', payload),
+    getMaster: (query?: QueryParams) => get('/auth/ppat-rekanan/master', query),
+    createMaster: (payload: BodyPayload) => post('/auth/ppat-rekanan/master', payload),
+    updateMaster: (id: string | number, payload: BodyPayload) => put(`/auth/ppat-rekanan/master/${id}`, payload),
+    deleteMaster: (id: string | number) => del(`/auth/ppat-rekanan/master/${id}`),
+    getKeluar: (query?: QueryParams) => get('/auth/ppat-rekanan/keluar', query),
+    markKeluar: (payload: BodyPayload) => post('/auth/ppat-rekanan/keluar/mark', payload),
+    unmarkKeluar: (payload: BodyPayload) => post('/auth/ppat-rekanan/keluar/unmark', payload),
+    getKedalam: (query?: QueryParams) => get('/auth/ppat-rekanan/kedalam', query),
+    createKedalam: (payload: BodyPayload) => post('/auth/ppat-rekanan/kedalam', payload),
+    updateKedalam: (id: string | number, payload: BodyPayload) => put(`/auth/ppat-rekanan/kedalam/${id}`, payload),
+    deleteKedalam: (id: string | number) => del(`/auth/ppat-rekanan/kedalam/${id}`),
   }
 
   const surat = {
@@ -260,6 +291,8 @@ export function useLegacyBusinessService() {
     UploadSuratPPAT: (formData: FormData) => postForm('/auth/UploadSuratPPAT', formData),
     DeleteSuratNotaris: (payload: BodyPayload) => post('/auth/DeleteSuratNotaris', payload),
     DeleteSuratPPAT: (payload: BodyPayload) => post('/auth/DeleteSuratPPAT', payload),
+    DeleteNomorSuratNotaris: (payload: BodyPayload) => post('/auth/DeleteNomorSuratNotaris', payload),
+    DeleteNomorSuratPPAT: (payload: BodyPayload) => post('/auth/DeleteNomorSuratPPAT', payload),
   }
 
   const dokumen = {
@@ -331,6 +364,10 @@ export function useLegacyBusinessService() {
 
   const adminWork = {
     getReportoriumJobs: (query?: QueryParams) => get('/auth/admin-work/reportorium-jobs', query),
+    getNumberAnomalies: (query?: QueryParams) => get('/auth/admin-work/number-anomalies', query),
+    getNumberAnomalyRecord: (query?: QueryParams) => get('/auth/admin-work/number-anomalies/record', query),
+    updateNumberAnomalyRecord: (payload: BodyPayload) => put('/auth/admin-work/number-anomalies/record', payload),
+    deleteNumberAnomaly: (query?: QueryParams) => del('/auth/admin-work/number-anomalies', query),
     getAsisten: () => get('/auth/admin-work/asisten'),
     reassign: (payload: BodyPayload) => post('/auth/admin-work/reassign', payload),
   }
@@ -340,7 +377,18 @@ export function useLegacyBusinessService() {
     listRequests: (query?: QueryParams) => get('/auth/document-access/requests', query),
     listMyRequests: (query?: QueryParams) => get('/auth/document-access/requests', { ...(query || {}), mine: 1 }),
     decide: (id: string | number, payload: BodyPayload) => post(`/auth/document-access/requests/${id}/decision`, payload),
+    bulkDecide: (payload: BodyPayload) => post('/auth/document-access/requests/bulk-decision', payload),
     downloadUrl: (id: string | number) => withBase(`/auth/document-access/download/${id}`),
+    downloadBulkUrl: (ids: Array<string | number>) => withBase(`/auth/document-access/download-bulk?ids=${encodeURIComponent(ids.join(','))}`),
+  }
+
+  const scannedDocuments = {
+    list: (query?: QueryParams) => get('/auth/scanned-documents', query),
+    postingTargets: (query?: QueryParams) => get('/auth/scanned-documents/posting-targets', query),
+    postToModule: (id: string | number, payload: BodyPayload) => post(`/auth/scanned-documents/${id}/post`, payload),
+    downloadUrl: (id: string | number) => withBase(`/auth/scanned-documents/${id}/download`),
+    downloadBlob: (id: string | number) => downloadBlob(`/auth/scanned-documents/${id}/download`),
+    delete: (id: string | number) => del(`/auth/scanned-documents/${id}`),
   }
 
   const tandaTerima = {
@@ -400,6 +448,7 @@ export function useLegacyBusinessService() {
     peminjamanMinuta,
     adminWork,
     documentAccess,
+    scannedDocuments,
     tandaTerima,
     reports,
     assets,

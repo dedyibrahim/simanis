@@ -1,0 +1,23 @@
+{
+  "name": "tesseract-tuned",
+  "description": "Preset Tesseract dengan adaptive threshold dan psm 6.",
+  "preprocessing": {
+    "resize_scale": 2.0,
+    "grayscale": true,
+    "denoise": true,
+    "sharpen": true,
+    "contrast": "clahe",
+    "threshold": "adaptive",
+    "deskew": true
+  },
+  "ocr": {
+    "engine": "tesseract",
+    "language": "eng",
+    "psm": 6,
+    "oem": 3
+  },
+  "parser": {
+    "normalize_labels": true,
+    "strict_nik": true
+  }
+}

@@ -17,6 +17,42 @@ use Illuminate\Support\Facades\DB;
 
 class DokumenNotaris extends Controller
 {
+    private function safeOriginalFileName($file, string $directory): string
+    {
+        $original = (string) $file->getClientOriginalName();
+        $extension = strtolower((string) $file->getClientOriginalExtension());
+        $nameOnly = pathinfo($original, PATHINFO_FILENAME);
+        $safeName = preg_replace('/[^\pL\pN\s._-]+/u', '-', $nameOnly) ?: '';
+        $safeName = preg_replace('/\s+/', ' ', $safeName) ?: '';
+        $safeName = trim($safeName, " ._-");
+
+        if ($safeName === '') {
+            $safeName = 'dokumen';
+        }
+
+        $candidate = $safeName.($extension ? '.'.$extension : '');
+        $targetDirectory = public_path($directory);
+        if (!is_dir($targetDirectory)) {
+            mkdir($targetDirectory, 0755, true);
+        }
+
+        $counter = 2;
+        while (is_file($targetDirectory.DIRECTORY_SEPARATOR.$candidate)) {
+            $candidate = $safeName.'-'.$counter.($extension ? '.'.$extension : '');
+            $counter++;
+        }
+
+        return $candidate;
+    }
+
+    private function moveWithOriginalName($file, string $directory): string
+    {
+        $filename = $this->safeOriginalFileName($file, $directory);
+        $file->move(public_path($directory), $filename);
+
+        return $filename;
+    }
+
     public function UploadDokumenNotaris(Request $request)
     {
         foreach ($request->file('dokumens') as $key => $file) {
@@ -33,9 +69,7 @@ class DokumenNotaris extends Controller
 
             $id_dokumen = 'Doc'.str_pad($urutan, 7, '0', STR_PAD_LEFT);
 
-            $filenameSimpan = $file->hashName();
-            $foto = $file;
-            $foto->move('berkasnotaris', $filenameSimpan);
+            $filenameSimpan = $this->moveWithOriginalName($file, 'berkasnotaris');
 
             tb_dokumen_notaris::create([
                 'id_dokumen_notaris' => $id_dokumen,
@@ -70,9 +104,7 @@ class DokumenNotaris extends Controller
 
             $id_dokumen = 'Doc'.str_pad($urutan, 7, '0', STR_PAD_LEFT);
 
-            $filenameSimpan = $file->hashName();
-            $foto = $file;
-            $foto->move('berkasppat', $filenameSimpan);
+            $filenameSimpan = $this->moveWithOriginalName($file, 'berkasppat');
 
             tb_dokumen_ppat::create([
                 'id_dokumen_ppat' => $id_dokumen,
@@ -107,9 +139,7 @@ class DokumenNotaris extends Controller
 
             $id_dokumen = 'Doc'.str_pad($urutan, 7, '0', STR_PAD_LEFT);
 
-            $filenameSimpan = $file->hashName();
-            $foto = $file;
-            $foto->move('berkaswarmerkings', $filenameSimpan);
+            $filenameSimpan = $this->moveWithOriginalName($file, 'berkaswarmerkings');
 
             tb_dokumen_warmerkings::create([
                 'id_dokumen_warmerking' => $id_dokumen,
@@ -132,9 +162,7 @@ class DokumenNotaris extends Controller
     {
         $file = $request->file('dokumen');
 
-        $filenameSimpan = $file->hashName();
-        $foto = $file;
-        $foto->move('suratnotaris', $filenameSimpan);
+        $filenameSimpan = $this->moveWithOriginalName($file, 'suratnotaris');
 
         BukuSuratNotaris::where('id_surat_notaris', $request->post('id_surat_notaris'))
         ->update([
@@ -154,9 +182,7 @@ class DokumenNotaris extends Controller
     {
         $file = $request->file('dokumen');
 
-        $filenameSimpan = $file->hashName();
-        $foto = $file;
-        $foto->move('tandaterima', $filenameSimpan);
+        $filenameSimpan = $this->moveWithOriginalName($file, 'tandaterima');
 
         TandaTerima::where('id', $request->post('id'))
         ->update([
@@ -176,9 +202,7 @@ class DokumenNotaris extends Controller
     {
         $file = $request->file('dokumen');
 
-        $filenameSimpan = $file->hashName();
-        $foto = $file;
-        $foto->move('suratppats', $filenameSimpan);
+        $filenameSimpan = $this->moveWithOriginalName($file, 'suratppats');
 
         BukuSuratPPAT::where('id_surat_ppat', $request->post('id_surat_ppat'))
         ->update([
@@ -210,9 +234,7 @@ class DokumenNotaris extends Controller
 
             $id_dokumen = 'Doc'.str_pad($urutan, 7, '0', STR_PAD_LEFT);
 
-            $filenameSimpan = $file->hashName();
-            $foto = $file;
-            $foto->move('berkaslegalisasis', $filenameSimpan);
+            $filenameSimpan = $this->moveWithOriginalName($file, 'berkaslegalisasis');
 
             tb_dokumen_legalisasis::create([
                 'id_dokumen_legalisasi' => $id_dokumen,
@@ -656,9 +678,7 @@ class DokumenNotaris extends Controller
 
             $no_berkas = 'BK'.date('Ymd').str_pad($urutan, 10, '0', STR_PAD_LEFT);
 
-            $filenameSimpan = $file->hashName();
-            $foto = $file;
-            $foto->move('berkasclient/'.$data->nama_folder, $filenameSimpan);
+            $filenameSimpan = $this->moveWithOriginalName($file, 'berkasclient/'.$data->nama_folder);
 
             tb_berkas::create([
                 'id_berkas' => $no_berkas,

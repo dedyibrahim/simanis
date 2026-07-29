@@ -228,7 +228,22 @@ let lookupTimer: ReturnType<typeof setTimeout> | undefined
 let suratLookupTimer: ReturnType<typeof setTimeout> | undefined
 
 const modeLabel = computed(() => (mode.value === 'edit' ? 'Edit Data' : 'Create Data'))
-const openFormLabel = computed(() => 'Ambil Nomor')
+const numberContextLabel = computed(() => {
+  if (isSurat.value) return 'Surat'
+  if (isTandaTerima.value) return 'Tanda Terima'
+  if (isNotaris.value) return 'Akta Notaris'
+  if (isLegalisasi.value) return 'Legalisasi'
+  if (isWaarmerking.value) return 'Waarmerking'
+  if (isPpat.value) return 'Akta PPAT'
+  return moduleTitle.value
+})
+const formCardTitle = computed(() => `Ambil Nomor ${numberContextLabel.value}`)
+const formCardDescription = computed(() => {
+  if (isSurat.value) return 'Input data surat ditampilkan melalui dialog agar halaman utama tetap ringkas.'
+  if (isTandaTerima.value) return 'Input data tanda terima ditampilkan melalui dialog agar halaman utama tetap ringkas.'
+  return 'Input data ditampilkan melalui dialog agar halaman utama tetap ringkas.'
+})
+const openFormLabel = computed(() => formCardTitle.value)
 const submitLabel = computed(() => {
   if (submitting.value) return mode.value === 'edit' ? 'Menyimpan Perubahan...' : 'Menyimpan...'
   return mode.value === 'edit' ? 'Simpan Perubahan' : 'Simpan Data'
@@ -908,8 +923,8 @@ watch(
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p class="display-kicker">{{ modeLabel }}</p>
-          <h3 class="mt-2 text-2xl font-semibold text-slate-900">Ambil Nomor Buku Reportorium</h3>
-          <p class="mt-2 text-sm text-slate-500">Input data ditampilkan melalui dialog agar halaman utama tetap ringkas.</p>
+          <h3 class="mt-2 text-2xl font-semibold text-slate-900">{{ formCardTitle }}</h3>
+          <p class="mt-2 text-sm text-slate-500">{{ formCardDescription }}</p>
         </div>
         <button
           v-if="canCreate"

@@ -23,6 +23,14 @@
             <p class="font-medium text-slate-600">Sistem Informasi Administrasi Kantor Notaris</p>
           </div>
 
+          <NuxtLink
+            to="/jadwal-publik"
+            class="relative z-10 mb-6 flex items-center justify-center gap-2 rounded-2xl border border-blue-200/70 bg-blue-50/80 px-4 py-3 text-sm font-bold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+          >
+            <CalendarDaysIcon class="h-5 w-5" />
+            Lihat Jadwal Notaris Publik
+          </NuxtLink>
+
           <form class="space-y-6" @submit.prevent="handleLogin">
             <div class="space-y-2">
               <label for="email" class="block text-sm font-semibold text-slate-700"> Email </label>
@@ -193,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { ClipboardDocumentCheckIcon } from '@heroicons/vue/24/outline'
+import { CalendarDaysIcon, ClipboardDocumentCheckIcon } from '@heroicons/vue/24/outline'
 
 definePageMeta({
   layout: false,
@@ -212,6 +220,7 @@ type LoginResponse = {
 
 const business = useLegacyBusiness()
 const { setSession } = useSession()
+const route = useRoute()
 
 const pending = ref(false)
 const errorMessage = ref('')
@@ -221,6 +230,15 @@ const form = reactive({
   email: '',
   password: '',
   remember: false,
+})
+
+const redirectTarget = computed(() => {
+  const redirect = route.query.redirect
+  if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')) {
+    return redirect
+  }
+
+  return '/dashboard'
 })
 
 const handleLogin = async () => {
@@ -238,7 +256,7 @@ const handleLogin = async () => {
     }) as LoginResponse
 
     setSession(response.data)
-    await navigateTo('/dashboard')
+    await navigateTo(redirectTarget.value)
   } catch (error) {
     errorMessage.value = (error as { data?: { message?: string } })?.data?.message || 'Login gagal. Periksa email dan password.'
   } finally {

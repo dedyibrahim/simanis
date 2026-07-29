@@ -7,9 +7,12 @@ type ApiEnvelope<T = unknown> = {
 
 type DownloadRequestRow = {
   id?: number
+  batch_id?: string
+  batch_label?: string
   module_path?: string
   row_id?: string
   file_name?: string
+  display_name?: string
   file_category?: string
   requested_by_id_user?: string
   requested_by_name?: string
@@ -37,6 +40,8 @@ const loadingRequests = ref(false)
 const requestsError = ref('')
 const requestMessage = ref('')
 const decidingId = ref<number | null>(null)
+const bulkDeciding = ref(false)
+const selectedRequestIds = ref<number[]>([])
 const requestPage = ref(1)
 const requestPerPage = ref(20)
 const requestPerPageOptions = [20, 50, 100]
@@ -66,6 +71,14 @@ const requestStart = computed(() => {
   return (requestPage.value - 1) * requestPerPage.value + 1
 })
 const requestEnd = computed(() => Math.min(requestStart.value + requestPerPage.value - 1, requestTotalRows.value))
+const pendingVisibleRows = computed(() =>
+  paginatedRequestRows.value.filter(row => row.id && String(row.status || '').toLowerCase() === 'pending'),
+)
+const selectedCount = computed(() => selectedRequestIds.value.length)
+const allVisiblePendingSelected = computed(() =>
+  pendingVisibleRows.value.length > 0
+  && pendingVisibleRows.value.every(row => selectedRequestIds.value.includes(Number(row.id))),
+)
 
 const toList = <T>(payload: unknown): T[] => {
   if (Array.isArray(payload)) return payload as T[]
@@ -120,6 +133,7 @@ const loadRequests = async () => {
     if (requestSearch.value.trim()) query.search = requestSearch.value.trim()
     const response = await business.documentAccess.listRequests(query) as ApiEnvelope<DownloadRequestRow[]>
     requestRows.value = toList<DownloadRequestRow>(response)
+    selectedRequestIds.value = []
     requestPage.value = 1
     requestMessage.value = response.message || ''
   } catch (error) {
@@ -128,6 +142,24 @@ const loadRequests = async () => {
   } finally {
     loadingRequests.value = false
   }
+}
+
+const toggleRequestSelection = (row: DownloadRequestRow) => {
+  if (!row.id || String(row.status || '').toLowerCase() !== 'pending') return
+  const id = Number(row.id)
+  selectedRequestIds.value = selectedRequestIds.value.includes(id)
+    ? selectedRequestIds.value.filter(item => item !== id)
+    : [...selectedRequestIds.value, id]
+}
+
+const toggleAllVisiblePending = () => {
+  const ids = pendingVisibleRows.value.map(row => Number(row.id)).filter(Number.isFinite)
+  if (!ids.length) return
+  if (allVisiblePendingSelected.value) {
+    selectedRequestIds.value = selectedRequestIds.value.filter(id => !ids.includes(id))
+    return
+  }
+  selectedRequestIds.value = Array.from(new Set([...selectedRequestIds.value, ...ids]))
 }
 
 const decideRequest = async (row: DownloadRequestRow, decision: 'approved' | 'rejected') => {
@@ -150,12 +182,37 @@ const decideRequest = async (row: DownloadRequestRow, decision: 'approved' | 're
   }
 }
 
+const decideSelectedRequests = async (decision: 'approved' | 'rejected') => {
+  if (!selectedRequestIds.value.length || bulkDeciding.value) return
+  if (!import.meta.client) return
+
+  const actionText = decision === 'approved' ? 'setujui' : 'tolak'
+  if (!window.confirm(`Yakin ingin ${actionText} ${selectedRequestIds.value.length} permintaan download terpilih?`)) return
+
+  bulkDeciding.value = true
+  requestsError.value = ''
+  try {
+    const response = await business.documentAccess.bulkDecide({
+      ids: selectedRequestIds.value,
+      decision,
+    }) as ApiEnvelope
+    requestMessage.value = response.message || 'Status request terpilih berhasil diperbarui.'
+    selectedRequestIds.value = []
+    await loadRequests()
+  } catch (error) {
+    requestsError.value = (error as { data?: { message?: string } })?.data?.message || 'Gagal memperbarui status request terpilih.'
+  } finally {
+    bulkDeciding.value = false
+  }
+}
+
 onMounted(async () => {
   await loadRequests()
 })
 
 watch(requestPerPage, () => {
   requestPage.value = 1
+  selectedRequestIds.value = []
 })
 
 watch(requestTotalPages, () => {
@@ -206,6 +263,39 @@ watch(requestTotalPages, () => {
         <p v-if="requestMessage" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ requestMessage }}</p>
         <p v-if="requestsError" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ requestsError }}</p>
 
+        <div
+          v-if="selectedCount"
+          class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3"
+        >
+          <p class="text-sm font-semibold text-blue-800">{{ selectedCount }} request dipilih.</p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="bulkDeciding"
+              @click="decideSelectedRequests('approved')"
+            >
+              Setujui Terpilih
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="bulkDeciding"
+              @click="decideSelectedRequests('rejected')"
+            >
+              Tolak Terpilih
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-9 items-center rounded-lg border border-blue-300 bg-white px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-50"
+              :disabled="bulkDeciding"
+              @click="selectedRequestIds = []"
+            >
+              Batal Pilih
+            </button>
+          </div>
+        </div>
+
         <div v-if="loadingRequests" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           Memuat data persetujuan download...
         </div>
@@ -217,6 +307,15 @@ watch(requestTotalPages, () => {
             <table class="min-w-full divide-y divide-slate-200 bg-white">
               <thead class="bg-slate-100/80">
                 <tr>
+                  <th class="w-10 px-3 py-2 text-left">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      :checked="allVisiblePendingSelected"
+                      :disabled="!pendingVisibleRows.length"
+                      @change="toggleAllVisiblePending"
+                    />
+                  </th>
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Requester</th>
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Modul</th>
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Row ID</th>
@@ -228,11 +327,28 @@ watch(requestTotalPages, () => {
               </thead>
               <tbody class="divide-y divide-slate-100">
                 <tr v-for="row in paginatedRequestRows" :key="String(row.id)">
+                  <td class="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
+                      :checked="Boolean(row.id && selectedRequestIds.includes(Number(row.id)))"
+                      :disabled="String(row.status || '').toLowerCase() !== 'pending'"
+                      @change="toggleRequestSelection(row)"
+                    />
+                  </td>
                   <td class="px-3 py-2 text-sm text-slate-700">{{ row.requested_by_name || '-' }}</td>
                   <td class="px-3 py-2 text-sm text-slate-700">{{ moduleLabelMap[String(row.module_path || '')] || row.module_path || '-' }}</td>
                   <td class="px-3 py-2 text-sm font-semibold text-slate-800">{{ row.row_id || '-' }}</td>
                   <td class="max-w-[280px] px-3 py-2 text-sm text-slate-700">
-                    <span class="block truncate" :title="String(row.file_name || '-')">{{ row.file_name || '-' }}</span>
+                    <span class="block truncate font-semibold text-slate-800" :title="String(row.display_name || row.file_name || '-')">
+                      {{ row.display_name || row.file_name || '-' }}
+                    </span>
+                    <span v-if="row.display_name && row.file_name" class="mt-1 block truncate text-[11px] text-slate-400" :title="String(row.file_name)">
+                      Internal: {{ row.file_name }}
+                    </span>
+                    <span v-if="row.batch_id" class="mt-1 block truncate text-[11px] font-semibold text-blue-600" :title="row.batch_id">
+                      Batch: {{ row.batch_label || row.batch_id }}
+                    </span>
                   </td>
                   <td class="px-3 py-2 text-sm">
                     <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold" :class="statusBadgeClass(row.status)">

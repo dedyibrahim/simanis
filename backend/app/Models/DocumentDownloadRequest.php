@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 class DocumentDownloadRequest extends Model
 {
     protected $fillable = [
+        'batch_id',
+        'batch_label',
         'module_path',
         'row_id',
         'file_name',
+        'display_name',
         'file_category',
         'requested_by_id_user',
         'requested_by_name',

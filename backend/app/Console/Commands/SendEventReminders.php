@@ -15,6 +15,7 @@ class SendEventReminders extends Command
     protected $signature = 'events:send-reminders {--dry-run : Tampilkan target tanpa mengirim pesan}';
 
     protected $description = 'Kirim reminder satu jam kepada Admin/Super Admin dan peserta terkait';
+    private const ADMIN_LEVELS = ['Admin', 'Super Admin', 'SuperAdmin'];
 
     private WahaClient $wahaClient;
 
@@ -131,7 +132,13 @@ class SendEventReminders extends Command
     private function buildReminderMessage(Event $event, string $recipientName, Collection $recipients): string
     {
         $creatorName = $event->creator->nama_lengkap ?? 'Sistem';
-        $picNames = $recipients->pluck('nama_lengkap')->implode(', ');
+        $picNames = $event->users
+            ->filter(fn ($user) => !in_array((string) $user->level_user, self::ADMIN_LEVELS, true))
+            ->pluck('nama_lengkap')
+            ->filter()
+            ->unique()
+            ->values()
+            ->implode(', ');
         $time = $event->start_datetime->format('d M Y, H:i');
         if ($event->end_datetime) {
             $time .= ' - '.$event->end_datetime->format('H:i');
@@ -147,7 +154,9 @@ class SendEventReminders extends Command
             $message .= "*Keterangan:* {$event->description}\n";
         }
         $message .= "*Dibuat oleh:* {$creatorName}\n";
-        $message .= "*PIC:* {$picNames}\n";
+        if ($picNames !== '') {
+            $message .= "*PIC:* {$picNames}\n";
+        }
         $message .= "\nMohon mempersiapkan diri. Terima kasih.";
 
         return $message;

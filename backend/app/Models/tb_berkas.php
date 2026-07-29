@@ -10,6 +10,10 @@ class tb_berkas extends Model
     use HasFactory;
 
     protected $table = 'tb_berkas';
+    protected $primaryKey = 'id_berkas';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
     protected $fillable = [
         'id_berkas'  ,
         'id_client',

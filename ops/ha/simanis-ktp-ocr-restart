@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+/usr/local/sbin/simanis-ktp-ocr-stop >/dev/null 2>&1 || true
+/usr/local/sbin/simanis-ktp-ocr-start
