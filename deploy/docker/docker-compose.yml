@@ -1,0 +1,187 @@
+name: ${COMPOSE_PROJECT_NAME:-simanis}
+
+services:
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/frontend/Dockerfile
+      args:
+        NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-/api}
+        NUXT_PUBLIC_ASSET_BASE: ${NUXT_PUBLIC_ASSET_BASE:-}
+    image: simanis/frontend:local
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${SIMANIS_HTTP_PORT:-80}:80"
+    networks:
+      - simanis
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/api/Dockerfile
+    image: simanis/api:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - laravel_storage:/var/www/html/storage
+      - public_berkasclient:/var/www/html/public/berkasclient
+      - public_berkaslegalisasis:/var/www/html/public/berkaslegalisasis
+      - public_berkasnotaris:/var/www/html/public/berkasnotaris
+      - public_berkasppat:/var/www/html/public/berkasppat
+      - public_berkaswarmerkings:/var/www/html/public/berkaswarmerkings
+      - public_chat_attachments:/var/www/html/public/chat_attachments
+      - public_foto:/var/www/html/public/foto
+      - public_suratnotaris:/var/www/html/public/suratnotaris
+      - public_tandaterima:/var/www/html/public/tandaterima
+    networks:
+      - simanis
+
+  worker:
+    image: simanis/api:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - api
+      - redis
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=120"]
+    volumes:
+      - laravel_storage:/var/www/html/storage
+      - public_berkasclient:/var/www/html/public/berkasclient
+      - public_berkaslegalisasis:/var/www/html/public/berkaslegalisasis
+      - public_berkasnotaris:/var/www/html/public/berkasnotaris
+      - public_berkasppat:/var/www/html/public/berkasppat
+      - public_berkaswarmerkings:/var/www/html/public/berkaswarmerkings
+      - public_chat_attachments:/var/www/html/public/chat_attachments
+      - public_foto:/var/www/html/public/foto
+      - public_suratnotaris:/var/www/html/public/suratnotaris
+      - public_tandaterima:/var/www/html/public/tandaterima
+    networks:
+      - simanis
+
+  scheduler:
+    image: simanis/api:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - api
+    command: ["/usr/local/bin/simanis-scheduler"]
+    volumes:
+      - laravel_storage:/var/www/html/storage
+    networks:
+      - simanis
+
+  bothwa:
+    build:
+      context: ../../bothWA
+      dockerfile: ../deploy/docker/bothwa/Dockerfile
+    image: simanis/bothwa:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - api
+      - waha
+      - ktp-ocr
+    networks:
+      - simanis
+
+  waha:
+    image: devlikeapro/waha:latest
+    restart: unless-stopped
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WAHA_SESSION_CONFIG_IGNORE_STATUS: "true"
+      WAHA_SESSION_CONFIG_IGNORE_GROUPS: "true"
+      WAHA_SESSION_CONFIG_IGNORE_CHANNELS: "true"
+      WAHA_SESSION_CONFIG_IGNORE_BROADCAST: "true"
+      WAHA_API_KEY: ${WAHA_API_KEY}
+      WAHA_NO_API_KEY: "False"
+      WAHA_DASHBOARD_ENABLED: "true"
+      WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME}
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD}
+      WAHA_PRINT_QR: "true"
+      WAHA_AUTO_START_DELAY_SECONDS: "0"
+      WHATSAPP_RESTART_ALL_SESSIONS: "true"
+    volumes:
+      - waha_sessions:/app/.sessions
+    networks:
+      - simanis
+
+  ktp-ocr:
+    build:
+      context: ../../features/ktp-ocr-lab
+      dockerfile: ../../deploy/docker/ktp-ocr/Dockerfile
+    image: simanis/ktp-ocr:local
+    restart: unless-stopped
+    environment:
+      KTP_OCR_ROOT: /app
+      FLAGS_use_onednn: "0"
+      FLAGS_enable_pir_api: "0"
+    volumes:
+      - ocr_cache:/root/.paddleocr
+    networks:
+      - simanis
+
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: ${SIMANIS_TIMEZONE:-Asia/Jakarta}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=512M
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - simanis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --appendonly yes $${REDIS_PASSWORD:+--requirepass $$REDIS_PASSWORD}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - simanis
+
+networks:
+  simanis:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  laravel_storage:
+  public_berkasclient:
+  public_berkaslegalisasis:
+  public_berkasnotaris:
+  public_berkasppat:
+  public_berkaswarmerkings:
+  public_chat_attachments:
+  public_foto:
+  public_suratnotaris:
+  public_tandaterima:
+  waha_sessions:
+  ocr_cache:

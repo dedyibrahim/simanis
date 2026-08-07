@@ -8,6 +8,7 @@ use App\Models\tb_berkas;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class ClientController extends ApiController
@@ -473,6 +474,96 @@ class ClientController extends ApiController
                 'berkas' => $result['berkas'],
             ],
         ], 200);
+    }
+
+    public function extractKtpOcr(Request $request)
+    {
+        $validated = $request->validate([
+            'ktp_image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,bmp,tif,tiff', 'max:10240'],
+        ]);
+
+        $file = $validated['ktp_image'];
+        $baseUrl = rtrim((string) env('KTP_OCR_BASE_URL', 'http://127.0.0.1:8765'), '/');
+
+        try {
+            $response = Http::timeout(max(15, (int) ceil(((int) env('KTP_OCR_TIMEOUT_MS', 90000)) / 1000)))
+                ->attach('image', file_get_contents($file->getRealPath()), $file->getClientOriginalName())
+                ->post($baseUrl.'/api/ocr', [
+                    'config_name' => (string) env('KTP_OCR_CONFIG', 'auto-best'),
+                    'engine' => (string) env('KTP_OCR_ENGINE', 'paddleocr'),
+                ]);
+        } catch (\Throwable $error) {
+            return response()->json([
+                'status' => false,
+                'message' => 'OCR service tidak dapat dihubungi: '.$error->getMessage(),
+            ], 502);
+        }
+
+        if (!$response->successful()) {
+            return response()->json([
+                'status' => false,
+                'message' => (string) ($response->json('detail') ?: 'OCR service gagal memproses KTP.'),
+            ], 502);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'KTP berhasil dibaca. Periksa kembali seluruh field sebelum disimpan.',
+            'data' => $response->json(),
+        ]);
+    }
+
+    public function saveKtpOcrClient(Request $request)
+    {
+        $validated = $request->validate([
+            'ktp_image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,bmp,tif,tiff', 'max:10240'],
+            'no_identitas' => ['required', 'digits:16'],
+            'nama_client' => ['required', 'string', 'max:255'],
+            'jenis_client' => ['required', 'string', 'in:Perorangan,Badan Hukum'],
+            'alamat_client' => ['nullable', 'string'],
+            'contact_number' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+        ]);
+
+        $file = $validated['ktp_image'];
+        $userId = (string) auth()->user()->id_user;
+
+        $result = DB::transaction(function () use ($validated, $file, $userId) {
+            $client = DataClient::query()->where('no_identitas', $validated['no_identitas'])->lockForUpdate()->first();
+            $created = false;
+
+            if (!$client) {
+                $idClient = $this->nextClientId();
+                $client = DataClient::create([
+                    'id_client' => $idClient,
+                    'nama_client' => trim($validated['nama_client']),
+                    'no_identitas' => $validated['no_identitas'],
+                    'jenis_client' => $validated['jenis_client'],
+                    'alamat_client' => trim((string) ($validated['alamat_client'] ?? '')),
+                    'pembuat_client' => $userId,
+                    'email' => $validated['email'] ?? null,
+                    'nama_folder' => 'Dok'.$idClient,
+                    'contact_number' => $validated['contact_number'] ?? null,
+                ]);
+                $created = true;
+            }
+
+            $berkas = $this->attachKtpFileToClient($client, $file, $userId);
+
+            return ['created' => $created, 'client' => $client->fresh(), 'berkas' => $berkas];
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => $result['created']
+                ? 'Client baru dan dokumen KTP berhasil disimpan.'
+                : 'NIK sudah terdaftar. KTP berhasil ditambahkan ke client yang ada.',
+            'data' => [
+                'result' => $result['created'] ? 'created_new' : 'attached_existing',
+                'client' => $result['client'],
+                'berkas' => $result['berkas'],
+            ],
+        ]);
     }
 
     private function fieldValue(array $fields, string $key): string

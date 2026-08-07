@@ -256,7 +256,8 @@ const handleLogin = async () => {
     }) as LoginResponse
 
     setSession(response.data)
-    await navigateTo(redirectTarget.value)
+    await nextTick()
+    await navigateTo(redirectTarget.value, { replace: true })
   } catch (error) {
     errorMessage.value = (error as { data?: { message?: string } })?.data?.message || 'Login gagal. Periksa email dan password.'
   } finally {

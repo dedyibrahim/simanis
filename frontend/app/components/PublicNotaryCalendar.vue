@@ -787,9 +787,7 @@
           </span>
           <span class="min-w-0 flex-1">
             <span class="block text-sm font-bold">{{ isDark ? 'Light Mode' : 'Dark Mode' }}</span>
-            <span class="mt-1 block text-xs text-slate-400">
-              {{ isDark ? 'Ganti tampilan ke terang.' : 'Ganti tampilan ke gelap.' }}
-            </span>
+            <span class="mt-1 block text-xs text-slate-400">{{ isDark ? 'Ganti tampilan ke terang.' : 'Ganti tampilan ke gelap.' }}</span>
           </span>
         </button>
         <div class="my-2 border-t border-white/10"></div>
@@ -828,8 +826,8 @@ import {
   MapPinIcon,
   MoonIcon,
   PaperAirplaneIcon,
-  SunIcon,
   SwatchIcon,
+  SunIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 

@@ -15,18 +15,16 @@ export interface NavigationSection {
 
 export const navigationSections: NavigationSection[] = [
   {
-    title: 'Ringkasan',
+    title: 'Operasional Kantor',
     items: [
       { title: 'Dashboard', path: '/dashboard', icon: 'dashboard', hint: 'Ikhtisar performa kerja kantor' },
-      { title: 'Pencarian Dokumen', path: '/pencarian-dokumen', icon: 'search', hint: 'Cari data lintas buku' },
       { title: 'Riwayat Reportorium', path: '/riwayat-reportorium', icon: 'report', hint: 'Riwayat kerja reportorium per asisten' },
-      { title: 'Jadwal Notaris', path: '/jadwal-notaris', icon: 'calendar', hint: 'Agenda dan signing' },
       { title: 'Dokumen Scan', path: '/dokumen-scan', icon: 'folder', hint: 'Hasil scan dari scanner kantor' },
       { title: 'Peminjaman Minuta', path: '/peminjaman-minuta', icon: 'briefcase', hint: 'Status pinjam minuta' },
     ],
   },
   {
-    title: 'Data Pesanan',
+    title: 'Informasi Pekerjaan',
     items: [
       { title: 'Pesanan Masuk', path: '/order_masuk', icon: 'queue', hint: 'Order aktif yang sedang diproses' },
       { title: 'Pesanan Selesai', path: '/order_selesai', icon: 'done', hint: 'Riwayat order yang selesai' },
@@ -52,7 +50,7 @@ export const navigationSections: NavigationSection[] = [
     ],
   },
   {
-    title: 'Surat',
+    title: 'Buku Surat',
     items: [
       { title: 'Surat Notaris', path: '/buku_surat_notaris', icon: 'clipboard', hint: 'Surat keluar notaris' },
       { title: 'Surat PPAT', path: '/buku_surat_ppat', icon: 'clipboard', hint: 'Surat keluar PPAT' },
@@ -66,8 +64,9 @@ export const navigationSections: NavigationSection[] = [
     ],
   },
   {
-    title: 'Client',
+    title: 'Data Klien',
     items: [
+      { title: 'OCR KTP', path: '/ocr-ktp', icon: 'document', hint: 'Scan KTP dan koreksi data client' },
       { title: 'Data Client Perorangan', path: '/perorangan', icon: 'users', hint: 'Master client individu' },
       { title: 'Data Client Badan Hukum', path: '/badan_hukum', icon: 'office', hint: 'Master client entitas' },
     ],
@@ -82,10 +81,10 @@ export const navigationSections: NavigationSection[] = [
     ],
   },
   {
-    title: 'Setting',
+    title: 'Pengaturan',
     items: [
-      { title: 'Data Layanan', path: '/data_layanan', icon: 'folder', hint: 'Master layanan kantor' },
-      { title: 'Data Dokumen', path: '/data_dokumen', icon: 'folder', hint: 'Master dokumen standar' },
+      { title: 'Data Layanan', path: '/data_layanan', icon: 'folder', hint: 'Master layanan kantor', adminOnly: true },
+      { title: 'Data Dokumen', path: '/data_dokumen', icon: 'folder', hint: 'Master dokumen standar', adminOnly: true },
       { title: 'Pengaturan Laporan', path: '/pages/report-settings', icon: 'settings', hint: 'Header, invoice, dan backup SQL', adminOnly: true },
       { title: 'Google Calendar', path: '/settings-google-calendar', icon: 'calendar', hint: 'Sinkron jadwal SIMANIS ke Google Calendar', adminOnly: true },
       { title: 'Status Sinkronisasi', path: '/settings-sinkronisasi', icon: 'settings', hint: 'Kesehatan server, database, dan arsip', adminOnly: true },

@@ -14,6 +14,7 @@ const SESSION_COOKIE = 'simanis_session'
 export function useSession() {
   const session = useCookie<SessionUser | null>(SESSION_COOKIE, {
     default: () => null,
+    path: '/',
     sameSite: 'lax',
     maxAge: 60 * 60 * 12,
   })

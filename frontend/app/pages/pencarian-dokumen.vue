@@ -89,6 +89,11 @@ useHead({
 
 const route = useRoute()
 const router = useRouter()
+
+if (route.path === '/pencarian-dokumen') {
+  await navigateTo({ path: '/dashboard', query: { ...route.query, view: 'documents' } }, { replace: true })
+}
+
 const business = useLegacyBusiness()
 const { token } = useSession()
 const { isDark } = useThemeMode()
@@ -1420,14 +1425,14 @@ watch(
     </SurfaceCard>
 
     <Teleport to="body">
-      <div v-if="clientDocumentDialog.open" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div v-if="clientDocumentDialog.open" class="fixed inset-0 z-[100] flex h-screen w-screen items-stretch justify-stretch">
         <button
           type="button"
           class="absolute inset-0 bg-slate-900/60"
           @click="closeClientDocumentDialog"
         />
-        <div class="relative z-10 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div class="document-fullscreen-dialog relative z-10 flex h-full w-full flex-col overflow-hidden bg-white" :class="isDark ? 'document-dialog-dark' : 'document-dialog-light'">
+          <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-8">
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Dokumen Client</p>
               <h3 class="mt-1 text-lg font-semibold text-slate-900">{{ clientDocumentTitle }}</h3>
@@ -1441,7 +1446,7 @@ watch(
             </button>
           </div>
 
-          <div class="border-b border-slate-200 px-5 py-3">
+          <div class="shrink-0 border-b border-slate-200 px-5 py-3 sm:px-8">
             <input
               v-model="clientDocumentDialog.search"
               type="text"
@@ -1450,7 +1455,7 @@ watch(
             />
           </div>
 
-          <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-8">
             <p
               v-if="clientDocumentDialog.loading"
               class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
@@ -1511,7 +1516,7 @@ watch(
                   <iframe
                     v-if="getClientDocumentUrl(document)"
                     :src="toIframePreviewUrl(getClientDocumentUrl(document))"
-                    class="h-[520px] w-full rounded-lg border border-slate-200"
+                    class="h-[calc(100vh-250px)] min-h-[520px] w-full rounded-lg border border-slate-200"
                     frameborder="0"
                   />
                 </div>
@@ -1523,14 +1528,14 @@ watch(
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="bookDialog.open" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div v-if="bookDialog.open" class="fixed inset-0 z-[100] flex h-screen w-screen items-stretch justify-stretch">
         <button
           type="button"
           class="absolute inset-0 bg-slate-900/60"
           @click="closeBookDialog"
         />
-        <div class="relative z-10 flex max-h-[92vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div class="document-fullscreen-dialog relative z-10 flex h-full w-full flex-col overflow-hidden bg-white" :class="isDark ? 'document-dialog-dark' : 'document-dialog-light'">
+          <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-8">
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Data Buku</p>
               <h3 class="mt-1 text-lg font-semibold text-slate-900">{{ bookDialogTitle }}</h3>
@@ -1544,7 +1549,7 @@ watch(
             </button>
           </div>
 
-          <div class="min-h-0 flex-1 overflow-y-auto p-5">
+          <div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
             <p v-if="bookDialog.loading" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               Memuat data {{ bookDialog.type }}...
             </p>
@@ -1804,3 +1809,60 @@ watch(
     </Teleport>
   </div>
 </template>
+
+<style>
+.document-fullscreen-dialog.document-dialog-light {
+  color: #0f172a;
+  background:
+    radial-gradient(circle at top left, rgb(var(--simanis-accent-rgb) / 0.1), transparent 32rem),
+    color-mix(in srgb, #ffffff 94%, var(--simanis-accent-50) 6%) !important;
+}
+
+.document-fullscreen-dialog.document-dialog-dark {
+  color: #e2e8f0;
+  background: color-mix(in srgb, #020617 92%, var(--simanis-accent-grad-from) 8%) !important;
+}
+
+.document-dialog-dark .bg-white,
+.document-dialog-dark .bg-slate-50,
+.document-dialog-dark .bg-slate-50\/60,
+.document-dialog-dark .bg-slate-50\/70,
+.document-dialog-dark .bg-slate-100\/70,
+.document-dialog-dark .bg-slate-100\/80 {
+  background-color: color-mix(in srgb, #0f172a 90%, var(--simanis-accent-grad-from) 10%) !important;
+}
+
+.document-dialog-dark .text-slate-900,
+.document-dialog-dark .text-slate-800,
+.document-dialog-dark .text-slate-700,
+.document-dialog-dark .text-slate-600 {
+  color: #e2e8f0 !important;
+}
+
+.document-dialog-dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.document-dialog-dark .border-slate-100,
+.document-dialog-dark .border-slate-200,
+.document-dialog-dark .border-slate-300,
+.document-dialog-dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.document-dialog-dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
+
+.document-dialog-dark input {
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+  background: #0f172a !important;
+}
+
+.document-dialog-dark input::placeholder {
+  color: #64748b !important;
+}
+
+.document-dialog-light > div:first-child,
+.document-dialog-light > div:nth-child(2) {
+  background: color-mix(in srgb, #ffffff 90%, var(--simanis-accent-50) 10%);
+}
+</style>

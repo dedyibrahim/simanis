@@ -9,8 +9,24 @@ use Illuminate\Support\Facades\DB;
 
 class LayananController extends ApiController
 {
-    public function getDataLayanan()
+    private function denyUnlessAdmin(Request $request)
     {
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+        if (in_array($level, ['ADMIN', 'SUPER ADMIN', 'SUPERADMIN'], true)) {
+            return null;
+        }
+
+        return response([
+            'status' => false,
+            'message' => 'Akses ditolak. Data master hanya dapat dikelola Admin/Super Admin.',
+            'data' => [],
+        ], 403);
+    }
+
+    public function getDataLayanan(Request $request)
+    {
+        if ($denied = $this->denyUnlessAdmin($request)) return $denied;
+
         $data = DaftarAktas::orderBy('id_akta', 'Desc')
          ->get()
         ->toArray();
@@ -23,8 +39,10 @@ class LayananController extends ApiController
         return response($response, 200);
     }
 
-    public function getDataDokumens()
+    public function getDataDokumens(Request $request)
     {
+        if ($denied = $this->denyUnlessAdmin($request)) return $denied;
+
         $data = tb_nama_dokumens::orderBy('id_dokumen', 'desc')
         ->get()
         ->toArray();
@@ -51,6 +69,8 @@ class LayananController extends ApiController
 
     public function SimpanLayanan(Request $request)
     {
+        if ($denied = $this->denyUnlessAdmin($request)) return $denied;
+
         if ($request->post('id_akta')) {
             $data = [
                 'nama_akta' => $request->post('nama_akta'),
@@ -99,6 +119,8 @@ class LayananController extends ApiController
 
     public function DeleteLayanan(Request $request)
     {
+        if ($denied = $this->denyUnlessAdmin($request)) return $denied;
+
         DaftarAktas::where('id_akta', $request->post('id_akta'))->delete();
 
         $response = [

@@ -18,8 +18,14 @@ class UserController extends Controller
 
     private function isSameUser(User $left, User $right): bool
     {
-        return (string) $left->id === (string) $right->id
-            || (string) $left->id_user === (string) $right->id_user;
+        if ((string) $left->id === (string) $right->id) {
+            return true;
+        }
+
+        $leftCode = trim((string) $left->id_user);
+        $rightCode = trim((string) $right->id_user);
+
+        return $leftCode !== '' && $rightCode !== '' && $leftCode === $rightCode;
     }
 
     private function buildUsername(string $namaLengkap): string
@@ -109,6 +115,14 @@ class UserController extends Controller
             ], 404);
         }
 
+        if (!$this->isAdminOrSuper($authUser) && !$this->isSameUser($authUser, $targetUser)) {
+            return response([
+                'status' => false,
+                'message' => 'Akses ditolak. Anda hanya boleh mengubah akun sendiri.',
+                'data' => [],
+            ], 403);
+        }
+
         $validated = $request->validate([
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($targetUser->id)],
             'level_user' => ['required', 'string'],
@@ -120,7 +134,9 @@ class UserController extends Controller
         $data = [
             'email' => (string) $validated['email'],
             'username' => $this->buildUsername((string) $validated['nama_lengkap']),
-            'level_user' => (string) $validated['level_user'],
+            'level_user' => $this->isAdminOrSuper($authUser)
+                ? (string) $validated['level_user']
+                : (string) $targetUser->level_user,
             'nama_lengkap' => (string) $validated['nama_lengkap'],
             'phone' => (string) $validated['phone'],
         ];
@@ -214,9 +230,24 @@ class UserController extends Controller
         ], 200);
     }
 
-    public function DataUser()
+    public function DataUser(Request $request)
     {
-        $data = User::query()
+        /** @var User|null $authUser */
+        $authUser = $request->user();
+        if (!$authUser) {
+            return response([
+                'status' => false,
+                'message' => 'Unauthorized.',
+                'data' => [],
+            ], 401);
+        }
+
+        $query = User::query();
+        if (!$this->isAdminOrSuper($authUser)) {
+            $query->where('id', $authUser->id);
+        }
+
+        $data = $query
             ->orderBy('nama_lengkap')
             ->get()
             ->toArray();
@@ -290,6 +321,14 @@ class UserController extends Controller
                 'message' => 'User tidak ditemukan.',
                 'data' => [],
             ], 404);
+        }
+
+        if (!$this->isAdminOrSuper($authUser) && !$this->isSameUser($authUser, $targetUser)) {
+            return response([
+                'status' => false,
+                'message' => 'Akses ditolak. Anda hanya boleh mengubah foto akun sendiri.',
+                'data' => [],
+            ], 403);
         }
 
         $file = $request->file('file');

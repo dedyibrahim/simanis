@@ -215,6 +215,8 @@ Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::post('/getDataClient', [ClientController::class, 'getDataClient']);
     Route::post('/checkClientIdentity', [ClientController::class, 'checkClientIdentity']);
     Route::post('/SimpanClientBaru', [ClientController::class, 'SimpanClientBaru']);
+    Route::post('/ktp-ocr/extract', [ClientController::class, 'extractKtpOcr']);
+    Route::post('/ktp-ocr/save-client', [ClientController::class, 'saveKtpOcrClient']);
 
     Route::post('/UploadDokumenNotaris', [DokumenNotaris::class, 'UploadDokumenNotaris']);
     Route::post('/UploadDokumenWarmerking', [DokumenNotaris::class, 'UploadDokumenWarmerking']);

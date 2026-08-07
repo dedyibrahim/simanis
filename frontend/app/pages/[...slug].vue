@@ -81,6 +81,15 @@ if (!moduleEntry.value) {
   })
 }
 
+const adminOnlyMasterPaths = ['/data_layanan', '/data_dokumen']
+if (adminOnlyMasterPaths.includes(moduleEntry.value.path)) {
+  const role = String(user.value?.level_user || '').trim().toLowerCase()
+  const allowed = role === 'admin' || role === 'super admin' || role === 'superadmin'
+  if (!allowed) {
+    await navigateTo('/dashboard', { replace: true })
+  }
+}
+
 useHead({
   title: moduleEntry.value.title,
 })
@@ -217,7 +226,7 @@ const isOrderMasukModule = computed(() => moduleEntry.value?.path === '/order_ma
 const isOrderSelesaiModule = computed(() => moduleEntry.value?.path === '/order_selesai')
 const isInvoiceModule = computed(() => moduleEntry.value?.path === '/invoice_tax' || moduleEntry.value?.path === '/invoice_non_tax')
 const isArsipUser = computed(() => String(user.value?.level_user || '') === 'Arsip')
-const currentUserId = computed(() => String(user.value?.id_user || ''))
+const currentUserId = computed(() => String(user.value?.id_user || user.value?.id || ''))
 const currentUserRole = computed(() => String(user.value?.level_user || '').trim().toLowerCase())
 const reportoriumFormRef = ref<{
   openForCreate: () => Promise<void>
@@ -276,7 +285,11 @@ const aktaMassalForm = reactive({
   gunakan_nomor_di_judul: true,
 })
 
-const accountRows = computed(() => rows.value as UserRow[])
+const accountRows = computed(() => {
+  const allRows = rows.value as UserRow[]
+  if (canManageUserCrud.value) return allRows
+  return allRows.filter(row => isOwnUserRow(row))
+})
 const layananRows = computed(() => rows.value as LayananRow[])
 const dokumenRows = computed(() => rows.value as DokumenRow[])
 
@@ -691,8 +704,8 @@ const downloadDatabaseBackup = async (fileName: string) => {
 const userDisplayName = (row: UserRow) => String(row.nama_lengkap || row.name || '-')
 const userIdValue = (row: UserRow) => String(row.id_user || row.id || '')
 const isOwnUserRow = (row: UserRow) => userIdValue(row) === currentUserId.value
-const canEditUserRow = (_row: UserRow) => true
-const canUploadPhotoRow = (_row: UserRow) => true
+const canEditUserRow = (row: UserRow) => canManageUserCrud.value || isOwnUserRow(row)
+const canUploadPhotoRow = (row: UserRow) => canManageUserCrud.value || isOwnUserRow(row)
 const canDeleteUserRow = (row: UserRow) => canManageUserCrud.value && !isOwnUserRow(row)
 const isUploadingPhotoForRow = (row: UserRow) =>
   userPhotoUploadState.uploading && userPhotoUploadState.targetIdUser === userIdValue(row)
@@ -773,6 +786,11 @@ const openCreateUserDialog = () => {
 }
 
 const openEditUserDialog = (row: UserRow) => {
+  if (!canEditUserRow(row)) {
+    errorMessage.value = 'Anda hanya boleh mengubah akun sendiri.'
+    return
+  }
+
   userFormDialog.mode = 'edit'
   userFormDialog.error = ''
   userForm.id_user = row.id_user || row.id || ''
@@ -831,7 +849,7 @@ const saveUserForm = async () => {
       password_confirmation: userForm.password_confirmation || undefined,
     }
 
-    payload.level_user = userForm.level_user
+    payload.level_user = canManageUserCrud.value ? userForm.level_user : currentUserRole.value
 
     const response = await business.auth.SaveAccount({
       ...payload,
@@ -1309,6 +1327,11 @@ const openAktaMassalDialog = () => {
 
 const closeAktaMassalDialog = () => {
   if (aktaMassalSubmitting.value || aktaMassalPreviewing.value) {
+    return
+  }
+
+  if (userFormDialog.mode === 'edit' && !canManageUserCrud.value && userForm.id_user !== currentUserId.value) {
+    userFormDialog.error = 'Anda hanya boleh mengubah akun sendiri.'
     return
   }
   aktaMassalDialogOpen.value = false
@@ -3668,11 +3691,11 @@ watch(
 
           <div class="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
             <div class="space-y-1">
-              <p class="text-sm font-semibold text-slate-800">Daftar User</p>
-              <p class="text-xs text-slate-500">Edit dan upload foto tersedia untuk semua role. Tambah/Hapus khusus Admin & Super Admin.</p>
+              <p class="text-sm font-semibold text-slate-800">{{ canManageUserCrud ? 'Daftar User' : 'Profil Saya' }}</p>
+              <p class="text-xs text-slate-500">{{ canManageUserCrud ? 'Kelola akun user. Tambah dan hapus khusus Admin & Super Admin.' : 'Anda hanya dapat melihat dan mengubah data akun sendiri.' }}</p>
             </div>
             <div class="flex flex-wrap items-end gap-2">
-              <label class="w-[300px] max-w-full">
+              <label v-if="canManageUserCrud" class="w-[300px] max-w-full">
                 <span class="sr-only">Cari User</span>
                 <input
                   v-model="masterSearch"
@@ -5136,7 +5159,7 @@ watch(
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Lengkap</span>
               <input v-model="userForm.nama_lengkap" type="text" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
             </label>
-            <label class="flex flex-col gap-2">
+            <label v-if="canManageUserCrud" class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Role</span>
               <select v-model="userForm.level_user" class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
                 <option v-for="role in roleOptions" :key="`role-${role}`" :value="role">{{ role }}</option>

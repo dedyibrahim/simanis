@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   BuildingLibraryIcon,
+  CalendarDaysIcon,
   CheckBadgeIcon,
   ClipboardDocumentListIcon,
   DocumentTextIcon,
@@ -8,6 +9,8 @@ import {
   TrophyIcon,
 } from '@heroicons/vue/24/outline'
 import type { Ref } from 'vue'
+import DocumentSearchPage from './pencarian-dokumen.vue'
+import NotarySchedulePage from './jadwal-notaris.vue'
 
 definePageMeta({
   middleware: 'auth',
@@ -51,6 +54,27 @@ type FilterState = {
 
 const business = useLegacyBusiness()
 const { isDark } = useThemeMode()
+const route = useRoute()
+
+type DashboardView = 'overview' | 'documents' | 'schedule'
+const activeDashboardView = computed<DashboardView>(() => {
+  if (route.query.view === 'documents') return 'documents'
+  if (route.query.view === 'schedule') return 'schedule'
+  return 'overview'
+})
+
+const dashboardViews = [
+  { value: 'overview' as const, label: 'Ringkasan', icon: ClipboardDocumentListIcon },
+  { value: 'documents' as const, label: 'Pencarian Dokumen', icon: MagnifyingGlassIcon },
+  { value: 'schedule' as const, label: 'Jadwal Notaris', icon: CalendarDaysIcon },
+]
+
+const setDashboardView = async (view: DashboardView) => {
+  await navigateTo({
+    path: '/dashboard',
+    query: view === 'overview' ? {} : { view },
+  })
+}
 
 const defaultWinners: Winner[] = [
   { judul: 'Pembuat Akta Notaris', jumlah: 0, nama_lengkap: '-' },
@@ -245,8 +269,8 @@ const refreshDashboard = async () => {
 const openDocumentSearch = async () => {
   const query = quickSearchQuery.value.trim()
   await navigateTo({
-    path: '/pencarian-dokumen',
-    query: query ? { q: query } : {},
+    path: '/dashboard',
+    query: query ? { view: 'documents', q: query } : { view: 'documents' },
   })
 }
 
@@ -420,6 +444,21 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
+    <div class="flex overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+      <button
+        v-for="view in dashboardViews"
+        :key="view.value"
+        type="button"
+        class="flex h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition"
+        :class="activeDashboardView === view.value ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'"
+        @click="setDashboardView(view.value)"
+      >
+        <component :is="view.icon" class="h-4 w-4" />
+        {{ view.label }}
+      </button>
+    </div>
+
+    <div v-if="activeDashboardView === 'overview'" class="space-y-6">
     <SurfaceCard
       class="relative overflow-hidden p-0"
       :class="isDark ? 'border-slate-700/80 shadow-xl shadow-slate-950/60' : 'border-slate-200/80 shadow-xl shadow-sky-200/50'"
@@ -569,24 +608,24 @@ onMounted(() => {
     </div>
 
     <SurfaceCard
-      class="border p-6 shadow-sm sm:p-7"
+      class="border p-4 shadow-sm sm:p-5"
       :class="isDark ? 'border-slate-700/80 bg-gradient-to-b from-slate-900 to-slate-900/70' : 'border-slate-200/80 bg-gradient-to-b from-white via-slate-50/40 to-sky-50/40'"
     >
       <p class="display-kicker">Grafik Pekerjaan Asisten</p>
-      <h3 class="mt-2 text-2xl font-semibold text-slate-900">Distribusi pekerjaan per asisten</h3>
+      <h3 class="mt-1 text-xl font-semibold text-slate-900">Distribusi pekerjaan per asisten</h3>
 
-      <div class="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-        <label class="flex flex-col gap-2">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tanggal Mulai</span>
-          <input v-model="chartFilter.start_date" type="date" class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+      <div class="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+        <label class="flex flex-col gap-1">
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Tanggal Mulai</span>
+          <input v-model="chartFilter.start_date" type="date" class="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
         </label>
-        <label class="flex flex-col gap-2">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tanggal Akhir</span>
-          <input v-model="chartFilter.end_date" type="date" class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+        <label class="flex flex-col gap-1">
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Tanggal Akhir</span>
+          <input v-model="chartFilter.end_date" type="date" class="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
         </label>
         <button
           type="button"
-          class="h-11 self-end rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-6 text-sm font-semibold text-white transition hover:from-blue-700 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          class="h-9 self-end rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-5 text-xs font-semibold text-white transition hover:from-blue-700 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           :disabled="loadingChart"
           @click="loadChart"
         >
@@ -602,39 +641,43 @@ onMounted(() => {
         Belum ada data grafik pada rentang tanggal ini.
       </div>
 
-      <div v-else class="mt-6 space-y-4">
+      <div v-else class="mt-4 grid gap-2.5 xl:grid-cols-2">
         <div
           v-for="row in chartRows"
           :key="row.name"
-          class="rounded-2xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          class="rounded-xl border p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
           :class="isDark ? 'border-slate-700/80 bg-gradient-to-br from-slate-900 to-slate-900/70' : 'border-slate-200/90 bg-gradient-to-br from-white to-slate-50'"
         >
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-semibold text-slate-900">{{ row.name }}</p>
-              <p class="text-xs text-slate-500">Total pekerjaan {{ row.total }}</p>
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="truncate text-xs font-semibold text-slate-900">{{ row.name }}</p>
+              <p class="text-[10px] text-slate-500">Total {{ row.total }}</p>
             </div>
-            <div class="flex flex-wrap gap-2 text-xs text-slate-600">
+            <div class="flex flex-wrap justify-end gap-1 text-[10px] text-slate-600">
               <span
                 v-for="point in row.points"
                 :key="`${row.name}-${point.label}`"
-                class="inline-flex items-center gap-1 rounded-full px-2.5 py-1"
+                class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5"
                 :class="isDark ? 'bg-slate-800 text-slate-300' : 'bg-white'"
               >
-                <span class="h-2 w-2 rounded-full" :class="point.color"></span>
+                <span class="h-1.5 w-1.5 rounded-full" :class="point.color"></span>
                 {{ point.label }} {{ point.value }}
               </span>
             </div>
           </div>
-          <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
+          <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div class="h-full rounded-full bg-gradient-to-r from-blue-500 via-emerald-500 to-rose-500" :style="{ width: row.width }" />
           </div>
         </div>
       </div>
 
-      <p class="mt-4 text-xs text-slate-500">
+      <p class="mt-3 text-[10px] text-slate-500">
         Total pekerjaan yang dikerjakan gabungan PPAT dan Notaris.
       </p>
     </SurfaceCard>
+    </div>
+
+    <DocumentSearchPage v-else-if="activeDashboardView === 'documents'" />
+    <NotarySchedulePage v-else />
   </div>
 </template>

@@ -78,6 +78,11 @@ useHead({
 
 const business = useLegacyBusiness()
 const { isDark } = useThemeMode()
+const route = useRoute()
+
+if (route.path === '/jadwal-notaris') {
+  await navigateTo({ path: '/dashboard', query: { view: 'schedule' } }, { replace: true })
+}
 
 const loading = ref(false)
 const loadingUsers = ref(false)

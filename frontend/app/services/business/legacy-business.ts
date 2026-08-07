@@ -201,6 +201,8 @@ export function useLegacyBusinessService() {
     UploadDokumenClient: (formData: FormData) => postForm('/auth/UploadDokumenClient', formData),
     UpdateDokumenClient: (payload: BodyPayload) => post('/auth/UpdateDokumenClient', payload),
     DeleteDokumenClient: (payload: BodyPayload) => post('/auth/DeleteDokumenClient', payload),
+    extractKtpOcr: (formData: FormData) => postForm('/auth/ktp-ocr/extract', formData),
+    saveKtpOcrClient: (formData: FormData) => postForm('/auth/ktp-ocr/save-client', formData),
   }
 
   const bantek = {

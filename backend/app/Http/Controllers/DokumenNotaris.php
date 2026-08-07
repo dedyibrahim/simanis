@@ -17,6 +17,20 @@ use Illuminate\Support\Facades\DB;
 
 class DokumenNotaris extends Controller
 {
+    private function denyMasterUnlessAdmin(Request $request)
+    {
+        $level = strtoupper(trim((string) optional($request->user())->level_user));
+        if (in_array($level, ['ADMIN', 'SUPER ADMIN', 'SUPERADMIN'], true)) {
+            return null;
+        }
+
+        return response([
+            'status' => false,
+            'message' => 'Akses ditolak. Data master hanya dapat dikelola Admin/Super Admin.',
+            'data' => [],
+        ], 403);
+    }
+
     private function safeOriginalFileName($file, string $directory): string
     {
         $original = (string) $file->getClientOriginalName();
@@ -594,6 +608,8 @@ class DokumenNotaris extends Controller
 
     public function SimpanDokumenStandar(Request $request)
     {
+        if ($denied = $this->denyMasterUnlessAdmin($request)) return $denied;
+
         $dokumen = DB::table('tb_nama_dokumens')
         ->orderBy('id_dokumen', 'desc')
         ->limit(1)
@@ -629,6 +645,8 @@ class DokumenNotaris extends Controller
 
     public function DeleteDokumenStandar(Request $request)
     {
+        if ($denied = $this->denyMasterUnlessAdmin($request)) return $denied;
+
         $data = tb_dokumen_notaris::where('tb_dokumen_notaris.id_dokumen', $request->post('id_dokumen'))
         ->leftJoin('tb_nama_dokumens', 'tb_dokumen_notaris.id_dokumen', '=', 'tb_nama_dokumens.id_dokumen')
         ->orderBy('tb_dokumen_notaris.id_dokumen_notaris', 'desc')

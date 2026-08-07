@@ -20,7 +20,7 @@ import {
 
 export const iconMap = {
   menu: Bars3Icon,
-  dashboard: HomeModernIcon,
+  dashboard: Squares2X2Icon,
   search: MagnifyingGlassIcon,
   calendar: CalendarDaysIcon,
   briefcase: BriefcaseIcon,
@@ -35,7 +35,7 @@ export const iconMap = {
   users: UserGroupIcon,
   settings: Cog6ToothIcon,
   clipboard: ClipboardDocumentListIcon,
-  fallback: Squares2X2Icon,
+  fallback: HomeModernIcon,
 } as const
 
 export type AppIcon = keyof typeof iconMap
