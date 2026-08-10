@@ -256,6 +256,9 @@ const handleLogin = async () => {
     }) as LoginResponse
 
     setSession(response.data)
+    if (import.meta.client) {
+      window.localStorage.setItem('simanis.windows-mode', '1')
+    }
     await nextTick()
     await navigateTo(redirectTarget.value, { replace: true })
   } catch (error) {

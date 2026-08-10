@@ -390,15 +390,12 @@
             </div>
 
             <div v-else class="grid min-h-0 flex-1 gap-4 xl:grid-cols-[27rem_minmax(0,1fr)]">
-              <aside class="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-blue-300/20 bg-blue-500/10 shadow-2xl backdrop-blur-xl xl:max-h-[calc(100vh-12rem)]">
-                <div class="flex-shrink-0 border-b border-white/10 p-3">
-                  <p class="text-sm font-semibold text-blue-100">Sesi scan aktif untuk:</p>
-                  <h3 class="mt-1 text-xl font-bold">{{ activeScanSession.assistant?.nama_lengkap }}</h3>
-                  <p class="mt-1 text-xs text-slate-300">
-                    Scan ke folder SMB yang dibaca agent lokal, lalu pilih file untuk preview dan rename sebelum upload.
-                  </p>
-                  <details class="mt-2 rounded-2xl border border-white/10 bg-slate-950/40 text-xs">
-                    <summary class="cursor-pointer list-none px-3 py-2 font-bold text-blue-100">
+              <aside class="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-blue-300/20 bg-blue-500/10 shadow-2xl backdrop-blur-xl xl:max-h-[calc(100vh-10.5rem)]">
+                <div class="flex-shrink-0 border-b border-white/10 px-3 py-2.5">
+                  <p class="text-[11px] font-semibold text-blue-100">Sesi aktif</p>
+                  <h3 class="truncate text-base font-bold">{{ activeScanSession.assistant?.nama_lengkap }}</h3>
+                  <details class="mt-1.5 rounded-xl border border-white/10 bg-slate-950/40 text-xs">
+                    <summary class="cursor-pointer list-none px-3 py-1.5 font-bold text-blue-100">
                       Detail sesi
                     </summary>
                     <div class="border-t border-white/10 px-3 py-2">
@@ -409,15 +406,15 @@
                   </details>
                 </div>
 
-                <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+                <div class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2.5">
                   <div class="flex items-center justify-between gap-3">
                     <div>
-                      <p class="text-sm font-bold text-white">File hasil scan di PC ini</p>
-                      <p class="mt-1 text-xs text-slate-400">Agent: {{ scannerAgentBase }}</p>
+                      <p class="text-xs font-bold text-white">File hasil scan</p>
+                      <p class="truncate text-[10px] text-slate-400">{{ scannerAgentBase }}</p>
                     </div>
                     <button
                       type="button"
-                      class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-xs font-bold text-slate-100 transition hover:bg-white/10 disabled:opacity-60"
+                      class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-white/15 px-2.5 text-[11px] font-bold text-slate-100 transition hover:bg-white/10 disabled:opacity-60"
                       :disabled="scannerFilesLoading"
                       @click="loadScannerFiles"
                     >
@@ -436,8 +433,8 @@
                     Belum ada file. Scan dokumen ke folder SMB lalu klik Refresh.
                   </p>
 
-                  <div v-else class="flex min-h-0 flex-col gap-2">
-                    <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/80 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div v-else class="flex min-h-0 flex-1 flex-col gap-2">
+                    <div class="flex flex-col gap-2 rounded-lg border border-white/10 bg-slate-950/80 p-2 sm:flex-row sm:items-center sm:justify-between">
                       <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-200">
                         <input
                           type="checkbox"
@@ -449,7 +446,7 @@
                       </label>
                       <button
                         type="button"
-                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-2.5 text-[11px] font-bold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
                         :disabled="!selectedScannerFiles.length || Boolean(uploadingScannerFile)"
                         @click="uploadSelectedScannerFiles"
                       >
@@ -459,12 +456,12 @@
                       </button>
                     </div>
 
-                    <div class="max-h-56 space-y-2 overflow-y-auto pr-1 xl:max-h-64">
+                    <div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
                       <button
                         v-for="file in scannerFiles"
                         :key="file.name"
                         type="button"
-                        class="w-full rounded-xl border p-3 text-left transition"
+                        class="w-full rounded-lg border p-2 text-left transition"
                         :class="previewScannerFileName === file.name ? 'border-blue-300 bg-blue-500/15' : 'border-white/10 bg-white/5 hover:bg-white/10'"
                         @click="selectScannerPreview(file)"
                       >
@@ -478,8 +475,8 @@
                             @click.stop
                           >
                           <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-bold text-white" :title="file.name">{{ file.name }}</p>
-                            <p class="mt-1 text-xs text-slate-400">
+                            <p class="truncate text-xs font-bold text-white" :title="file.name">{{ file.name }}</p>
+                            <p class="mt-0.5 text-[10px] text-slate-400">
                               {{ formatBytes(file.size_bytes) }} - {{ formatDateTime(file.last_write_time) }}
                             </p>
                             <p v-if="!file.ready" class="mt-1 text-xs font-semibold text-amber-200">Masih diproses scanner</p>
@@ -490,7 +487,7 @@
                     </div>
                   </div>
 
-                  <div v-if="uploadedScanDocuments.length" class="flex-shrink-0 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 p-3">
+                  <div v-if="uploadedScanDocuments.length" class="max-h-40 flex-shrink-0 overflow-y-auto rounded-xl border border-emerald-300/20 bg-emerald-500/10 p-2.5">
                     <div class="flex items-center justify-between gap-2">
                       <div>
                         <p class="text-sm font-bold text-white">Dokumen sudah di server</p>
@@ -504,7 +501,7 @@
                         Muat
                       </button>
                     </div>
-                    <div class="mt-3 max-h-44 space-y-2 overflow-y-auto pr-1">
+                    <div class="mt-2 space-y-1.5 pr-1">
                       <article
                         v-for="document in uploadedScanDocuments"
                         :key="document.id"
@@ -538,15 +535,16 @@
                     </div>
                   </div>
 
-                  <div class="flex-shrink-0 border-t border-white/10 pt-3">
-                    <button
-                      type="button"
-                      class="w-full rounded-2xl border border-white/15 px-4 py-3 text-sm font-bold text-slate-100 transition hover:bg-white/10"
-                      @click="startNewScanSessionForm"
-                    >
-                      Buat sesi baru
-                    </button>
-                  </div>
+                </div>
+
+                <div class="sticky bottom-0 z-10 flex-shrink-0 border-t border-white/10 bg-slate-950/80 p-2.5 backdrop-blur-xl">
+                  <button
+                    type="button"
+                    class="h-9 w-full rounded-xl border border-white/15 bg-white/5 px-3 text-xs font-bold text-slate-100 transition hover:bg-white/10"
+                    @click="startNewScanSessionForm"
+                  >
+                    Buat sesi baru
+                  </button>
                 </div>
               </aside>
 

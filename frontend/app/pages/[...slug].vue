@@ -1422,11 +1422,11 @@ const canOpenReport = computed(() => Boolean(reportUrl.value) && !isArsipUser.va
 
 const reportoriumColumnsMap: Record<string, ReportoriumColumn[]> = {
   '/buku_akta': [
-    { key: 'nama_akta', label: 'Jenis Akta' },
-    { key: 'judul_pekerjaan', label: 'Judul Akta' },
-    { key: 'tgl_akta', label: 'Tgl Akta' },
+    { key: 'nama_akta', label: 'Jenis Akta Notaris' },
+    { key: 'judul_pekerjaan', label: 'Judul Akta Notaris' },
+    { key: 'tgl_akta', label: 'Tgl Akta Notaris' },
     { key: 'pengambil', label: 'Pengambil Nomor' },
-    { key: 'no_akta', label: 'No Akta' },
+    { key: 'no_akta', label: 'No Akta Notaris' },
   ],
   '/buku_legalisasi': [
     { key: 'judul_surat', label: 'Judul Surat' },
@@ -2752,8 +2752,8 @@ const openUploadDocumentFile = (document: StandardDocument) => {
   if (!fileName) return
   const url = uploadDialog.config.assetUrl(fileName)
   if (!url) return
-  uploadDialog.previewUrl = toIframePreviewUrl(url)
-  uploadDialog.previewTitle = String(document.nama_dokumen || fileName || 'Dokumen')
+  const documentTitle = String(document.nama_dokumen || fileName || 'Dokumen')
+  openReport(url, isBukuAktaModule.value ? `Preview Akta Notaris - ${documentTitle}` : `Preview Dokumen - ${documentTitle}`)
 }
 
 const openUploadDialog = async (row: RowRecord) => {
@@ -3452,7 +3452,7 @@ watch(
           class="h-11 rounded-xl border border-violet-200 bg-violet-50 px-5 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100"
           @click="openAktaMassalDialog"
         >
-          Buat Akta Massal
+          Buat Akta Notaris Massal
         </button>
         <input
           v-if="canUploadExcel"
@@ -3497,7 +3497,7 @@ watch(
           <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-6 py-5">
             <div>
               <p class="text-xs font-black uppercase tracking-[0.25em] text-violet-500">Super Admin</p>
-              <h3 class="mt-1 text-2xl font-bold text-slate-950">Buat Akta Massal</h3>
+              <h3 class="mt-1 text-2xl font-bold text-slate-950">Buat Akta Notaris Massal</h3>
               <p class="mt-1 text-sm text-slate-500">Membuat nomor akta berurutan untuk data lampau. Jika ada duplikat, seluruh proses ditolak.</p>
             </div>
             <button
@@ -3522,7 +3522,7 @@ watch(
                     />
                   </label>
                   <label class="block">
-                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Tanggal Akta</span>
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Tanggal Akta Notaris</span>
                     <input
                       v-model="aktaMassalForm.tanggal_akta"
                       type="date"
@@ -3532,7 +3532,7 @@ watch(
                 </div>
 
                 <label class="block">
-                  <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Judul Akta</span>
+                  <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Judul Akta Notaris</span>
                   <input
                     v-model="aktaMassalForm.judul_pekerjaan"
                     type="text"
@@ -3634,7 +3634,7 @@ watch(
                       <table class="min-w-full divide-y divide-slate-200 text-sm">
                         <thead class="sticky top-0 bg-slate-100">
                           <tr>
-                            <th class="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-500">No Akta</th>
+                            <th class="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-500">No Akta Notaris</th>
                             <th class="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Tanggal</th>
                             <th class="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Judul</th>
                           </tr>
@@ -5043,19 +5043,6 @@ watch(
                 </div>
               </div>
 
-              <div v-if="uploadDialog.previewUrl" class="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  Preview Dokumen
-                </p>
-                <p class="truncate text-xs text-slate-500" :title="uploadDialog.previewTitle">
-                  {{ uploadDialog.previewTitle }}
-                </p>
-                <iframe
-                  :src="uploadDialog.previewUrl"
-                  class="h-[58vh] w-full rounded-lg border border-slate-200 bg-white"
-                  frameborder="0"
-                />
-              </div>
             </div>
           </div>
 
@@ -5099,11 +5086,11 @@ watch(
             </button>
           </div>
 
-          <div class="min-h-0 flex-1 bg-slate-100/70 p-3">
+          <div class="min-h-0 flex-1 bg-slate-100/70">
             <iframe
               v-if="reportPreviewDialog.url"
               :src="reportPreviewDialog.url"
-              class="h-full w-full rounded-xl border border-slate-200 bg-white"
+              class="h-full w-full border-0 bg-white"
               frameborder="0"
             />
           </div>

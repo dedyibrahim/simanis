@@ -11,7 +11,7 @@ import numpy as np
 import garis_akta as ga
 
 
-LINE_COLOR = (1, 0, 0)
+LINE_COLOR = (17 / 255, 24 / 255, 39 / 255)
 LINE_WIDTH = 1.0
 ENABLE_CAPS = True
 CAP_DX = ga.CAP_TOP_DX
@@ -506,7 +506,7 @@ def build_segments_from_scan_page(page_no, bgr, model, zoom, no_merge=False, out
     return segments
 
 
-def draw_segments(doc, segments, auto_page_caps=True):
+def draw_segments(doc, segments, auto_page_caps=True, line_color=LINE_COLOR):
     by_page = {}
     for seg in segments:
         by_page.setdefault(int(seg["page"]), []).append(seg)
@@ -522,7 +522,7 @@ def draw_segments(doc, segments, auto_page_caps=True):
             x = float(seg["x"])
             y0 = float(seg["y0"])
             y1 = float(seg["y1"])
-            page.draw_line((x, y0), (x, y1), color=LINE_COLOR, width=LINE_WIDTH)
+            page.draw_line((x, y0), (x, y1), color=line_color, width=LINE_WIDTH)
 
             has_start_cap = bool(seg.get("draw_start_cap", False))
             has_end_cap = bool(seg.get("draw_end_cap", False))
@@ -530,9 +530,9 @@ def draw_segments(doc, segments, auto_page_caps=True):
             auto_end = bool(auto_page_caps and last_main is not None and i == last_main)
 
             if ENABLE_CAPS and (has_start_cap or auto_start):
-                page.draw_line((x, y0), (x + CAP_DX, y0 + CAP_DY), color=LINE_COLOR, width=LINE_WIDTH)
+                page.draw_line((x, y0), (x + CAP_DX, y0 + CAP_DY), color=line_color, width=LINE_WIDTH)
             if ENABLE_CAPS and (has_end_cap or auto_end):
-                page.draw_line((x, y1), (x + CAP_DX, y1 - CAP_DY), color=LINE_COLOR, width=LINE_WIDTH)
+                page.draw_line((x, y1), (x + CAP_DX, y1 - CAP_DY), color=line_color, width=LINE_WIDTH)
 
 
 def apply_scan_model(input_pdf, output_pdf, model_path, zoom):
@@ -547,7 +547,7 @@ def apply_scan_model(input_pdf, output_pdf, model_path, zoom):
     )
 
 
-def apply_scan_model_with_options(input_pdf, output_pdf, model_path, zoom, force_scan=False, no_merge=False, outside_shift=0.0):
+def apply_scan_model_with_options(input_pdf, output_pdf, model_path, zoom, force_scan=False, no_merge=False, outside_shift=0.0, line_color=LINE_COLOR):
     model = load_scan_model(model_path)
     doc = fitz.open(input_pdf)
     try:
@@ -593,7 +593,7 @@ def apply_scan_model_with_options(input_pdf, output_pdf, model_path, zoom, force
         if not all_segments:
             raise RuntimeError("Tidak menemukan segmen garis dari scan pada dokumen ini.")
 
-        draw_segments(doc, all_segments, auto_page_caps=(not no_merge))
+        draw_segments(doc, all_segments, auto_page_caps=(not no_merge), line_color=line_color)
 
         final_output = output_pdf
         try:

@@ -8,8 +8,6 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        libreoffice-writer \
-        libreoffice-core \
         fonts-dejavu \
         fontconfig \
         libglib2.0-0 \

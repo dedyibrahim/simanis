@@ -23,6 +23,7 @@ use App\Models\User;
 use App\Models\tb_dokumen_ppat;
 use App\Models\PenyimpananBantek;
 use App\Services\Waha\WahaClient;
+use App\Support\NumericValue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\ToArray;
@@ -789,15 +790,15 @@ class PembuatanNomor extends ApiController
                 'pengambil' => $r->nama_lengkap,
                 'daftarpenghadap' => $daftar,
                 'no_hak_milik' => $r->no_hak_milik,
-                'luas_tanah' => number_format($r->luas_tanah),
-                'luas_bangunan' => number_format($r->luas_bangunan),
-                'harga_transaksi' => 'Rp. '.number_format($r->harga_transaksi),
+                'luas_tanah' => number_format(NumericValue::fromMixed($r->luas_tanah)),
+                'luas_bangunan' => number_format(NumericValue::fromMixed($r->luas_bangunan)),
+                'harga_transaksi' => 'Rp. '.number_format(NumericValue::fromMixed($r->harga_transaksi)),
                 'nop' => $r->nop,
-                'harga_njop' => 'Rp. '.number_format($r->harga_njop),
+                'harga_njop' => 'Rp. '.number_format(NumericValue::fromMixed($r->harga_njop)),
                 'tgl_bphtb' => $r->tgl_bphtb,
-                'harga_bphtb' => 'Rp. '.number_format($r->harga_bphtb),
+                'harga_bphtb' => 'Rp. '.number_format(NumericValue::fromMixed($r->harga_bphtb)),
                 'tgl_pph' => $r->tgl_pph,
-                'harga_pph' => 'Rp. '.number_format($r->harga_pph),
+                'harga_pph' => 'Rp. '.number_format(NumericValue::fromMixed($r->harga_pph)),
                 'keterangan' => $r->keterangan,
                 'rekanan_keluar' => (bool) $r->ppat_rekanan_keluar_id,
                 'ppat_rekanan_keluar_id' => $r->ppat_rekanan_keluar_id,

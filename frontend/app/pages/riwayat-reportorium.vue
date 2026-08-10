@@ -40,7 +40,7 @@ const isAdminRole = computed(() => {
 
 const moduleOptions = [
   { value: 'all', label: 'Semua Modul Reportorium' },
-  { value: '/buku_akta', label: 'Buku Akta' },
+  { value: '/buku_akta', label: 'Buku Akta Notaris' },
   { value: '/buku_legalisasi', label: 'Buku Legalisasi' },
   { value: '/buku_waarmerking', label: 'Buku Waarmerking' },
   { value: '/buku_ppat', label: 'Buku PPAT' },

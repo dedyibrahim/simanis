@@ -1,6 +1,5 @@
 import os
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 
@@ -26,42 +25,15 @@ def _safe_stem(filename: str) -> str:
     return "".join(allowed).strip()[:80] or "akta"
 
 
-def _office_binary() -> str:
-    for candidate in ("soffice", "libreoffice"):
-        resolved = shutil.which(candidate)
-        if resolved:
-            return resolved
-    raise HTTPException(status_code=503, detail="LibreOffice belum tersedia di container garis-akta.")
-
-
-def _convert_word_to_pdf(word_path: Path, output_dir: Path) -> Path:
-    command = [
-        _office_binary(),
-        "--headless",
-        "--nologo",
-        "--nofirststartwizard",
-        "--convert-to",
-        "pdf",
-        "--outdir",
-        str(output_dir),
-        str(word_path),
-    ]
+def _parse_hex_color(value: str) -> tuple[float, float, float]:
+    normalized = (value or "#111827").strip().lower()
+    if len(normalized) != 7 or not normalized.startswith("#"):
+        raise HTTPException(status_code=422, detail="Warna garis harus menggunakan format hex #RRGGBB.")
     try:
-        subprocess.run(command, check=True, capture_output=True, text=True, timeout=240)
-    except subprocess.TimeoutExpired as exc:
-        raise HTTPException(status_code=504, detail="Konversi DOC/DOCX ke PDF melewati batas waktu.") from exc
-    except subprocess.CalledProcessError as exc:
-        detail = (exc.stderr or exc.stdout or str(exc)).strip()
-        raise HTTPException(status_code=422, detail=f"Konversi DOC/DOCX ke PDF gagal: {detail[:500]}") from exc
-
-    expected = output_dir / f"{word_path.stem}.pdf"
-    if expected.exists() and expected.stat().st_size > 0:
-        return expected
-
-    pdfs = sorted(output_dir.glob("*.pdf"), key=lambda item: item.stat().st_mtime, reverse=True)
-    if pdfs and pdfs[0].stat().st_size > 0:
-        return pdfs[0]
-    raise HTTPException(status_code=422, detail="Konversi DOC/DOCX tidak menghasilkan PDF.")
+        channels = [int(normalized[index:index + 2], 16) / 255.0 for index in (1, 3, 5)]
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Warna garis tidak valid.") from exc
+    return tuple(channels)
 
 
 @app.get("/health")
@@ -70,49 +42,53 @@ def health():
         "status": True,
         "model": MODEL_PATH.name,
         "model_exists": MODEL_PATH.exists(),
-        "office": bool(shutil.which("soffice") or shutil.which("libreoffice")),
+        "input_format": "pdf",
     }
 
 
 @app.post("/process")
-async def process_word_document(
+async def process_pdf_document(
     document: UploadFile = File(...),
     outside_shift: float = Form(4.0),
     zoom: float = Form(2.0),
+    line_color: str = Form("#111827"),
 ):
-    filename = document.filename or "akta.docx"
+    filename = document.filename or "akta.pdf"
     suffix = Path(filename).suffix.lower()
-    if suffix not in (".doc", ".docx"):
-        raise HTTPException(status_code=422, detail="File harus berformat .doc atau .docx.")
+    if suffix != ".pdf":
+        raise HTTPException(status_code=422, detail="File harus berformat PDF.")
     if not MODEL_PATH.exists():
         raise HTTPException(status_code=503, detail=f"Model garis tidak ditemukan: {MODEL_PATH.name}")
 
     temp_dir = Path(tempfile.mkdtemp(prefix="simanis_garis_akta_"))
     try:
         stem = _safe_stem(filename)
-        input_word = temp_dir / f"{stem}{suffix}"
+        input_pdf = temp_dir / f"{stem}.pdf"
 
         total = 0
-        with input_word.open("wb") as handle:
+        with input_pdf.open("wb") as handle:
             while True:
                 chunk = await document.read(1024 * 1024)
                 if not chunk:
                     break
                 total += len(chunk)
                 if total > MAX_UPLOAD_BYTES:
-                    raise HTTPException(status_code=413, detail="Ukuran DOC/DOCX terlalu besar.")
+                    raise HTTPException(status_code=413, detail="Ukuran PDF terlalu besar.")
                 handle.write(chunk)
 
-        converted_pdf = _convert_word_to_pdf(input_word, temp_dir)
+        if total == 0 or input_pdf.read_bytes()[:5] != b"%PDF-":
+            raise HTTPException(status_code=422, detail="Isi file bukan dokumen PDF yang valid.")
+
         output_pdf = temp_dir / f"{stem}__garis_otomatis.pdf"
         final_output, segment_count = scan_lines.apply_scan_model_with_options(
-            input_pdf=str(converted_pdf),
+            input_pdf=str(input_pdf),
             output_pdf=str(output_pdf),
             model_path=str(MODEL_PATH),
             zoom=max(1.0, min(float(zoom), 4.0)),
             force_scan=False,
             no_merge=False,
             outside_shift=max(0.0, min(float(outside_shift), 30.0)),
+            line_color=_parse_hex_color(line_color),
         )
 
         return FileResponse(

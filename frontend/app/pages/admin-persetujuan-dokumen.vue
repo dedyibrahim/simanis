@@ -47,7 +47,7 @@ const requestPerPage = ref(20)
 const requestPerPageOptions = [20, 50, 100]
 
 const moduleOptions = [
-  { value: '/buku_akta', label: 'Buku Akta' },
+  { value: '/buku_akta', label: 'Buku Akta Notaris' },
   { value: '/buku_legalisasi', label: 'Buku Legalisasi' },
   { value: '/buku_waarmerking', label: 'Buku Waarmerking' },
   { value: '/buku_ppat', label: 'Buku PPAT' },

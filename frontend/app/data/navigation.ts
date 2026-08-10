@@ -26,6 +26,7 @@ export const navigationSections: NavigationSection[] = [
   {
     title: 'Informasi Pekerjaan',
     items: [
+      { title: 'Workflow Pekerjaan', path: '/pekerjaan', icon: 'briefcase', hint: 'Alur pekerjaan dari draft sampai invoice' },
       { title: 'Pesanan Masuk', path: '/order_masuk', icon: 'queue', hint: 'Order aktif yang sedang diproses' },
       { title: 'Pesanan Selesai', path: '/order_selesai', icon: 'done', hint: 'Riwayat order yang selesai' },
       { title: 'Invoice Tax', path: '/invoice_tax', icon: 'invoice', hint: 'Billing dengan komponen pajak' },
@@ -35,7 +36,7 @@ export const navigationSections: NavigationSection[] = [
   {
     title: 'Buku Reportorium',
     items: [
-      { title: 'Buku Akta', path: '/buku_akta', icon: 'document', hint: 'Akta notaris dan dokumen' },
+      { title: 'Buku Akta Notaris', path: '/buku_akta', icon: 'document', hint: 'Akta notaris dan dokumen' },
       { title: 'Buku Legalisasi', path: '/buku_legalisasi', icon: 'document', hint: 'Daftar legalisasi' },
       { title: 'Buku Waarmerking', path: '/buku_waarmerking', icon: 'document', hint: 'Daftar waarmerking' },
       { title: 'Buku PPAT', path: '/buku_ppat', icon: 'bank', hint: 'Akta PPAT dan dokumen' },

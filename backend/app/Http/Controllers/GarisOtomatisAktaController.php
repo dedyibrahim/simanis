@@ -11,17 +11,20 @@ class GarisOtomatisAktaController extends Controller
     public function process(Request $request)
     {
         $request->validate([
-            'document' => ['required', 'file', 'max:25600'],
+            'document' => ['required', 'file', 'mimes:pdf', 'max:25600'],
+            'destination_module' => ['required', 'in:buku_akta'],
+            'id_buku_notaris' => ['required', 'string', 'exists:buku_notaris,id_buku_notaris'],
             'outside_shift' => ['nullable', 'numeric', 'min:0', 'max:30'],
             'zoom' => ['nullable', 'numeric', 'min:1', 'max:4'],
+            'line_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ]);
 
         $file = $request->file('document');
         $extension = strtolower((string) $file->getClientOriginalExtension());
-        if (!$file || !in_array($extension, ['doc', 'docx'], true)) {
+        if (!$file || $extension !== 'pdf') {
             return response()->json([
                 'status' => false,
-                'message' => 'File harus berformat .doc atau .docx.',
+                'message' => 'File harus berformat PDF.',
             ], 422);
         }
 
@@ -36,6 +39,7 @@ class GarisOtomatisAktaController extends Controller
                 ->post($baseUrl . '/process', [
                     'outside_shift' => (string) $request->input('outside_shift', 4),
                     'zoom' => (string) $request->input('zoom', 2),
+                    'line_color' => (string) $request->input('line_color', '#111827'),
                 ]);
         } catch (\Throwable $exception) {
             return response()->json([
@@ -59,7 +63,7 @@ class GarisOtomatisAktaController extends Controller
         }
 
         $stem = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) ?: 'akta';
-        $downloadName = Str::slug($stem) . '-garis-otomatis.pdf';
+        $downloadName = 'HASIL-GARIS-' . Str::slug($stem) . '.pdf';
 
         return response($response->body(), 200, [
             'Content-Type' => $response->header('Content-Type', 'application/pdf'),

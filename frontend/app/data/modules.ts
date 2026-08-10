@@ -146,8 +146,8 @@ export const moduleCatalog: ModuleDefinition[] = [
   },
   {
     path: '/buku_akta',
-    title: 'Buku Akta',
-    shortTitle: 'Buku Akta',
+    title: 'Buku Akta Notaris',
+    shortTitle: 'Buku Akta Notaris',
     section: 'Buku Reportorium',
     icon: 'document',
     description: 'Pencatatan buku akta notaris dengan nomor, penghadap, dan dokumen pendukung.',

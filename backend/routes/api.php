@@ -25,6 +25,7 @@ use App\Http\Controllers\ReportSettingController;
 use App\Http\Controllers\ScannedDocumentController;
 use App\Http\Controllers\TandaTerimaController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WorkItemController;
 use App\Http\Controllers\PeminjamanMinutaController;
 use App\Http\Controllers\BantekController; // Controller Baru
 
@@ -165,6 +166,20 @@ Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::post('/DeleteNomorSuratNotaris', [PembuatanNomor::class, 'DeleteNomorSuratNotaris']);
     Route::post('/DeleteNomorSuratPPAT', [PembuatanNomor::class, 'DeleteNomorSuratPPAT']);
     Route::post('/SimpanPesanan', [PembuatanNomor::class, 'SimpanPesanan']);
+
+    Route::get('/work-items/options', [WorkItemController::class, 'options']);
+    Route::get('/work-items/reportorium-options', [WorkItemController::class, 'reportoriumOptions']);
+    Route::get('/work-items', [WorkItemController::class, 'index']);
+    Route::post('/work-items', [WorkItemController::class, 'store']);
+    Route::get('/work-items/{workItem}', [WorkItemController::class, 'show']);
+    Route::put('/work-items/{workItem}', [WorkItemController::class, 'update']);
+    Route::post('/work-items/{workItem}/transition', [WorkItemController::class, 'transition']);
+    Route::post('/work-items/{workItem}/checklists', [WorkItemController::class, 'addChecklist']);
+    Route::patch('/work-items/{workItem}/checklists/{checklist}', [WorkItemController::class, 'toggleChecklist']);
+    Route::post('/work-items/{workItem}/links', [WorkItemController::class, 'addLink']);
+    Route::delete('/work-items/{workItem}/links/{link}', [WorkItemController::class, 'removeLink']);
+    Route::post('/work-items/{workItem}/costs', [WorkItemController::class, 'addCost']);
+    Route::post('/work-items/{workItem}/invoice', [WorkItemController::class, 'createInvoice']);
 
     Route::post('/SimpanNomorInvoiceTax', [PembuatanNomor::class, 'SimpanNomorInvoiceTax']);
     Route::post('/SimpanJadwalNotaris', [PembuatanNomor::class, 'SimpanJadwalNotaris']);

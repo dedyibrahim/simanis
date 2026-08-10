@@ -145,17 +145,20 @@ export function useLegacyBusinessService() {
   }
 
   const buildReportUrl = (reportPath: string, query?: QueryParams) => {
-    const url = new URL(buildAssetUrl(`api/${cleanPath(reportPath).replace(/^api\//, '')}`))
+    const rawUrl = buildAssetUrl(`api/${cleanPath(reportPath).replace(/^api\//, '')}`)
+    const [baseUrl, existingQuery = ''] = rawUrl.split('?', 2)
+    const searchParams = new URLSearchParams(existingQuery)
 
     if (query) {
       Object.entries(query).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
-          url.searchParams.set(key, String(value))
+          searchParams.set(key, String(value))
         }
       })
     }
 
-    return url.toString()
+    const queryString = searchParams.toString()
+    return queryString ? `${baseUrl}?${queryString}` : baseUrl
   }
 
   const auth = {
@@ -446,6 +449,22 @@ export function useLegacyBusinessService() {
     process: (formData: FormData) => postFormBlob('/auth/garis-otomatis-akta/process', formData),
   }
 
+  const workItems = {
+    list: (query?: QueryParams) => get('/auth/work-items', query),
+    show: (id: string | number) => get(`/auth/work-items/${id}`),
+    create: (payload: BodyPayload) => post('/auth/work-items', payload),
+    update: (id: string | number, payload: BodyPayload) => put(`/auth/work-items/${id}`, payload),
+    transition: (id: string | number, payload: BodyPayload) => post(`/auth/work-items/${id}/transition`, payload),
+    options: (query?: QueryParams) => get('/auth/work-items/options', query),
+    reportoriumOptions: (query?: QueryParams) => get('/auth/work-items/reportorium-options', query),
+    addChecklist: (id: string | number, payload: BodyPayload) => post(`/auth/work-items/${id}/checklists`, payload),
+    toggleChecklist: (id: string | number, checklistId: string | number) => patch(`/auth/work-items/${id}/checklists/${checklistId}`, {}),
+    addLink: (id: string | number, payload: BodyPayload) => post(`/auth/work-items/${id}/links`, payload),
+    removeLink: (id: string | number, linkId: string | number) => del(`/auth/work-items/${id}/links/${linkId}`),
+    addCost: (id: string | number, payload: BodyPayload) => post(`/auth/work-items/${id}/costs`, payload),
+    createInvoice: (id: string | number, payload: BodyPayload) => post(`/auth/work-items/${id}/invoice`, payload),
+  }
+
   const reports = {
     CetakLaporanNotaris: (date?: string) => buildReportUrl('CetakLaporanNotaris', { date }),
     CetakLaporanLegalisasi: (date?: string) => buildReportUrl('CetakLaporanLegalisasi', { date }),
@@ -493,6 +512,7 @@ export function useLegacyBusinessService() {
     scannedDocuments,
     tandaTerima,
     garisAkta,
+    workItems,
     reports,
     assets,
   }

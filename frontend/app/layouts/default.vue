@@ -85,7 +85,8 @@
         </header>
 
         <main class="relative z-10 min-h-0 flex-1 overflow-hidden">
-          <div v-if="windowsLauncherVisible" class="h-full overflow-y-auto px-4 py-7 sm:px-8">
+          <Transition :name="windowsWorkspaceTransitionName" mode="out-in">
+          <div v-if="windowsLauncherVisible" key="windows-launcher" class="h-full overflow-y-auto px-4 py-7 sm:px-8">
             <div class="mx-auto w-full max-w-6xl overflow-hidden">
               <Transition :name="windowsLauncherTransitionName" mode="out-in">
                 <div :key="windowsLauncherPanelKey" class="windows-launcher-panel">
@@ -101,12 +102,15 @@
                   </div>
 
                   <div v-if="!selectedWindowsGroup" class="grid auto-rows-[150px] grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    <button v-for="(group, index) in windowsLauncherGroups" :key="`windows-group-${group.name}`" type="button" class="windows-tile group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-blue-600 to-indigo-700 p-4 text-left shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-5" :class="index === 0 ? 'sm:col-span-2' : ''" @click="openWindowsGroup(group)">
-                      <div class="relative flex items-start justify-between">
-                        <component :is="group.icon" class="windows-tile-icon h-9 w-9" />
+                    <button v-for="(group, index) in windowsLauncherGroups" :key="`windows-group-${group.name}`" type="button" class="windows-tile windows-tile-3d group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-blue-600 to-indigo-700 p-4 text-left shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-5" :class="index === 0 ? 'sm:col-span-2' : ''" :style="{ '--tile-float-delay': `${index * -0.65}s` }" @click="openWindowsGroup(group)">
+                      <component :is="group.icon" class="windows-tile-ambient pointer-events-none absolute -bottom-5 right-8 h-28 w-28" aria-hidden="true" />
+                      <div class="relative z-10 flex items-start justify-between">
+                        <span class="windows-tile-icon-stage flex h-12 w-12 items-center justify-center rounded-xl">
+                          <component :is="group.icon" class="windows-tile-icon h-7 w-7" />
+                        </span>
                         <span class="windows-tile-badge rounded-md px-2 py-1 text-[10px] font-bold">{{ group.children.length }}</span>
                       </div>
-                      <div class="relative min-w-0">
+                      <div class="relative z-10 min-w-0">
                         <p class="windows-tile-title break-words text-base font-extrabold leading-5">{{ group.name }}</p>
                         <p class="windows-tile-muted mt-1 text-[10px] font-semibold uppercase">Lihat submenu</p>
                       </div>
@@ -114,12 +118,15 @@
                   </div>
 
                   <div v-else class="grid auto-rows-[132px] grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    <NuxtLink v-for="item in selectedWindowsGroup.children" :key="item.href" :to="item.href" class="windows-tile group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-blue-600 to-indigo-700 p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-5" @click="openWindowsModule">
-                      <div class="relative flex items-start justify-between">
-                        <component :is="item.icon" class="windows-tile-icon h-8 w-8" />
+                    <NuxtLink v-for="(item, index) in selectedWindowsGroup.children" :key="item.href" :to="item.href" class="windows-tile windows-tile-3d group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-blue-600 to-indigo-700 p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-5" :style="{ '--tile-float-delay': `${index * -0.65}s` }" @click="openWindowsModule">
+                      <component :is="item.icon" class="windows-tile-ambient pointer-events-none absolute -bottom-6 right-5 h-24 w-24" aria-hidden="true" />
+                      <div class="relative z-10 flex items-start justify-between">
+                        <span class="windows-tile-icon-stage flex h-11 w-11 items-center justify-center rounded-xl">
+                          <component :is="item.icon" class="windows-tile-icon h-6 w-6" />
+                        </span>
                         <ChevronRightIcon class="windows-tile-muted h-5 w-5 transition group-hover:translate-x-1" />
                       </div>
-                      <div class="relative min-w-0">
+                      <div class="relative z-10 min-w-0">
                         <p class="windows-tile-title break-words text-sm font-extrabold leading-5 sm:text-base">{{ item.name }}</p>
                         <p class="windows-tile-muted mt-1 text-[10px] font-semibold uppercase">Buka halaman</p>
                       </div>
@@ -130,10 +137,10 @@
             </div>
           </div>
 
-          <div v-else class="h-full overflow-y-auto bg-slate-50 text-slate-900">
+          <div v-else key="windows-page" class="h-full overflow-y-auto bg-slate-50 text-slate-900">
             <div class="mx-auto w-full max-w-7xl px-4 py-7 sm:px-8">
               <div class="mb-4 flex items-center justify-between gap-3">
-                <button type="button" class="windows-page-back inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-extrabold transition hover:-translate-x-0.5" @click="backToWindowsSubmenu">
+                <button type="button" class="windows-page-back windows-back-action inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-extrabold transition hover:-translate-x-0.5 active:scale-[0.97]" @click="backToWindowsSubmenu">
                   <ChevronLeftIcon class="h-5 w-5" />
                   <span>Kembali ke {{ activeWindowsGroup?.name || 'Semua Modul' }}</span>
                 </button>
@@ -144,6 +151,7 @@
               <slot />
             </div>
           </div>
+          </Transition>
         </main>
       </div>
 
@@ -259,56 +267,56 @@
       <div
         v-if="!windowsMode"
         class="hidden overflow-hidden transition-all duration-300 ease-out md:flex md:flex-col"
-        :class="desktopSidebarOpen ? 'md:w-72' : 'md:w-0'"
+        :class="desktopSidebarOpen ? 'md:w-64' : 'md:w-0'"
       >
         <div
           class="sidebar flex flex-grow flex-col overflow-hidden transition-opacity duration-200"
           :class="desktopSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'"
           :aria-hidden="desktopSidebarOpen ? 'false' : 'true'"
         >
-          <div class="flex flex-shrink-0 items-center px-8 py-10">
+          <div class="flex flex-shrink-0 items-center px-5 py-5">
             <div class="flex items-center space-x-3">
-              <div class="simanis-brand-mark rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-2.5 shadow-xl shadow-blue-200">
-                <component :is="iconMap.folder" class="h-8 w-8 text-white" />
+              <div class="simanis-brand-mark rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 p-2 shadow-xl shadow-blue-200">
+                <component :is="iconMap.folder" class="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 class="text-2xl font-black tracking-tighter text-slate-800">SIMANIS</h1>
-                <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Sistem Informasi Administrasi Kantor Notaris</p>
+                <h1 class="text-xl font-black tracking-tight text-slate-800">SIMANIS</h1>
+                <p class="max-w-[150px] text-[9px] font-bold uppercase leading-3 tracking-[0.16em] text-slate-400">Sistem Informasi Administrasi Kantor Notaris</p>
               </div>
             </div>
           </div>
 
-          <nav class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 pb-6">
+          <nav class="min-h-0 flex-1 space-y-1 overflow-y-auto px-4 pb-3">
             <NuxtLink
               to="/dashboard"
-              class="group flex w-full items-center rounded-2xl px-4 py-3.5 text-sm font-bold transition-all duration-200"
+              class="group flex w-full items-center rounded-lg px-3 py-2.5 text-[13px] font-bold transition-all duration-200"
               :class="route.path === '/dashboard' ? 'bg-slate-50 text-blue-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'"
             >
-              <component :is="iconMap.dashboard" class="mr-4 h-6 w-6 transition-colors" :class="route.path === '/dashboard' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" />
+              <component :is="iconMap.dashboard" class="mr-3 h-5 w-5 transition-colors" :class="route.path === '/dashboard' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" />
               <span>Dashboard</span>
             </NuxtLink>
 
             <Disclosure v-for="item in mainNavigation" :key="item.name" as="div" class="space-y-1" :default-open="isGroupActive(item)" v-slot="{ open }">
               <DisclosureButton
-                class="group w-full rounded-2xl px-4 py-3.5 text-sm font-bold transition-all duration-200"
+                class="group w-full rounded-lg px-3 py-2.5 text-[13px] font-bold transition-all duration-200"
                 :class="[open || isGroupActive(item) ? 'bg-slate-50 text-blue-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
               >
                 <div class="flex items-center">
-                  <component :is="item.icon" class="mr-4 h-6 w-6 transition-colors" :class="open || isGroupActive(item) ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" />
+                  <component :is="item.icon" class="mr-3 h-5 w-5 transition-colors" :class="open || isGroupActive(item) ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" />
                   <span class="flex-1 text-left">{{ item.name }}</span>
                   <ChevronRightIcon class="h-4 w-4 transition-all duration-300" :class="open || isGroupActive(item) ? 'rotate-90 text-blue-600' : 'text-slate-300'" />
                 </div>
               </DisclosureButton>
               <transition name="dashboard-submenu-slide">
-                <DisclosurePanel class="space-y-1 px-2">
+                <DisclosurePanel class="space-y-0.5 px-1">
                   <NuxtLink
                     v-for="subItem in item.children"
                     :key="subItem.href"
                     :to="subItem.href"
-                    class="flex items-center rounded-xl py-3 pl-8 pr-4 text-xs font-bold transition-all"
+                    class="flex items-center rounded-lg py-2 pl-7 pr-3 text-[11px] font-bold transition-all"
                     :class="[isActive(subItem.href) ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
                   >
-                    <component :is="subItem.icon" class="mr-2.5 h-4 w-4 shrink-0" />
+                    <component :is="subItem.icon" class="mr-2 h-3.5 w-3.5 shrink-0" />
                     <span>{{ subItem.name }}</span>
                   </NuxtLink>
                 </DisclosurePanel>
@@ -316,8 +324,8 @@
             </Disclosure>
           </nav>
 
-          <div class="shrink-0 border-t border-white/15 bg-black/10 p-4 backdrop-blur-sm">
-            <p class="mb-2 text-[10px] font-bold uppercase tracking-widest text-white/60">Tampilan</p>
+          <div class="shrink-0 border-t border-white/15 bg-black/10 p-3 backdrop-blur-sm">
+            <p class="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-white/60">Tampilan</p>
             <div class="flex items-center gap-2">
               <span class="h-9 w-9 shrink-0 rounded-lg ring-1 ring-white/30" :style="{ background: activeAccentTheme.swatch }" />
               <select :value="accentTheme" class="theme-native-select h-9 min-w-0 flex-1 rounded-lg border border-white/20 bg-white/15 px-2 text-xs font-bold text-white outline-none" @change="handleAccentSelect">
@@ -689,9 +697,13 @@
           </div>
         </header>
 
-        <main v-if="!windowsMode" class="flex-1 overflow-y-auto transition-colors duration-300" :class="isDark ? 'bg-slate-950/60' : 'bg-slate-50/50'">
+        <main v-if="!windowsMode" class="dashboard-main relative flex-1 overflow-y-auto transition-colors duration-300">
+          <div class="windows-motion-bg pointer-events-none fixed inset-y-20 right-0 overflow-hidden" :class="desktopSidebarOpen ? 'left-64' : 'left-0'" aria-hidden="true">
+            <div class="windows-moving-grid absolute inset-0" />
+            <span v-for="shape in windowsBackgroundShapes" :key="`dashboard-shape-${shape.id}`" class="windows-floating-shape absolute" :style="shape.style" />
+          </div>
           <div
-            class="mx-auto px-4 py-8 sm:px-8"
+            class="dashboard-page-container relative z-10 mx-auto px-4 py-8 sm:px-8"
             :class="route.path === '/ppat-rekanan' ? 'w-full max-w-none' : 'max-w-7xl'"
           >
             <slot />
@@ -1139,6 +1151,7 @@ const windowsMode = ref(false)
 const windowsLauncherVisible = ref(true)
 const selectedWindowsGroup = ref<NavigationGroup | null>(null)
 const windowsLauncherDirection = ref<WindowsLauncherDirection>('forward')
+const windowsWorkspaceDirection = ref<'forward' | 'back'>('forward')
 const mouseEffect = ref<MouseEffect>('sparkle')
 const mouseEffectOptions: Array<{ value: MouseEffect; label: string }> = [
   { value: 'off', label: 'Mati' },
@@ -1368,7 +1381,7 @@ const unreadPreview = (conversation: ChatUnreadConversation) => {
 }
 
 const downloadModuleLabelMap: Record<string, string> = {
-  '/buku_akta': 'Buku Akta',
+  '/buku_akta': 'Buku Akta Notaris',
   '/buku_legalisasi': 'Buku Legalisasi',
   '/buku_waarmerking': 'Buku Waarmerking',
   '/buku_ppat': 'Buku PPAT',
@@ -2021,6 +2034,11 @@ const windowsLauncherTransitionName = computed(() =>
     ? 'windows-launcher-slide-back'
     : 'windows-launcher-slide-forward',
 )
+const windowsWorkspaceTransitionName = computed(() =>
+  windowsWorkspaceDirection.value === 'back'
+    ? 'windows-workspace-back'
+    : 'windows-workspace-forward',
+)
 const activeWindowsGroup = computed(() =>
   windowsLauncherGroups.value.find(group => group.children.some(item => isActive(item.href))) || null,
 )
@@ -2042,6 +2060,7 @@ const handleWindowsPointerMove = (event: PointerEvent) => {
 }
 
 const openWindowsLauncher = () => {
+  windowsWorkspaceDirection.value = 'back'
   windowsLauncherDirection.value = 'back'
   selectedWindowsGroup.value = null
   windowsLauncherVisible.value = true
@@ -2058,11 +2077,13 @@ const backToWindowsGroups = () => {
 }
 
 const openWindowsModule = () => {
+  windowsWorkspaceDirection.value = 'forward'
   windowsLauncherVisible.value = false
 }
 
 const backToWindowsSubmenu = () => {
-  windowsLauncherDirection.value = 'forward'
+  windowsWorkspaceDirection.value = 'back'
+  windowsLauncherDirection.value = 'back'
   selectedWindowsGroup.value = activeWindowsGroup.value
   windowsLauncherVisible.value = true
 }
@@ -2126,7 +2147,8 @@ onMounted(() => {
     } else if (savedSidebarState === '1') {
       desktopSidebarOpen.value = true
     }
-    windowsMode.value = window.localStorage.getItem(WINDOWS_MODE_STORAGE_KEY) === '1'
+    const savedWindowsMode = window.localStorage.getItem(WINDOWS_MODE_STORAGE_KEY)
+    windowsMode.value = savedWindowsMode === null || savedWindowsMode === '1'
     const savedMouseEffect = window.localStorage.getItem(MOUSE_EFFECT_STORAGE_KEY)
     if (savedMouseEffect === 'off' || savedMouseEffect === 'sparkle' || savedMouseEffect === 'trail') {
       mouseEffect.value = savedMouseEffect
@@ -2234,9 +2256,24 @@ onBeforeUnmount(() => {
 
 .windows-shell-light .windows-tile {
   color: #0f172a !important;
-  border-color: color-mix(in srgb, var(--simanis-accent-200) 76%, #cbd5e1) !important;
-  background: linear-gradient(145deg, #ffffff, var(--simanis-accent-50)) !important;
-  box-shadow: 0 16px 34px -26px var(--simanis-accent-shadow) !important;
+  border-color: color-mix(in srgb, var(--simanis-accent-500) 38%, #ffffff) !important;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--simanis-accent-grad-from) 28%, #ffffff 72%),
+    color-mix(in srgb, var(--simanis-accent-grad-to) 20%, #ffffff 80%)
+  ) !important;
+  box-shadow:
+    0 18px 34px -24px var(--simanis-accent-shadow),
+    inset 0 1px 0 rgb(255 255 255 / 0.72) !important;
+}
+
+.windows-shell-light .windows-tile:hover {
+  border-color: color-mix(in srgb, var(--simanis-accent-500) 58%, #ffffff) !important;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--simanis-accent-grad-from) 36%, #ffffff 64%),
+    color-mix(in srgb, var(--simanis-accent-grad-to) 27%, #ffffff 73%)
+  ) !important;
 }
 
 .windows-shell-light .windows-tile-title,
@@ -2246,7 +2283,25 @@ onBeforeUnmount(() => {
 
 .windows-shell-light .windows-tile-badge {
   color: var(--simanis-accent-700) !important;
-  background: var(--simanis-accent-100) !important;
+  border: 1px solid color-mix(in srgb, var(--simanis-accent-500) 28%, #ffffff);
+  background: color-mix(in srgb, var(--simanis-accent-100) 82%, #ffffff) !important;
+}
+
+.windows-shell-light .windows-tile-icon-stage {
+  color: var(--simanis-accent-700);
+  border: 1px solid color-mix(in srgb, var(--simanis-accent-200) 78%, #ffffff);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--simanis-accent-grad-from) 22%, #ffffff 78%),
+    color-mix(in srgb, var(--simanis-accent-100) 76%, #ffffff)
+  );
+  box-shadow:
+    0 13px 18px -12px var(--simanis-accent-shadow),
+    inset 1px 1px 0 rgb(255 255 255 / 0.9);
+}
+
+.windows-shell-light .windows-tile-ambient {
+  color: rgb(var(--simanis-accent-rgb) / 0.16);
 }
 
 .windows-shell-dark .windows-tile {
@@ -2265,6 +2320,65 @@ onBeforeUnmount(() => {
   background: rgb(255 255 255 / 0.16) !important;
 }
 
+.windows-shell-dark .windows-tile-icon-stage {
+  color: #ffffff;
+  border: 1px solid rgb(255 255 255 / 0.24);
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.05));
+  box-shadow:
+    0 14px 22px -12px rgb(2 6 23 / 0.8),
+    inset 1px 1px 0 rgb(255 255 255 / 0.2);
+  backdrop-filter: blur(7px);
+}
+
+.windows-shell-dark .windows-tile-ambient {
+  color: rgb(255 255 255 / 0.08);
+}
+
+.windows-tile-3d {
+  perspective: 700px;
+  transform-style: preserve-3d;
+}
+
+.windows-tile-icon-stage {
+  position: relative;
+  animation: windows-icon-float 4.8s ease-in-out infinite;
+  animation-delay: var(--tile-float-delay, 0s);
+  transform-style: preserve-3d;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms ease;
+}
+
+.windows-tile-icon-stage::after {
+  position: absolute;
+  inset: 5px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.24), transparent 52%);
+  content: '';
+  pointer-events: none;
+}
+
+.windows-tile-icon-stage .windows-tile-icon {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(2px 4px 3px rgb(2 6 23 / 0.22));
+  transform: translateZ(16px);
+}
+
+.windows-tile-ambient {
+  animation: windows-ambient-icon 9s ease-in-out infinite;
+  animation-delay: var(--tile-float-delay, 0s);
+  filter: blur(0.2px);
+  transform-origin: center;
+  transition: color 260ms ease, transform 400ms ease;
+}
+
+.windows-tile-3d:hover .windows-tile-icon-stage {
+  transform: rotateX(10deg) rotateY(-14deg) translate3d(2px, -4px, 20px) scale(1.06);
+}
+
+.windows-tile-3d:hover .windows-tile-ambient {
+  transform: rotate(-8deg) scale(1.12);
+}
+
 .windows-shell-light .windows-page-back {
   color: #0f172a;
   border-color: color-mix(in srgb, var(--simanis-accent-200) 74%, #cbd5e1);
@@ -2280,6 +2394,23 @@ onBeforeUnmount(() => {
 
 .windows-shell main {
   background: transparent !important;
+}
+
+.dashboard-main {
+  background:
+    radial-gradient(circle at 12% 8%, rgb(var(--simanis-accent-rgb) / 0.16), transparent 30rem),
+    linear-gradient(135deg, #f8fafc, var(--simanis-accent-50)) !important;
+}
+
+:root.theme-dark .dashboard-main {
+  background: linear-gradient(135deg, #020617, color-mix(in srgb, #020617 84%, var(--simanis-accent-grad-from) 16%)) !important;
+}
+
+/* Root halaman tidak boleh membentuk bingkai persegi di atas background layout. */
+.dashboard-page-container > :first-child {
+  background-color: transparent !important;
+  background-image: none !important;
+  outline: 0 !important;
 }
 
 .dashboard-submenu-slide-enter-active,
@@ -2308,6 +2439,58 @@ onBeforeUnmount(() => {
 
 .windows-launcher-panel {
   will-change: transform, opacity;
+}
+
+.windows-workspace-forward-enter-active,
+.windows-workspace-forward-leave-active,
+.windows-workspace-back-enter-active,
+.windows-workspace-back-leave-active {
+  transition:
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 210ms ease,
+    filter 300ms ease;
+  will-change: transform, opacity, filter;
+}
+
+.windows-workspace-forward-enter-from {
+  opacity: 0;
+  filter: blur(7px);
+  transform: translateX(72px) scale(0.99);
+}
+
+.windows-workspace-forward-leave-to {
+  opacity: 0;
+  filter: blur(5px);
+  transform: translateX(-48px) scale(0.99);
+}
+
+.windows-workspace-back-enter-from {
+  opacity: 0;
+  filter: blur(7px);
+  transform: translateX(-72px) scale(0.99);
+}
+
+.windows-workspace-back-leave-to {
+  opacity: 0;
+  filter: blur(5px);
+  transform: translateX(56px) scale(0.99);
+}
+
+.windows-back-action .h-5 {
+  transition: transform 220ms ease;
+}
+
+.windows-back-action:hover .h-5 {
+  transform: translateX(-3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .windows-workspace-forward-enter-active,
+  .windows-workspace-forward-leave-active,
+  .windows-workspace-back-enter-active,
+  .windows-workspace-back-leave-active {
+    transition-duration: 1ms;
+  }
 }
 
 .windows-launcher-slide-forward-enter-active,
@@ -2415,6 +2598,24 @@ onBeforeUnmount(() => {
   to { background-position: 48px 48px, 48px 48px; }
 }
 
+@keyframes windows-icon-float {
+  0%, 100% {
+    transform: rotateX(4deg) rotateY(-5deg) translate3d(0, 0, 8px);
+  }
+  50% {
+    transform: rotateX(-3deg) rotateY(7deg) translate3d(0, -6px, 14px);
+  }
+}
+
+@keyframes windows-ambient-icon {
+  0%, 100% {
+    transform: rotate(-4deg) translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: rotate(5deg) translate3d(5px, -8px, 0) scale(1.06);
+  }
+}
+
 @keyframes windows-shape-drift {
   0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.22; }
   50% { transform: translate3d(22px, -34px, 0) rotate(45deg); opacity: 0.55; }
@@ -2429,6 +2630,8 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .windows-moving-grid,
   .windows-floating-shape,
+  .windows-tile-icon-stage,
+  .windows-tile-ambient,
   .windows-cursor-ring,
   .windows-cursor-spark {
     animation: none !important;
