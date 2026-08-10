@@ -1,4 +1,4 @@
-FROM php:8.2-apache
+FROM php:8.3-apache
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public \
     COMPOSER_ALLOW_SUPERUSER=1
@@ -33,7 +33,8 @@ RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoload
 COPY backend ./
 COPY deploy/docker/api/entrypoint.sh /usr/local/bin/simanis-api-entrypoint
 COPY deploy/docker/api/scheduler.sh /usr/local/bin/simanis-scheduler
-RUN chmod +x /usr/local/bin/simanis-api-entrypoint /usr/local/bin/simanis-scheduler \
+RUN sed -i 's/\r$//' /usr/local/bin/simanis-api-entrypoint /usr/local/bin/simanis-scheduler \
+    && chmod +x /usr/local/bin/simanis-api-entrypoint /usr/local/bin/simanis-scheduler \
     && composer dump-autoload --optimize \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache public

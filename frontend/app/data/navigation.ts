@@ -39,6 +39,7 @@ export const navigationSections: NavigationSection[] = [
       { title: 'Buku Legalisasi', path: '/buku_legalisasi', icon: 'document', hint: 'Daftar legalisasi' },
       { title: 'Buku Waarmerking', path: '/buku_waarmerking', icon: 'document', hint: 'Daftar waarmerking' },
       { title: 'Buku PPAT', path: '/buku_ppat', icon: 'bank', hint: 'Akta PPAT dan dokumen' },
+      { title: 'Garis Otomatis Akta', path: '/garis-otomatis-akta', icon: 'document', hint: 'Upload DOC/DOCX akta dan buat PDF bergaris' },
     ],
   },
   {

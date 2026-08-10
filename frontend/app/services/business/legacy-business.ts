@@ -108,6 +108,42 @@ export function useLegacyBusinessService() {
     return response.blob()
   }
 
+  const postFormBlob = async (path: string, formData: FormData, auth = true) => {
+    const headers: Record<string, string> = {
+      Accept: 'application/pdf,application/octet-stream',
+    }
+
+    if (auth && token.value) {
+      headers.Authorization = `Bearer ${token.value}`
+    }
+
+    const response = await fetch(withBase(path), {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      let message = 'Gagal memproses file.'
+
+      try {
+        const payload = await response.json() as { message?: string; detail?: string }
+        message = payload.message || payload.detail || message
+      } catch {
+        const text = await response.text().catch(() => '')
+        if (text) message = text
+      }
+
+      throw { data: { message }, status: response.status }
+    }
+
+    return {
+      blob: await response.blob(),
+      filename: response.headers.get('Content-Disposition') || '',
+      segments: response.headers.get('X-Garis-Segments') || '',
+    }
+  }
+
   const buildReportUrl = (reportPath: string, query?: QueryParams) => {
     const url = new URL(buildAssetUrl(`api/${cleanPath(reportPath).replace(/^api\//, '')}`))
 
@@ -406,6 +442,10 @@ export function useLegacyBusinessService() {
     DeleteTandaTerima: (payload: BodyPayload) => post('/auth/DeleteTandaTerima', payload),
   }
 
+  const garisAkta = {
+    process: (formData: FormData) => postFormBlob('/auth/garis-otomatis-akta/process', formData),
+  }
+
   const reports = {
     CetakLaporanNotaris: (date?: string) => buildReportUrl('CetakLaporanNotaris', { date }),
     CetakLaporanLegalisasi: (date?: string) => buildReportUrl('CetakLaporanLegalisasi', { date }),
@@ -452,6 +492,7 @@ export function useLegacyBusinessService() {
     documentAccess,
     scannedDocuments,
     tandaTerima,
+    garisAkta,
     reports,
     assets,
   }

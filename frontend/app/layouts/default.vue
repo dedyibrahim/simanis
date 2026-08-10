@@ -86,43 +86,47 @@
 
         <main class="relative z-10 min-h-0 flex-1 overflow-hidden">
           <div v-if="windowsLauncherVisible" class="h-full overflow-y-auto px-4 py-7 sm:px-8">
-            <div class="mx-auto w-full max-w-6xl">
-              <div class="windows-divider mb-6 flex items-center gap-3 border-b pb-5">
-                <button v-if="selectedWindowsGroup" type="button" class="windows-control flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition" title="Kembali ke semua modul" @click="selectedWindowsGroup = null">
-                  <ChevronLeftIcon class="h-5 w-5" />
-                </button>
-                <div class="min-w-0">
-                  <p class="windows-muted text-[10px] font-bold uppercase">{{ selectedWindowsGroup ? 'Submenu' : 'Semua aplikasi' }}</p>
-                  <h1 class="mt-1 truncate text-2xl font-black sm:text-3xl">{{ selectedWindowsGroup?.name || 'Modul SIMANIS' }}</h1>
-                  <p class="windows-muted mt-1 text-xs">{{ selectedWindowsGroup ? `${selectedWindowsGroup.children.length} menu tersedia` : `${windowsLauncherGroups.length} kelompok modul tersedia` }}</p>
+            <div class="mx-auto w-full max-w-6xl overflow-hidden">
+              <Transition :name="windowsLauncherTransitionName" mode="out-in">
+                <div :key="windowsLauncherPanelKey" class="windows-launcher-panel">
+                  <div class="windows-divider mb-6 flex items-center gap-3 border-b pb-5">
+                    <button v-if="selectedWindowsGroup" type="button" class="windows-control flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition" title="Kembali ke semua modul" @click="backToWindowsGroups">
+                      <ChevronLeftIcon class="h-5 w-5" />
+                    </button>
+                    <div class="min-w-0">
+                      <p class="windows-muted text-[10px] font-bold uppercase">{{ selectedWindowsGroup ? 'Submenu' : 'Semua aplikasi' }}</p>
+                      <h1 class="mt-1 truncate text-2xl font-black sm:text-3xl">{{ selectedWindowsGroup?.name || 'Modul SIMANIS' }}</h1>
+                      <p class="windows-muted mt-1 text-xs">{{ selectedWindowsGroup ? `${selectedWindowsGroup.children.length} menu tersedia` : `${windowsLauncherGroups.length} kelompok modul tersedia` }}</p>
+                    </div>
+                  </div>
+
+                  <div v-if="!selectedWindowsGroup" class="grid auto-rows-[150px] grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    <button v-for="(group, index) in windowsLauncherGroups" :key="`windows-group-${group.name}`" type="button" class="windows-tile group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-blue-600 to-indigo-700 p-4 text-left shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-5" :class="index === 0 ? 'sm:col-span-2' : ''" @click="openWindowsGroup(group)">
+                      <div class="relative flex items-start justify-between">
+                        <component :is="group.icon" class="windows-tile-icon h-9 w-9" />
+                        <span class="windows-tile-badge rounded-md px-2 py-1 text-[10px] font-bold">{{ group.children.length }}</span>
+                      </div>
+                      <div class="relative min-w-0">
+                        <p class="windows-tile-title break-words text-base font-extrabold leading-5">{{ group.name }}</p>
+                        <p class="windows-tile-muted mt-1 text-[10px] font-semibold uppercase">Lihat submenu</p>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div v-else class="grid auto-rows-[132px] grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    <NuxtLink v-for="item in selectedWindowsGroup.children" :key="item.href" :to="item.href" class="windows-tile group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-blue-600 to-indigo-700 p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-5" @click="openWindowsModule">
+                      <div class="relative flex items-start justify-between">
+                        <component :is="item.icon" class="windows-tile-icon h-8 w-8" />
+                        <ChevronRightIcon class="windows-tile-muted h-5 w-5 transition group-hover:translate-x-1" />
+                      </div>
+                      <div class="relative min-w-0">
+                        <p class="windows-tile-title break-words text-sm font-extrabold leading-5 sm:text-base">{{ item.name }}</p>
+                        <p class="windows-tile-muted mt-1 text-[10px] font-semibold uppercase">Buka halaman</p>
+                      </div>
+                    </NuxtLink>
+                  </div>
                 </div>
-              </div>
-
-              <div v-if="!selectedWindowsGroup" class="grid auto-rows-[150px] grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                <button v-for="(group, index) in windowsLauncherGroups" :key="`windows-group-${group.name}`" type="button" class="windows-tile group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-blue-600 to-indigo-700 p-4 text-left shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-5" :class="index === 0 ? 'sm:col-span-2' : ''" @click="selectedWindowsGroup = group">
-                  <div class="relative flex items-start justify-between">
-                    <component :is="group.icon" class="windows-tile-icon h-9 w-9" />
-                    <span class="windows-tile-badge rounded-md px-2 py-1 text-[10px] font-bold">{{ group.children.length }}</span>
-                  </div>
-                  <div class="relative min-w-0">
-                    <p class="windows-tile-title break-words text-base font-extrabold leading-5">{{ group.name }}</p>
-                    <p class="windows-tile-muted mt-1 text-[10px] font-semibold uppercase">Lihat submenu</p>
-                  </div>
-                </button>
-              </div>
-
-              <div v-else class="grid auto-rows-[132px] grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                <NuxtLink v-for="item in selectedWindowsGroup.children" :key="item.href" :to="item.href" class="windows-tile group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-blue-600 to-indigo-700 p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl sm:p-5" @click="openWindowsModule">
-                  <div class="relative flex items-start justify-between">
-                    <component :is="item.icon" class="windows-tile-icon h-8 w-8" />
-                    <ChevronRightIcon class="windows-tile-muted h-5 w-5 transition group-hover:translate-x-1" />
-                  </div>
-                  <div class="relative min-w-0">
-                    <p class="windows-tile-title break-words text-sm font-extrabold leading-5 sm:text-base">{{ item.name }}</p>
-                    <p class="windows-tile-muted mt-1 text-[10px] font-semibold uppercase">Buka halaman</p>
-                  </div>
-                </NuxtLink>
-              </div>
+              </Transition>
             </div>
           </div>
 
@@ -210,18 +214,20 @@
                           <ChevronRightIcon class="h-4 w-4 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
                         </div>
                       </DisclosureButton>
-                      <DisclosurePanel class="mt-1 space-y-1">
-                        <NuxtLink
-                          v-for="subItem in item.children"
-                          :key="subItem.href"
-                          :to="subItem.href"
-                          class="flex items-center rounded-lg py-2.5 pl-8 pr-4 text-xs font-medium transition-all"
-                          :class="[isActive(subItem.href) ? 'bg-blue-50 font-bold text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700']"
-                          @click="sidebarOpen = false"
-                        >
-                          {{ subItem.name }}
-                        </NuxtLink>
-                      </DisclosurePanel>
+                      <transition name="dashboard-submenu-slide">
+                        <DisclosurePanel class="mt-1 space-y-1">
+                          <NuxtLink
+                            v-for="subItem in item.children"
+                            :key="subItem.href"
+                            :to="subItem.href"
+                            class="flex items-center rounded-lg py-2.5 pl-8 pr-4 text-xs font-medium transition-all"
+                            :class="[isActive(subItem.href) ? 'bg-blue-50 font-bold text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700']"
+                            @click="sidebarOpen = false"
+                          >
+                            {{ subItem.name }}
+                          </NuxtLink>
+                        </DisclosurePanel>
+                      </transition>
                     </Disclosure>
                   </nav>
 
@@ -293,18 +299,20 @@
                   <ChevronRightIcon class="h-4 w-4 transition-all duration-300" :class="open || isGroupActive(item) ? 'rotate-90 text-blue-600' : 'text-slate-300'" />
                 </div>
               </DisclosureButton>
-              <DisclosurePanel class="space-y-1 px-2">
-                <NuxtLink
-                  v-for="subItem in item.children"
-                  :key="subItem.href"
-                  :to="subItem.href"
-                  class="flex items-center rounded-xl py-3 pl-8 pr-4 text-xs font-bold transition-all"
-                  :class="[isActive(subItem.href) ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
-                >
-                  <component :is="subItem.icon" class="mr-2.5 h-4 w-4 shrink-0" />
-                  <span>{{ subItem.name }}</span>
-                </NuxtLink>
-              </DisclosurePanel>
+              <transition name="dashboard-submenu-slide">
+                <DisclosurePanel class="space-y-1 px-2">
+                  <NuxtLink
+                    v-for="subItem in item.children"
+                    :key="subItem.href"
+                    :to="subItem.href"
+                    class="flex items-center rounded-xl py-3 pl-8 pr-4 text-xs font-bold transition-all"
+                    :class="[isActive(subItem.href) ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800']"
+                  >
+                    <component :is="subItem.icon" class="mr-2.5 h-4 w-4 shrink-0" />
+                    <span>{{ subItem.name }}</span>
+                  </NuxtLink>
+                </DisclosurePanel>
+              </transition>
             </Disclosure>
           </nav>
 
@@ -1005,6 +1013,7 @@ type NavigationGroup = {
 }
 
 type MouseEffect = 'off' | 'sparkle' | 'trail'
+type WindowsLauncherDirection = 'forward' | 'back'
 
 type ApiEnvelope<T> = {
   status?: boolean
@@ -1129,6 +1138,7 @@ const desktopSidebarOpen = ref(true)
 const windowsMode = ref(false)
 const windowsLauncherVisible = ref(true)
 const selectedWindowsGroup = ref<NavigationGroup | null>(null)
+const windowsLauncherDirection = ref<WindowsLauncherDirection>('forward')
 const mouseEffect = ref<MouseEffect>('sparkle')
 const mouseEffectOptions: Array<{ value: MouseEffect; label: string }> = [
   { value: 'off', label: 'Mati' },
@@ -2005,6 +2015,12 @@ watch(mouseEffect, (value) => {
 })
 
 const windowsLauncherGroups = computed(() => navigation.value)
+const windowsLauncherPanelKey = computed(() => selectedWindowsGroup.value?.name || 'windows-root')
+const windowsLauncherTransitionName = computed(() =>
+  windowsLauncherDirection.value === 'back'
+    ? 'windows-launcher-slide-back'
+    : 'windows-launcher-slide-forward',
+)
 const activeWindowsGroup = computed(() =>
   windowsLauncherGroups.value.find(group => group.children.some(item => isActive(item.href))) || null,
 )
@@ -2026,8 +2042,19 @@ const handleWindowsPointerMove = (event: PointerEvent) => {
 }
 
 const openWindowsLauncher = () => {
+  windowsLauncherDirection.value = 'back'
   selectedWindowsGroup.value = null
   windowsLauncherVisible.value = true
+}
+
+const openWindowsGroup = (group: NavigationGroup) => {
+  windowsLauncherDirection.value = 'forward'
+  selectedWindowsGroup.value = group
+}
+
+const backToWindowsGroups = () => {
+  windowsLauncherDirection.value = 'back'
+  selectedWindowsGroup.value = null
 }
 
 const openWindowsModule = () => {
@@ -2035,6 +2062,7 @@ const openWindowsModule = () => {
 }
 
 const backToWindowsSubmenu = () => {
+  windowsLauncherDirection.value = 'forward'
   selectedWindowsGroup.value = activeWindowsGroup.value
   windowsLauncherVisible.value = true
 }
@@ -2254,6 +2282,68 @@ onBeforeUnmount(() => {
   background: transparent !important;
 }
 
+.dashboard-submenu-slide-enter-active,
+.dashboard-submenu-slide-leave-active {
+  overflow: hidden;
+  transform-origin: top;
+  transition:
+    max-height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 170ms ease-out,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-submenu-slide-enter-to,
+.dashboard-submenu-slide-leave-from {
+  max-height: 560px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dashboard-submenu-slide-enter-from,
+.dashboard-submenu-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.windows-launcher-panel {
+  will-change: transform, opacity;
+}
+
+.windows-launcher-slide-forward-enter-active,
+.windows-launcher-slide-forward-leave-active,
+.windows-launcher-slide-back-enter-active,
+.windows-launcher-slide-back-leave-active {
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease-out,
+    filter 260ms ease-out;
+}
+
+.windows-launcher-slide-forward-enter-from {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateX(72px) scale(0.985);
+}
+
+.windows-launcher-slide-forward-leave-to {
+  opacity: 0;
+  filter: blur(5px);
+  transform: translateX(-44px) scale(0.99);
+}
+
+.windows-launcher-slide-back-enter-from {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateX(-72px) scale(0.985);
+}
+
+.windows-launcher-slide-back-leave-to {
+  opacity: 0;
+  filter: blur(5px);
+  transform: translateX(44px) scale(0.99);
+}
+
 .app-shell main:not(.windows-shell main) {
   background-size: 145% 145% !important;
   animation: simanis-dashboard-background 20s ease-in-out infinite alternate;
@@ -2343,6 +2433,25 @@ onBeforeUnmount(() => {
   .windows-cursor-spark {
     animation: none !important;
     display: none !important;
+  }
+
+  .windows-launcher-slide-forward-enter-active,
+  .windows-launcher-slide-forward-leave-active,
+  .windows-launcher-slide-back-enter-active,
+  .windows-launcher-slide-back-leave-active,
+  .dashboard-submenu-slide-enter-active,
+  .dashboard-submenu-slide-leave-active {
+    transition: opacity 120ms ease-out !important;
+  }
+
+  .windows-launcher-slide-forward-enter-from,
+  .windows-launcher-slide-forward-leave-to,
+  .windows-launcher-slide-back-enter-from,
+  .windows-launcher-slide-back-leave-to,
+  .dashboard-submenu-slide-enter-from,
+  .dashboard-submenu-slide-leave-to {
+    filter: none !important;
+    transform: none !important;
   }
 }
 

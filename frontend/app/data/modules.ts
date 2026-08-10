@@ -217,6 +217,22 @@ export const moduleCatalog: ModuleDefinition[] = [
     ],
   },
   {
+    path: '/garis-otomatis-akta',
+    title: 'Garis Otomatis Akta',
+    shortTitle: 'Garis Akta',
+    section: 'Buku Reportorium',
+    icon: 'document',
+    description: 'Upload DOC atau DOCX akta lalu proses menjadi PDF dengan garis otomatis berdasarkan model RadinaNet.',
+    summary: 'Versi web dari tool desktop RadinaNet untuk membantu penandaan garis akta tanpa membuka aplikasi desktop.',
+    stage: 'ready',
+    metrics: [{ label: 'Input', value: 'DOC/DOCX' }, { label: 'Output', value: 'PDF' }, { label: 'Engine', value: 'RadinaNet' }],
+    actions: ['Unggah file DOC atau DOCX akta.', 'Proses garis otomatis dari schema scan model.', 'Unduh PDF hasil proses.'],
+    focus: ['Batasi upload ke DOC dan DOCX.', 'Gunakan model scan_line_position_model dari RadinaNet.', 'Buat hasil download langsung dari browser.'],
+    endpoints: [
+      { method: 'POST', path: '/auth/garis-otomatis-akta/process', note: 'Upload DOC/DOCX dan unduh PDF bergaris.' },
+    ],
+  },
+  {
     path: '/buku_surat_notaris',
     title: 'Surat Notaris',
     shortTitle: 'Surat Notaris',

@@ -159,12 +159,6 @@ const ghostButtonClass = computed(() =>
     ? 'border-white/10 text-white hover:bg-white/10'
     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
 )
-const tabButtonClass = (value: RekananTab) =>
-  activeTab.value === value
-    ? 'border-blue-400 bg-blue-500 text-white'
-    : isDark.value
-      ? 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-      : 'border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50'
 const tableHeadClass = computed(() =>
   isDark.value
     ? 'bg-slate-950/80 text-slate-400'
@@ -515,29 +509,13 @@ onMounted(() => {
 <template>
   <div class="min-h-screen px-2 py-6 sm:px-4 lg:px-6" :class="pageClass">
     <section class="rounded-[2rem] border p-6" :class="surfaceClass">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
         <div>
           <p class="text-xs font-black uppercase tracking-[0.45em] text-blue-500">PPAT Rekanan</p>
           <h1 class="mt-2 text-3xl font-black">Kontrol Rekanan PPAT</h1>
           <p class="mt-2 max-w-3xl text-sm font-medium" :class="secondaryTextClass">
             Kelola master PPAT rekanan, tandai nomor PPAT kantor yang dipakai PPAT lain, dan catat nomor PPAT rekanan yang masuk ke database.
           </p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button
-            v-for="tab in [
-              { value: 'master', label: 'Master Rekanan' },
-              { value: 'keluar', label: 'Rekanan Keluar' },
-              { value: 'kedalam', label: 'Rekanan Kedalam' },
-            ]"
-            :key="tab.value"
-            type="button"
-            class="rounded-2xl border px-4 py-2 text-sm font-extrabold transition"
-            :class="tabButtonClass(tab.value as 'master' | 'keluar' | 'kedalam')"
-            @click="switchTab(tab.value as 'master' | 'keluar' | 'kedalam')"
-          >
-            {{ tab.label }}
-          </button>
         </div>
       </div>
 

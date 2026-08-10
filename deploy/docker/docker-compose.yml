@@ -30,6 +30,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      garis-akta:
+        condition: service_started
     volumes:
       - laravel_storage:/var/www/html/storage
       - public_berkasclient:/var/www/html/public/berkasclient
@@ -129,6 +131,18 @@ services:
       FLAGS_enable_pir_api: "0"
     volumes:
       - ocr_cache:/root/.paddleocr
+    networks:
+      - simanis
+
+  garis-akta:
+    build:
+      context: ../../features/garis-akta
+      dockerfile: ../../deploy/docker/garis-akta/Dockerfile
+    image: simanis/garis-akta:local
+    restart: unless-stopped
+    environment:
+      GARIS_AKTA_ROOT: /app
+      GARIS_AKTA_MODEL: /app/scan_line_model_datatrain_v2.json
     networks:
       - simanis
 

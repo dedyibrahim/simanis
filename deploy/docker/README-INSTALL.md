@@ -54,6 +54,7 @@ Untuk SSL, pasang reverse proxy di host atau gunakan Cloudflare/Nginx Proxy Mana
 - `bothwa`: bot WhatsApp
 - `waha`: WhatsApp gateway
 - `ktp-ocr`: OCR KTP FastAPI/PaddleOCR
+- `garis-akta`: konversi DOC/DOCX akta ke PDF bergaris memakai model RadinaNet
 - `db`: MariaDB
 - `redis`: Redis
 
@@ -66,6 +67,7 @@ bash update.sh
 docker compose logs -f api
 docker compose logs -f bothwa
 docker compose logs -f ktp-ocr
+docker compose logs -f garis-akta
 ```
 
 ## Backup
@@ -103,6 +105,23 @@ bash update.sh
 ```
 
 Data aman karena disimpan di Docker volumes, bukan di image.
+
+Jika schema/model Garis Otomatis Akta berubah, rebuild service terkait:
+
+```bash
+docker compose build garis-akta
+docker compose up -d garis-akta api
+```
+
+## Seeder Demo
+
+Untuk mengisi data contoh tanpa mengganti password user lama:
+
+```bash
+docker compose exec -T api php artisan db:seed --class=SimanisDemoSeeder --force
+```
+
+Seeder ini memakai prefix data `DEMO` dan aman dijalankan ulang. Jika database baru belum punya user, user lama akan dibuat dengan password lama; jika user sudah ada, password tidak diubah.
 
 ## Catatan Distribusi Jualan
 

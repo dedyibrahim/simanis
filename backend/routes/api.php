@@ -12,6 +12,7 @@ use App\Http\Controllers\EmployeeChatController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GoogleCalendarController;
 use App\Http\Controllers\GoogleCalendarSyncController;
+use App\Http\Controllers\GarisOtomatisAktaController;
 use App\Http\Controllers\JadwalNotarisController;
 use App\Http\Controllers\LayananController;
 use App\Http\Controllers\Login;
@@ -177,6 +178,7 @@ Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::post('/getBukuSuratNotaris', [PembuatanNomor::class, 'getBukuSuratNotaris']);
     Route::post('/getBukuSuratPPAT', [PembuatanNomor::class, 'getBukuSuratPPAT']);
     Route::post('/getBukuPesanan', [PembuatanNomor::class, 'getBukuPesanan']);
+    Route::post('/garis-otomatis-akta/process', [GarisOtomatisAktaController::class, 'process']);
 
     Route::post('/EditAktaNotaris', [PembuatanNomor::class, 'EditAktaNotaris']);
     Route::post('/EditSuratNotaris', [PembuatanNomor::class, 'EditSuratNotaris']);
