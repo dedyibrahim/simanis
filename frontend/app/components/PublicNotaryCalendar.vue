@@ -764,6 +764,44 @@
     </section>
 
     <Teleport to="body">
+      <Transition name="public-keyboard">
+        <section
+          v-if="virtualKeyboardOpen"
+          class="public-virtual-keyboard fixed inset-x-0 bottom-0 z-[120] border-t border-white/15 p-2 shadow-2xl backdrop-blur-2xl sm:p-3"
+          :class="isDark ? 'public-theme-dark' : 'public-theme-light'"
+          aria-label="Keyboard virtual"
+          @mousedown.prevent
+        >
+          <div class="mx-auto max-w-5xl">
+            <div class="mb-2 flex items-center justify-between gap-3 px-1">
+              <p class="truncate text-xs font-bold uppercase tracking-[0.2em]">Keyboard Virtual</p>
+              <button type="button" class="rounded-lg border border-current/20 px-3 py-1 text-xs font-bold" @click="closeVirtualKeyboard">
+                Tutup
+              </button>
+            </div>
+            <div v-for="(row, rowIndex) in virtualKeyboardRows" :key="`keyboard-row-${rowIndex}`" class="mb-1.5 flex justify-center gap-1 sm:gap-1.5">
+              <button
+                v-for="key in row"
+                :key="key"
+                type="button"
+                class="virtual-key min-w-0 flex-1 rounded-lg border px-1 py-2 text-sm font-bold shadow-sm transition active:translate-y-px sm:max-w-20 sm:py-2.5"
+                @click="pressVirtualKey(key)"
+              >
+                {{ displayVirtualKey(key) }}
+              </button>
+            </div>
+            <div class="flex justify-center gap-1 sm:gap-1.5">
+              <button type="button" class="virtual-key rounded-lg border px-3 py-2 text-xs font-bold sm:py-2.5" :class="{ 'virtual-key-active': virtualKeyboardShift }" @click="toggleVirtualKeyboardShift">Shift</button>
+              <button type="button" class="virtual-key min-w-0 flex-[5] rounded-lg border py-2 text-xs font-bold sm:max-w-lg sm:py-2.5" @click="pressVirtualKey(' ')">Spasi</button>
+              <button type="button" class="virtual-key rounded-lg border px-3 py-2 text-xs font-bold sm:py-2.5" @click="pressVirtualKey('BACKSPACE')">Hapus</button>
+              <button type="button" class="virtual-key rounded-lg border px-3 py-2 text-xs font-bold sm:py-2.5" @click="pressVirtualKey('ENTER')">Enter</button>
+            </div>
+          </div>
+        </section>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
       <div
         v-if="themeMenuOpen"
         class="public-theme-menu public-theme-menu-floating max-h-[calc(100vh-5rem)] w-80 overflow-y-auto rounded-3xl border border-white/15 bg-slate-950/95 p-2 text-white shadow-2xl backdrop-blur-xl"
@@ -928,6 +966,12 @@ const {
 
 const scannerAgentBase = 'http://127.0.0.1:8787'
 const weekdays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+const virtualKeyboardRows = [
+  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+  ['z', 'x', 'c', 'v', 'b', 'n', 'm', '-', '.', '/'],
+]
 const loading = ref(false)
 const errorMessage = ref('')
 const events = ref<CalendarEvent[]>([])
@@ -938,6 +982,9 @@ const detailScrollEl = ref<HTMLElement | null>(null)
 const themeButtonEl = ref<HTMLElement | null>(null)
 const scanDialogOpen = ref(false)
 const themeMenuOpen = ref(false)
+const virtualKeyboardOpen = ref(false)
+const virtualKeyboardShift = ref(false)
+const virtualKeyboardTarget = shallowRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
 const themeMenuPosition = reactive({
   top: 84,
   left: 0,
@@ -1910,10 +1957,75 @@ watch(scanToastMessage, (message) => {
   }, 3500)
 })
 
+const isVirtualKeyboardField = (target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement => {
+  if (target instanceof HTMLTextAreaElement) return !target.disabled && !target.readOnly
+  if (!(target instanceof HTMLInputElement) || target.disabled || target.readOnly) return false
+  return ['text', 'search', 'email', 'tel', 'url', 'number'].includes(target.type)
+}
+
+const handleVirtualKeyboardFocus = (event: FocusEvent) => {
+  if (!isVirtualKeyboardField(event.target)) return
+  virtualKeyboardTarget.value = event.target
+  virtualKeyboardOpen.value = true
+}
+
+const closeVirtualKeyboard = () => {
+  virtualKeyboardOpen.value = false
+  virtualKeyboardShift.value = false
+  virtualKeyboardTarget.value?.blur()
+  virtualKeyboardTarget.value = null
+}
+
+const toggleVirtualKeyboardShift = () => {
+  virtualKeyboardShift.value = !virtualKeyboardShift.value
+}
+
+const displayVirtualKey = (key: string) => virtualKeyboardShift.value ? key.toUpperCase() : key
+
+const updateVirtualKeyboardValue = (value: string, cursor: number) => {
+  const target = virtualKeyboardTarget.value
+  if (!target) return
+  target.value = value
+  target.dispatchEvent(new Event('input', { bubbles: true }))
+  target.focus({ preventScroll: true })
+  try {
+    target.setSelectionRange(cursor, cursor)
+  } catch {
+    // Number inputs do not expose text selection in every browser.
+  }
+}
+
+const pressVirtualKey = (key: string) => {
+  const target = virtualKeyboardTarget.value
+  if (!target) return
+
+  const start = target.selectionStart ?? target.value.length
+  const end = target.selectionEnd ?? start
+  if (key === 'ENTER' && !(target instanceof HTMLTextAreaElement)) {
+    target.dispatchEvent(new Event('change', { bubbles: true }))
+    closeVirtualKeyboard()
+    return
+  }
+
+  if (key === 'BACKSPACE') {
+    if (start !== end) {
+      updateVirtualKeyboardValue(target.value.slice(0, start) + target.value.slice(end), start)
+    } else if (start > 0) {
+      updateVirtualKeyboardValue(target.value.slice(0, start - 1) + target.value.slice(end), start - 1)
+    }
+    return
+  }
+
+  const insertedKey = key === 'ENTER' ? '\n' : displayVirtualKey(key)
+  updateVirtualKeyboardValue(target.value.slice(0, start) + insertedKey + target.value.slice(end), start + insertedKey.length)
+  if (virtualKeyboardShift.value && /^[a-z]$/i.test(key)) virtualKeyboardShift.value = false
+}
+
 onMounted(() => {
   selectedDateKey.value = formatDateKey(new Date())
   syncFullscreenState()
   document.addEventListener('fullscreenchange', syncFullscreenState)
+  document.addEventListener('focusin', handleVirtualKeyboardFocus)
   void loadEvents()
   void loadLatestScanSession(true)
   detailAutoScrollFrame = requestAnimationFrame(tickDetailAutoScroll)
@@ -1921,6 +2033,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncFullscreenState)
+  document.removeEventListener('focusin', handleVirtualKeyboardFocus)
   if (scanToastTimeout) {
     window.clearTimeout(scanToastTimeout)
   }
@@ -1931,6 +2044,46 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
+.public-virtual-keyboard {
+  background: color-mix(in srgb, #020617 94%, var(--simanis-accent-grad-from) 6%);
+  color: #f8fafc;
+}
+
+.public-virtual-keyboard.public-theme-light {
+  background: color-mix(in srgb, #ffffff 94%, var(--simanis-accent-50) 6%);
+  color: #0f172a;
+  border-color: color-mix(in srgb, var(--simanis-accent-300) 55%, #cbd5e1);
+}
+
+.public-virtual-keyboard .virtual-key {
+  border-color: rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.08);
+  color: inherit;
+}
+
+.public-virtual-keyboard .virtual-key:hover,
+.public-virtual-keyboard .virtual-key-active {
+  border-color: var(--simanis-accent-400);
+  background: rgb(var(--simanis-accent-rgb) / 0.28);
+}
+
+.public-virtual-keyboard.public-theme-light .virtual-key {
+  border-color: color-mix(in srgb, var(--simanis-accent-300) 48%, #cbd5e1);
+  background: #ffffff;
+  box-shadow: 0 4px 10px rgb(15 23 42 / 0.08);
+}
+
+.public-keyboard-enter-active,
+.public-keyboard-leave-active {
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.public-keyboard-enter-from,
+.public-keyboard-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
 .public-calendar-shell {
   background:
     radial-gradient(circle at top left, rgb(var(--simanis-accent-rgb) / 0.2), transparent 34rem),
