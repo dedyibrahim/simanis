@@ -118,6 +118,7 @@ Route::group(['prefix' => 'auth/user', 'middleware' => 'auth:sanctum'], function
     Route::post('/DeleteAccount', [UserController::class, 'DeleteAccount']);
     Route::get('/DataUser', [UserController::class, 'DataUser']);
     Route::post('/UpdatePassword', [UserController::class, 'UpdatePassword']);
+    Route::post('/ResetUserPassword', [UserController::class, 'ResetUserPassword']);
     Route::post('/UploadFoto', [UserController::class, 'UploadFoto']);
 });
 

@@ -186,6 +186,7 @@ export function useLegacyBusinessService() {
     SaveAccount: (payload: BodyPayload) => post('/auth/user/SaveAccount', payload),
     DeleteAccount: (payload: BodyPayload) => post('/auth/user/DeleteAccount', payload),
     UpdatePassword: (payload: BodyPayload) => post('/auth/user/UpdatePassword', payload),
+    ResetUserPassword: (payload: BodyPayload) => post('/auth/user/ResetUserPassword', payload),
     UploadFoto: (formData: FormData) => postForm('/auth/user/UploadFoto', formData),
   }
 

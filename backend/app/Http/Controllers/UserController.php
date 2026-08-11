@@ -16,6 +16,12 @@ class UserController extends Controller
         return in_array($level, ['ADMIN', 'SUPER ADMIN', 'SUPERADMIN'], true);
     }
 
+    private function isSuperAdmin(?User $user): bool
+    {
+        $level = strtoupper(trim((string) optional($user)->level_user));
+        return in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+    }
+
     private function isSameUser(User $left, User $right): bool
     {
         if ((string) $left->id === (string) $right->id) {
@@ -128,7 +134,6 @@ class UserController extends Controller
             'level_user' => ['required', 'string'],
             'nama_lengkap' => ['required', 'string'],
             'phone' => ['required', 'string'],
-            'password' => ['nullable', 'string', 'confirmed', 'min:8'],
         ]);
 
         $data = [
@@ -140,10 +145,6 @@ class UserController extends Controller
             'nama_lengkap' => (string) $validated['nama_lengkap'],
             'phone' => (string) $validated['phone'],
         ];
-
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make((string) $validated['password']);
-        }
 
         $targetUser->update($data);
 
@@ -286,35 +287,82 @@ class UserController extends Controller
 
     public function UpdatePassword(Request $request)
     {
-        $cek = $this->CekPassWord($request->post('last_password'));
-        if (!$cek) {
-            $response = [
+        /** @var User|null $authUser */
+        $authUser = $request->user();
+        if (!$authUser) {
+            return response([
                 'status' => false,
-                'message' => "The New Password isn't match with old password.",
+                'message' => 'Unauthorized.',
                 'data' => [],
-            ];
-            $code = 422;
-        } else {
-            $request->validate([
-                'last_password' => ['required'],
-                'new_password' => ['required'],
-                'password_confirmation' => ['same:new_password'],
-            ]);
-
-            User::find(auth()->user()->id)->update(['password' => Hash::make($request->new_password)]);
-            $response = [
-                'status' => true,
-                'message' => 'Update New Password Successfully.',
-                'data' => [],
-            ];
-            $code = 200;
+            ], 401);
         }
-        return response($response, $code);
+
+        $validated = $request->validate([
+            'last_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8'],
+            'password_confirmation' => ['required', 'same:new_password'],
+        ]);
+
+        if (!Hash::check((string) $validated['last_password'], $authUser->password)) {
+            return response([
+                'status' => false,
+                'message' => 'Password saat ini tidak sesuai.',
+                'data' => [],
+            ], 422);
+        }
+
+        $authUser->update(['password' => Hash::make((string) $validated['new_password'])]);
+
+        return response([
+            'status' => true,
+            'message' => 'Password Anda berhasil diperbarui.',
+            'data' => [],
+        ], 200);
     }
 
-    public function CekPassWord($value)
+    public function ResetUserPassword(Request $request)
     {
-        return Hash::check($value, auth()->user()->password);
+        /** @var User|null $authUser */
+        $authUser = $request->user();
+        if (!$authUser) {
+            return response(['status' => false, 'message' => 'Unauthorized.', 'data' => []], 401);
+        }
+
+        if (!$this->isSuperAdmin($authUser)) {
+            return response([
+                'status' => false,
+                'message' => 'Akses ditolak. Hanya Super Admin yang dapat mengganti password user lain.',
+                'data' => [],
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'id_user' => ['required', 'string'],
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8'],
+            'password_confirmation' => ['required', 'same:new_password'],
+        ]);
+
+        if (!Hash::check((string) $validated['current_password'], $authUser->password)) {
+            return response([
+                'status' => false,
+                'message' => 'Password Super Admin tidak sesuai.',
+                'data' => [],
+            ], 422);
+        }
+
+        $targetUser = User::query()->where('id_user', (string) $validated['id_user'])->first();
+        if (!$targetUser) {
+            return response(['status' => false, 'message' => 'User tidak ditemukan.', 'data' => []], 404);
+        }
+
+        $targetUser->update(['password' => Hash::make((string) $validated['new_password'])]);
+
+        return response([
+            'status' => true,
+            'message' => 'Password '.$targetUser->nama_lengkap.' berhasil diperbarui.',
+            'data' => [],
+        ], 200);
     }
 
     public function UploadFoto(Request $request)

@@ -416,6 +416,20 @@ const passwordDialogForm = reactive({
   confirmPassword: '',
 })
 
+const userPasswordDialog = reactive({
+  open: false,
+  saving: false,
+  error: '',
+  targetIdUser: '',
+  targetName: '',
+})
+
+const userPasswordDialogForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+
 const layananFormDialog = reactive({
   open: false,
   mode: 'create' as 'create' | 'edit',
@@ -1172,6 +1186,65 @@ const unwrapPayload = (payload: unknown) => {
 
   responseMessage.value = ''
   return payload
+}
+
+const resetUserPasswordDialog = () => {
+  userPasswordDialog.error = ''
+  userPasswordDialog.targetIdUser = ''
+  userPasswordDialog.targetName = ''
+  userPasswordDialogForm.currentPassword = ''
+  userPasswordDialogForm.newPassword = ''
+  userPasswordDialogForm.confirmPassword = ''
+}
+
+const closeUserPasswordDialog = () => {
+  if (userPasswordDialog.saving) return
+  userPasswordDialog.open = false
+  resetUserPasswordDialog()
+}
+
+const openUserPasswordDialog = (row: UserRow) => {
+  if (!isSuperAdmin.value) return
+  resetUserPasswordDialog()
+  userPasswordDialog.targetIdUser = userIdValue(row)
+  userPasswordDialog.targetName = userDisplayName(row)
+  userPasswordDialog.open = true
+}
+
+const saveUserPasswordDialog = async () => {
+  if (userPasswordDialog.saving) return
+  userPasswordDialog.error = ''
+
+  if (!userPasswordDialogForm.currentPassword || !userPasswordDialogForm.newPassword || !userPasswordDialogForm.confirmPassword) {
+    userPasswordDialog.error = 'Semua field password wajib diisi.'
+    return
+  }
+  if (userPasswordDialogForm.newPassword.length < 8) {
+    userPasswordDialog.error = 'Password baru minimal 8 karakter.'
+    return
+  }
+  if (userPasswordDialogForm.newPassword !== userPasswordDialogForm.confirmPassword) {
+    userPasswordDialog.error = 'Konfirmasi password tidak sama.'
+    return
+  }
+
+  userPasswordDialog.saving = true
+  try {
+    const targetName = userPasswordDialog.targetName
+    const response = await business.auth.ResetUserPassword({
+      id_user: userPasswordDialog.targetIdUser,
+      current_password: userPasswordDialogForm.currentPassword,
+      new_password: userPasswordDialogForm.newPassword,
+      password_confirmation: userPasswordDialogForm.confirmPassword,
+    }) as ApiEnvelope
+    responseMessage.value = response.message || `Password ${targetName} berhasil diperbarui.`
+    userPasswordDialog.open = false
+    resetUserPasswordDialog()
+  } catch (error) {
+    userPasswordDialog.error = (error as { data?: { message?: string } })?.data?.message || 'Gagal memperbarui password user.'
+  } finally {
+    userPasswordDialog.saving = false
+  }
 }
 
 const toMessage = (payload: unknown, fallback: string): string => {
@@ -3708,7 +3781,7 @@ watch(
                 {{ loading ? 'Memuat...' : 'Refresh' }}
               </button>
               <button type="button" :class="masterActionButtonClass('password')" @click="openPasswordDialog">
-                Update Password Saya
+                Ganti Password Saya
               </button>
               <button v-if="canManageUserCrud" type="button" :class="masterActionButtonClass('add')" @click="openCreateUserDialog">
                 Tambah User
@@ -3747,6 +3820,9 @@ watch(
                         </button>
                         <button v-if="canEditUserRow(row)" type="button" :class="masterActionButtonClass('edit')" @click="openEditUserDialog(row)">
                           Edit
+                        </button>
+                        <button v-if="isSuperAdmin" type="button" :class="masterActionButtonClass('password')" @click="openUserPasswordDialog(row)">
+                          Ganti Password
                         </button>
                         <button
                           v-if="canUploadPhotoRow(row)"
@@ -5189,7 +5265,7 @@ watch(
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Keamanan</p>
-              <h3 class="mt-1 text-lg font-semibold text-slate-900">Update Password Saya</h3>
+              <h3 class="mt-1 text-lg font-semibold text-slate-900">Ganti Password Saya</h3>
             </div>
             <button type="button" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="closePasswordDialog">
               Tutup
@@ -5208,6 +5284,36 @@ watch(
             </button>
             <button type="button" class="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="passwordDialog.saving" @click="savePasswordDialog">
               {{ passwordDialog.saving ? 'Menyimpan...' : 'Update Password' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="userPasswordDialog.open" class="fixed inset-0 z-[73] flex items-center justify-center p-4">
+        <button type="button" class="absolute inset-0 bg-slate-900/60" @click="closeUserPasswordDialog" />
+        <div class="relative z-10 w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Khusus Super Admin</p>
+              <h3 class="mt-1 text-lg font-semibold text-slate-900">Ganti Password {{ userPasswordDialog.targetName }}</h3>
+            </div>
+            <button type="button" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="closeUserPasswordDialog">
+              Tutup
+            </button>
+          </div>
+          <p class="mt-3 text-sm text-slate-500">Masukkan password Super Admin sebagai konfirmasi keamanan.</p>
+          <p v-if="userPasswordDialog.error" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ userPasswordDialog.error }}</p>
+          <div class="mt-4 grid gap-4">
+            <input v-model="userPasswordDialogForm.currentPassword" type="password" placeholder="Password Super Admin" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+            <input v-model="userPasswordDialogForm.newPassword" type="password" placeholder="Password baru, minimal 8 karakter" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+            <input v-model="userPasswordDialogForm.confirmPassword" type="password" placeholder="Konfirmasi password baru" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          </div>
+          <div class="mt-5 flex justify-end gap-2">
+            <button type="button" class="h-10 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="closeUserPasswordDialog">Batal</button>
+            <button type="button" class="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="userPasswordDialog.saving" @click="saveUserPasswordDialog">
+              {{ userPasswordDialog.saving ? 'Menyimpan...' : 'Ganti Password' }}
             </button>
           </div>
         </div>
