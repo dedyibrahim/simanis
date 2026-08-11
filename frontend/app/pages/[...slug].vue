@@ -3741,6 +3741,16 @@ watch(
       </div>
 
       <div class="p-6">
+        <div v-if="isAccountSettingsPage" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">Keamanan Akun Saya</p>
+            <p class="mt-1 text-xs text-slate-500">Semua pengguna, termasuk Asisten, dapat mengganti password akun sendiri.</p>
+          </div>
+          <button type="button" :class="masterActionButtonClass('password')" @click="openPasswordDialog">
+            Ganti Password Saya
+          </button>
+        </div>
+
         <div v-if="loading" class="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
           Memuat data dari backend...
         </div>
@@ -3779,9 +3789,6 @@ watch(
               </label>
               <button type="button" :class="masterActionButtonClass('detail')" :disabled="loading" @click="loadModuleData">
                 {{ loading ? 'Memuat...' : 'Refresh' }}
-              </button>
-              <button type="button" :class="masterActionButtonClass('password')" @click="openPasswordDialog">
-                Ganti Password Saya
               </button>
               <button v-if="canManageUserCrud" type="button" :class="masterActionButtonClass('add')" @click="openCreateUserDialog">
                 Tambah User
