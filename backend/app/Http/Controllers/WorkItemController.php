@@ -197,7 +197,18 @@ class WorkItemController extends Controller
     {
         $search = trim((string) $request->query('search'));
         $like = "%{$search}%";
-        $clients = DB::table('data_clients')->when($search, fn ($q) => $q->where('nama_client', 'like', $like))->orderByDesc('id_client')->limit(50)->select('id_client as id', 'nama_client as label')->get();
+        $clients = DB::table('data_clients')
+            ->when($search, function ($query) use ($like) {
+                $query->where(function ($clientQuery) use ($like) {
+                    $clientQuery->where('nama_client', 'like', $like)
+                        ->orWhere('id_client', 'like', $like)
+                        ->orWhere('no_identitas', 'like', $like);
+                });
+            })
+            ->orderByDesc('id_client')
+            ->limit(50)
+            ->select('id_client as id', 'nama_client as label', 'jenis_client as type', 'no_identitas as identity')
+            ->get();
         $users = DB::table('users')->orderBy('nama_lengkap')->select('id_user as id', 'nama_lengkap as label', 'level_user')->get();
         return response()->json(['status' => true, 'data' => ['clients' => $clients, 'users' => $users, 'statuses' => self::STATUSES, 'transitions' => self::TRANSITIONS]]);
     }
