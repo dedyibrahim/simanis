@@ -44,14 +44,6 @@ export const navigationSections: NavigationSection[] = [
     ],
   },
   {
-    title: 'PPAT Rekanan',
-    items: [
-      { title: 'Master Rekanan', path: '/ppat-rekanan?tab=master', icon: 'bank', hint: 'Master PPAT rekanan' },
-      { title: 'Rekanan Keluar', path: '/ppat-rekanan?tab=keluar', icon: 'bank', hint: 'Nomor PPAT kantor dipakai PPAT lain' },
-      { title: 'Rekanan Kedalam', path: '/ppat-rekanan?tab=kedalam', icon: 'bank', hint: 'Nomor PPAT rekanan masuk database' },
-    ],
-  },
-  {
     title: 'Buku Surat',
     items: [
       { title: 'Surat Notaris', path: '/buku_surat_notaris', icon: 'clipboard', hint: 'Surat keluar notaris' },
@@ -63,6 +55,14 @@ export const navigationSections: NavigationSection[] = [
     items: [
       { title: 'Tanda Terima Keluar', path: '/tanda_terima', icon: 'report', hint: 'Dokumen keluar' },
       { title: 'Tanda Terima Masuk', path: '/tanda_terima_masuk', icon: 'report', hint: 'Dokumen masuk' },
+    ],
+  },
+  {
+    title: 'PPAT Rekanan',
+    items: [
+      { title: 'Master Rekanan', path: '/ppat-rekanan?tab=master', icon: 'bank', hint: 'Master PPAT rekanan' },
+      { title: 'Rekanan Keluar', path: '/ppat-rekanan?tab=keluar', icon: 'bank', hint: 'Nomor PPAT kantor dipakai PPAT lain' },
+      { title: 'Rekanan Kedalam', path: '/ppat-rekanan?tab=kedalam', icon: 'bank', hint: 'Nomor PPAT rekanan masuk database' },
     ],
   },
   {
