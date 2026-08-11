@@ -261,6 +261,29 @@ class UserController extends Controller
         return response($response, 200);
     }
 
+    public function scheduleParticipants(Request $request)
+    {
+        if (!$request->user()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthorized.',
+                'data' => [],
+            ], 401);
+        }
+
+        $data = User::query()
+            ->select(['id', 'id_user', 'nama_lengkap', 'level_user'])
+            ->whereRaw("LOWER(COALESCE(status, 'aktif')) NOT IN ('nonaktif', 'non aktif', 'inactive', 'disabled', '0')")
+            ->orderBy('nama_lengkap')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Daftar peserta jadwal aktif berhasil dimuat.',
+            'data' => $data,
+        ]);
+    }
+
     public function UpdatePassword(Request $request)
     {
         $cek = $this->CekPassWord($request->post('last_password'));

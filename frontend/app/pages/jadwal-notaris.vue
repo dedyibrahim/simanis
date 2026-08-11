@@ -24,8 +24,10 @@ type RawRecord = Record<string, unknown>
 
 type UserOption = {
   id: string | number
+  id_user?: string
   nama_lengkap?: string
   name?: string
+  level_user?: string
 }
 
 type CalendarEvent = {
@@ -599,7 +601,7 @@ const goToday = async () => {
 const loadUsers = async () => {
   loadingUsers.value = true
   try {
-    const response = await business.events.getDataUser() as ApiEnvelope<UserOption[]>
+    const response = await business.events.getScheduleParticipants() as ApiEnvelope<UserOption[]>
     allUsers.value = toList<UserOption>(response)
   } catch {
     allUsers.value = []
@@ -1384,7 +1386,8 @@ onMounted(() => {
                     :checked="hasUser(user.id)"
                     @change="toggleUser(user.id)"
                   />
-                  <span>{{ user.nama_lengkap || user.name || user.id }}</span>
+                   <span class="min-w-0 flex-1 truncate">{{ user.nama_lengkap || user.name || user.id }}</span>
+                   <span v-if="user.level_user" class="shrink-0 text-[10px] font-bold uppercase text-slate-400">{{ user.level_user }}</span>
                 </label>
               </div>
 

@@ -78,6 +78,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     });
 
     Route::get('/data-user', [UserController::class, 'DataUser']);
+    Route::get('/schedule-participants', [UserController::class, 'scheduleParticipants']);
 
 });
 

@@ -375,7 +375,7 @@ export function useLegacyBusinessService() {
   }
 
   const events = {
-    getDataUser: () => get('/data-user'),
+    getScheduleParticipants: () => get('/schedule-participants'),
     list: () => get('/events'),
     show: (id: string | number) => get(`/events/${id}`),
     create: (payload: BodyPayload) => post('/events', payload),
