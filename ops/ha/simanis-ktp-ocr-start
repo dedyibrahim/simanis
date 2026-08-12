@@ -10,18 +10,21 @@ cd "${APP_DIR}"
 
 docker network inspect "${NETWORK}" >/dev/null 2>&1 || docker network create "${NETWORK}" >/dev/null
 
-docker build -t "${IMAGE}" .
+if docker inspect "${NAME}" >/dev/null 2>&1; then
+  docker update --restart=unless-stopped "${NAME}" >/dev/null
+  docker start "${NAME}" >/dev/null
+else
+  if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
+    docker build -t "${IMAGE}" .
+  fi
 
-if docker ps -a --format '{{.Names}}' | grep -qx "${NAME}"; then
-  docker rm -f "${NAME}" >/dev/null
+  docker run -d \
+    --name "${NAME}" \
+    --restart unless-stopped \
+    --network "${NETWORK}" \
+    -p 8765:8765 \
+    "${IMAGE}" >/dev/null
 fi
-
-docker run -d \
-  --name "${NAME}" \
-  --restart unless-stopped \
-  --network "${NETWORK}" \
-  -p 8765:8765 \
-  "${IMAGE}" >/dev/null
 
 for _ in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:8765/api/health >/dev/null 2>&1; then

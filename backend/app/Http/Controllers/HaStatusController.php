@@ -394,7 +394,10 @@ class HaStatusController extends Controller
         return [
             'checked_at' => now()->toIso8601String(),
             'settings' => $settings,
-            'containers' => $this->containerStatus(['ktp-ocr-lab']),
+            'containers' => $this->containerStatus(
+                ['ktp-ocr-lab'],
+                env('KTP_OCR_STATUS_COMMAND', 'sudo -n /usr/local/sbin/simanis-ktp-ocr-status')
+            ),
             'health' => $health,
         ];
     }
@@ -556,7 +559,7 @@ class HaStatusController extends Controller
         }, $items))));
     }
 
-    private function containerStatus(array $names): array
+    private function containerStatus(array $names, ?string $command = null): array
     {
         $result = array_fill_keys(array_values($names), [
             'exists' => false,
@@ -565,7 +568,8 @@ class HaStatusController extends Controller
             'image' => null,
             'restart_count' => null,
         ]);
-        $statusCommand = trim((string) env('BOTHWA_STATUS_COMMAND', 'sudo -n /usr/local/sbin/simanis-bothwa-status'));
+        $statusCommand = trim((string) ($command
+            ?? env('BOTHWA_STATUS_COMMAND', 'sudo -n /usr/local/sbin/simanis-bothwa-status')));
         $lines = [];
         $exitCode = 1;
 

@@ -17,6 +17,10 @@ upload di `public` disalin ke standby oleh timer systemd.
 Docker, dan container dalam kondisi stopped agar session WhatsApp tidak aktif
 di dua server sekaligus.
 
+Service OCR KTP memakai container `ktp-ocr-lab` dengan kebijakan restart
+`unless-stopped`. Hook MASTER juga menjalankan start idempotent untuk memastikan
+OCR tersedia pada node pemegang VIP setelah boot atau failover.
+
 ## Dashboard
 
 Login sebagai Admin/Super Admin, lalu buka:

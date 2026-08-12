@@ -28,6 +28,12 @@ mysql --defaults-extra-file=/root/.my.cnf -e "SET GLOBAL read_only=OFF"
 mysql --defaults-extra-file=/root/.my.cnf -NBe "SELECT @@read_only, @@super_read_only" | grep -q $'0\t0'
 logger -t simanis-ha "Server menjadi MASTER dan database dibuka untuk write"
 
+if [[ -x /usr/local/sbin/simanis-ktp-ocr-start ]]; then
+    /usr/local/sbin/simanis-ktp-ocr-start >/dev/null 2>&1 \
+        && logger -t simanis-ha "OCR KTP dipastikan aktif pada MASTER" \
+        || logger -t simanis-ha "Gagal menjalankan OCR KTP pada MASTER"
+fi
+
 if [[ -x /usr/local/sbin/simanis-bothwa-start ]]; then
     /usr/local/sbin/simanis-bothwa-start >/dev/null 2>&1 \
         && logger -t simanis-ha "WhatsApp Gateway dijalankan pada MASTER" \
