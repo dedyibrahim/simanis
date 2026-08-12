@@ -428,7 +428,7 @@ class EventController extends Controller
 
      public function getScheduleForChatbot(Request $request): JsonResponse
     {
-        if ($request->header('X-API-Key') !== env('INTERNAL_API_KEY')) {
+        if ($request->header('X-API-Key') !== config('services.internal_api_key')) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -531,7 +531,7 @@ class EventController extends Controller
 
     public function getAssistantsForChatbot(Request $request): JsonResponse
     {
-        if ($request->header('X-API-Key') !== env('INTERNAL_API_KEY')) {
+        if ($request->header('X-API-Key') !== config('services.internal_api_key')) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -557,7 +557,7 @@ class EventController extends Controller
      */
     public function createEventFromChatbot(Request $request): JsonResponse
     {
-        if ($request->header('X-API-Key') !== env('INTERNAL_API_KEY')) {
+        if ($request->header('X-API-Key') !== config('services.internal_api_key')) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -674,7 +674,7 @@ class EventController extends Controller
 
     public function deleteEventFromChatbot(Request $request): JsonResponse
     {
-        if ($request->header('X-API-Key') !== env('INTERNAL_API_KEY')) {
+        if ($request->header('X-API-Key') !== config('services.internal_api_key')) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 

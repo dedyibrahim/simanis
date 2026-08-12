@@ -15,7 +15,7 @@ class ClientController extends ApiController
 {
     private function assertInternalApiKey(Request $request)
     {
-        if ($request->header('X-API-Key') !== env('INTERNAL_API_KEY')) {
+        if ($request->header('X-API-Key') !== config('services.internal_api_key')) {
             abort(response()->json(['status' => false, 'message' => 'Unauthorized.'], 401));
         }
     }
