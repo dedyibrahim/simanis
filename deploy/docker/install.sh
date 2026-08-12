@@ -76,6 +76,10 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
+# Database Docker lokal adalah standalone dan harus selalu menerima write.
+docker compose exec -T db mariadb -uroot -p"$(grep '^MYSQL_ROOT_PASSWORD=' .env | cut -d= -f2-)" \
+  -e "SET GLOBAL super_read_only=OFF; SET GLOBAL read_only=OFF;"
+
 docker compose up -d
 docker compose exec -T api php artisan migrate --force
 docker compose exec -T api php artisan storage:link || true

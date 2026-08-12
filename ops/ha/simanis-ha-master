@@ -1,9 +1,31 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+
+VIP="${SIMANIS_VIP:-192.168.0.12}"
+LOCK_FILE="/run/lock/simanis-ha-role.lock"
+mkdir -p "$(dirname "$LOCK_FILE")"
+exec 9>"$LOCK_FILE"
+flock -x 9
+
+for _ in $(seq 1 30); do
+    mysqladmin --defaults-extra-file=/root/.my.cnf ping --silent && break
+    sleep 2
+done
+
+if ! mysqladmin --defaults-extra-file=/root/.my.cnf ping --silent; then
+    logger -t simanis-ha "Promosi MASTER dibatalkan karena MySQL belum siap"
+    exit 1
+fi
+
+if ! ip -4 addr show | grep -q "${VIP}/"; then
+    logger -t simanis-ha "Promosi MASTER stale diabaikan karena server tidak memegang VIP ${VIP}"
+    exit 0
+fi
 
 mysql --defaults-extra-file=/root/.my.cnf -e "STOP SLAVE" 2>/dev/null || true
 mysql --defaults-extra-file=/root/.my.cnf -e "SET GLOBAL super_read_only=OFF"
 mysql --defaults-extra-file=/root/.my.cnf -e "SET GLOBAL read_only=OFF"
+mysql --defaults-extra-file=/root/.my.cnf -NBe "SELECT @@read_only, @@super_read_only" | grep -q $'0\t0'
 logger -t simanis-ha "Server menjadi MASTER dan database dibuka untuk write"
 
 if [[ -x /usr/local/sbin/simanis-bothwa-start ]]; then

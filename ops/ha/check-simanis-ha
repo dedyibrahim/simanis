@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
+VIP="${SIMANIS_VIP:-192.168.0.12}"
+
 curl -fsS --max-time 3 http://127.0.0.1/ >/dev/null \
   && timeout 3 bash -c "</dev/tcp/127.0.0.1/8000" \
   && mysqladmin --defaults-extra-file=/root/.my.cnf ping --silent
+
+read -r read_only super_read_only < <(
+  mysql --defaults-extra-file=/root/.my.cnf -NBe "SELECT @@read_only, @@super_read_only"
+)
+
+if ip -4 addr show | grep -q "${VIP}/"; then
+  [[ "$read_only" == "0" && "$super_read_only" == "0" ]]
+else
+  [[ "$read_only" == "1" && "$super_read_only" == "1" ]]
+fi

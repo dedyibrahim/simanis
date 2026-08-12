@@ -56,6 +56,16 @@ Status database sehat jika `Slave_IO_Running` dan `Slave_SQL_Running` bernilai
 `Yes`. Lag dapat meningkat selama sinkronisasi file besar dan harus turun lagi
 setelah aktivitas disk mereda.
 
+Node pemegang VIP wajib menghasilkan `0 0`, sedangkan standby wajib `1 1`:
+
+```bash
+mysql --defaults-extra-file=/root/.my.cnf -NBe "SELECT @@read_only, @@super_read_only"
+```
+
+Hook pergantian role memakai lock bersama dan memeriksa kepemilikan VIP setelah
+MySQL siap. Ini mencegah proses BACKUP yang terlambat saat boot mengunci kembali
+database pada node MASTER.
+
 ## Saat Primary Mati
 
 Standby mengambil VIP secara otomatis, menghentikan mode replica, dan membuka
