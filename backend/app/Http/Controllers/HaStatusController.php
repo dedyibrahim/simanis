@@ -37,7 +37,7 @@ class HaStatusController extends Controller
             'message' => 'Status sinkronisasi berhasil dimuat.',
             'data' => [
                 'checked_at' => now()->toIso8601String(),
-                'virtual_ip' => env('HA_VIRTUAL_IP', '192.168.0.12'),
+                'virtual_ip' => config('ha.virtual_ip', '192.168.0.12'),
                 'local' => $local,
                 'peer' => $peer,
                 'summary' => $this->buildSummary($local, $peer),
@@ -73,7 +73,7 @@ class HaStatusController extends Controller
         }
 
         $result = $this->runServerCommand(
-            (string) env('BOTHWA_START_COMMAND', 'sudo -n /usr/local/sbin/simanis-bothwa-start'),
+            (string) config('ha.commands.bothwa_start'),
             45
         );
 
@@ -99,7 +99,7 @@ class HaStatusController extends Controller
         }
 
         $result = $this->runServerCommand(
-            (string) env('BOTHWA_STOP_COMMAND', 'sudo -n /usr/local/sbin/simanis-bothwa-stop'),
+            (string) config('ha.commands.bothwa_stop'),
             20
         );
 
@@ -270,7 +270,7 @@ class HaStatusController extends Controller
 
     public function internal(Request $request)
     {
-        $expectedKey = trim((string) env('HA_SHARED_KEY', ''));
+        $expectedKey = trim((string) config('ha.shared_key', ''));
         $providedKey = trim((string) $request->header('X-HA-Key', ''));
 
         if ($expectedKey === '' || !hash_equals($expectedKey, $providedKey)) {
@@ -295,7 +295,7 @@ class HaStatusController extends Controller
         );
         $slave = $slaveRows[0] ?? null;
         $master = $masterRows[0] ?? null;
-        $fileStatusPath = env('HA_STATUS_FILE', '/var/lib/simanis-ha/file-sync-status.json');
+        $fileStatusPath = config('ha.status_file', '/var/lib/simanis-ha/file-sync-status.json');
         $fileStatus = [];
 
         if (is_file($fileStatusPath)) {
@@ -305,8 +305,8 @@ class HaStatusController extends Controller
 
         return [
             'hostname' => gethostname(),
-            'server_ip' => env('HA_SERVER_IP', request()->server('SERVER_ADDR')),
-            'role' => env('HA_ROLE', 'standalone'),
+            'server_ip' => config('ha.server_ip') ?: request()->server('SERVER_ADDR'),
+            'role' => $this->isVirtualIpActive() ? 'primary' : 'standby',
             'vip_active' => $this->isVirtualIpActive(),
             'application_release' => $this->releaseVersion(),
             'resources' => $this->resourceStatus(),
@@ -396,7 +396,7 @@ class HaStatusController extends Controller
             'settings' => $settings,
             'containers' => $this->containerStatus(
                 ['ktp-ocr-lab'],
-                env('KTP_OCR_STATUS_COMMAND', 'sudo -n /usr/local/sbin/simanis-ktp-ocr-status')
+                config('ha.commands.ocr_status')
             ),
             'health' => $health,
         ];
@@ -429,7 +429,7 @@ class HaStatusController extends Controller
             'config' => $envValues['KTP_OCR_CONFIG'] ?? env('KTP_OCR_CONFIG', 'paddleocr-fast.json'),
             'engine' => $envValues['KTP_OCR_ENGINE'] ?? env('KTP_OCR_ENGINE', 'paddleocr'),
             'timeout_ms' => (int) ($envValues['KTP_OCR_TIMEOUT_MS'] ?? env('KTP_OCR_TIMEOUT_MS', 90000)),
-            'env_path' => env('BOTHWA_ENV_FILE', '/var/www/bothWA/bothwa.env'),
+            'env_path' => config('ha.bothwa_env_file'),
         ];
     }
 
@@ -444,9 +444,9 @@ class HaStatusController extends Controller
         }
 
         $command = [
-            'start' => env('KTP_OCR_START_COMMAND', 'sudo -n /usr/local/sbin/simanis-ktp-ocr-start'),
-            'stop' => env('KTP_OCR_STOP_COMMAND', 'sudo -n /usr/local/sbin/simanis-ktp-ocr-stop'),
-            'restart' => env('KTP_OCR_RESTART_COMMAND', 'sudo -n /usr/local/sbin/simanis-ktp-ocr-restart'),
+            'start' => config('ha.commands.ocr_start'),
+            'stop' => config('ha.commands.ocr_stop'),
+            'restart' => config('ha.commands.ocr_restart'),
         ][$action] ?? '';
         $result = $this->runServerCommand((string) $command, 120);
 
@@ -463,7 +463,7 @@ class HaStatusController extends Controller
 
     private function readBothwaEnv(array $keys): array
     {
-        $path = env('BOTHWA_ENV_FILE', '/var/www/bothWA/bothwa.env');
+        $path = config('ha.bothwa_env_file');
         if (!is_file($path)) {
             return [];
         }
@@ -486,7 +486,7 @@ class HaStatusController extends Controller
 
     private function writeBothwaEnv(array $values): array
     {
-        $path = env('BOTHWA_ENV_FILE', '/var/www/bothWA/bothwa.env');
+        $path = config('ha.bothwa_env_file');
         $directory = dirname($path);
         if (!is_dir($directory) || !is_writable($directory)) {
             return ['ok' => false, 'error' => 'Folder env bothWA tidak dapat ditulis.'];
@@ -569,7 +569,7 @@ class HaStatusController extends Controller
             'restart_count' => null,
         ]);
         $statusCommand = trim((string) ($command
-            ?? env('BOTHWA_STATUS_COMMAND', 'sudo -n /usr/local/sbin/simanis-bothwa-status')));
+            ?? config('ha.commands.bothwa_status')));
         $lines = [];
         $exitCode = 1;
 
@@ -647,8 +647,8 @@ class HaStatusController extends Controller
 
     private function peerStatus(): array
     {
-        $peerApi = rtrim(trim((string) env('HA_PEER_API', '')), '/');
-        $sharedKey = trim((string) env('HA_SHARED_KEY', ''));
+        $peerApi = rtrim(trim((string) config('ha.peer_api', '')), '/');
+        $sharedKey = trim((string) config('ha.shared_key', ''));
 
         if ($peerApi === '' || $sharedKey === '') {
             return [
@@ -729,14 +729,14 @@ class HaStatusController extends Controller
 
     private function releaseVersion(): string
     {
-        $path = env('HA_RELEASE_FILE', '/var/lib/simanis-ha/release');
+        $path = config('ha.release_file', '/var/lib/simanis-ha/release');
 
         return is_file($path) ? trim((string) file_get_contents($path)) : '';
     }
 
     private function isVirtualIpActive(): bool
     {
-        $virtualIp = trim((string) env('HA_VIRTUAL_IP', ''));
+        $virtualIp = trim((string) config('ha.virtual_ip', ''));
 
         if ($virtualIp === '') {
             return false;
