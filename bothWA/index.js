@@ -119,6 +119,10 @@ const DISPLAY_TIMEZONE = String(process.env.DISPLAY_TIMEZONE || 'Asia/Jakarta').
 const JAKARTA_OFFSET_HOURS = 7;
 
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 15000);
+const BOT_STARTED_AT_MS = Date.now();
+const WEBHOOK_STARTUP_QUARANTINE_MS = Number(process.env.WEBHOOK_STARTUP_QUARANTINE_MS || 45000);
+const INBOUND_MESSAGE_MAX_AGE_MS = Number(process.env.INBOUND_MESSAGE_MAX_AGE_MS || 120000);
+const activeInboundSenders = new Set();
 
 app.use(bodyParser.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -1232,12 +1236,33 @@ const resolveMessageFrom = (raw) => {
 const isFromMeMessage = (raw) => {
     if (typeof raw?.fromMe === 'boolean') return raw.fromMe;
     if (typeof raw?.message?.fromMe === 'boolean') return raw.message.fromMe;
+    if (typeof raw?.id?.fromMe === 'boolean') return raw.id.fromMe;
+    if (typeof raw?.key?.fromMe === 'boolean') return raw.key.fromMe;
     if (typeof raw?._data?.id?.fromMe === 'boolean') return raw._data.id.fromMe;
 
     const source = String(raw?.source || raw?.message?.source || '').toLowerCase();
     if (source === 'api') return true;
 
     return false;
+};
+
+const resolveMessageTimestampMs = (raw) => {
+    const candidates = [
+        raw?.timestamp,
+        raw?.messageTimestamp,
+        raw?.message?.timestamp,
+        raw?.message?.messageTimestamp,
+        raw?._data?.timestamp,
+        raw?._data?.t,
+    ];
+
+    for (const candidate of candidates) {
+        const value = Number(candidate);
+        if (!Number.isFinite(value) || value <= 0) continue;
+        return value < 1e12 ? value * 1000 : value;
+    }
+
+    return null;
 };
 
 const resolveMessageId = (raw) => {
@@ -1642,6 +1667,7 @@ const toMessageContext = (messageEnvelope) => {
     const body = resolveMessageBody(raw);
     const fromMe = isFromMeMessage(raw);
     const messageId = resolveMessageId(raw);
+    const timestampMs = resolveMessageTimestampMs(raw);
 
     return {
         eventName,
@@ -1649,6 +1675,7 @@ const toMessageContext = (messageEnvelope) => {
         body,
         fromMe,
         messageId,
+        timestampMs,
         raw,
         hasMedia: hasInboundMedia(raw),
         reply: async (text) => {
@@ -2523,18 +2550,36 @@ app.post('/webhook/waha', authenticateWebhook, async (req, res) => {
 
             if (!context.eventName.startsWith('message')) continue;
             if (!context.from) continue;
+            if (context.fromMe) continue;
+            if (context.from.endsWith('@g.us') || context.from.endsWith('@newsletter') || context.from === 'status@broadcast') continue;
             if (!context.body && !context.hasMedia) continue;
+            const now = Date.now();
+            const inStartupQuarantine = (now - BOT_STARTED_AT_MS) < WEBHOOK_STARTUP_QUARANTINE_MS;
+            const messageAgeMs = context.timestampMs === null ? null : Math.max(0, now - context.timestampMs);
+            if (inStartupQuarantine || (messageAgeMs !== null && messageAgeMs > INBOUND_MESSAGE_MAX_AGE_MS)) {
+                console.log(`Webhook backlog diabaikan: ${context.messageId || '-'} age_ms=${messageAgeMs ?? 'unknown'}`);
+                continue;
+            }
             if (!reserveInboundMessage(context.messageId)) {
                 console.log(`Webhook duplikat diabaikan: ${context.messageId}`);
                 continue;
             }
 
+            const senderKey = String(context.from).trim();
+            if (activeInboundSenders.has(senderKey)) {
+                console.log(`Webhook paralel dari pengirim sama diabaikan: ${senderKey}`);
+                continue;
+            }
+
             try {
+                activeInboundSenders.add(senderKey);
                 await processIncomingMessage(context);
                 processed += 1;
             } catch (error) {
                 releaseInboundMessage(context.messageId);
                 console.error('Error saat memproses inbound message:', error?.response?.data || error.message);
+            } finally {
+                activeInboundSenders.delete(senderKey);
             }
         }
 
