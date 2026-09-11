@@ -106,6 +106,20 @@ bash update.sh
 
 Data aman karena disimpan di Docker volumes, bukan di image.
 
+Untuk build frontend statis yang disajikan langsung oleh Apache pada port 80,
+alamat API production wajib diberikan saat build:
+
+```bash
+docker build \
+  --build-arg NUXT_PUBLIC_API_BASE=http://192.168.0.12:8000/api \
+  --build-arg NUXT_PUBLIC_ASSET_BASE=http://192.168.0.12:8000 \
+  -f deploy/docker/frontend/Dockerfile \
+  -t simanis-frontend:production .
+```
+
+Default `/api` hanya digunakan oleh container frontend yang memakai proxy Nginx
+dari konfigurasi Docker Compose.
+
 Jika schema/model Garis Otomatis Akta berubah, rebuild service terkait:
 
 ```bash
