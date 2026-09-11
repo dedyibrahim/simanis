@@ -63,6 +63,7 @@ type HaStatus = {
   }
   summary?: Record<string, boolean>
   storage_migration?: StorageMigrationStatus
+  storage_reorganization?: StorageReorganizationStatus
 }
 
 type StorageMigrationStatus = {
@@ -82,6 +83,29 @@ type StorageMigrationStatus = {
     bytes?: number
     checksum_verified?: boolean
   }
+  error?: string
+}
+
+type StoragePrefixStatus = {
+  name?: string
+  status?: 'waiting' | 'running' | 'completed'
+  source_bytes?: number
+  destination_bytes?: number
+  source_objects?: number
+  destination_objects?: number
+}
+
+type StorageReorganizationStatus = {
+  status?: 'running' | 'completed' | 'failed'
+  progress_percent?: number
+  source_bytes?: number
+  destination_bytes?: number
+  source_objects?: number
+  destination_objects?: number
+  current_prefix?: string
+  process_running?: boolean
+  updated_at?: string
+  prefixes?: StoragePrefixStatus[]
   error?: string
 }
 
@@ -185,7 +209,9 @@ const summaryItems = computed(() => {
 const overallHealthy = computed(() => Boolean(status.value?.summary?.overall_healthy))
 const peerStatus = computed(() => status.value?.peer?.data)
 const storageMigration = computed(() => status.value?.storage_migration)
+const storageReorganization = computed(() => status.value?.storage_reorganization)
 const migrationProgress = computed(() => Math.min(100, Math.max(0, Number(storageMigration.value?.progress_percent || 0))))
+const reorganizationProgress = computed(() => Math.min(100, Math.max(0, Number(storageReorganization.value?.progress_percent || 0))))
 const migrationStatusLabel = computed(() => {
   if (storageMigration.value?.status === 'completed') return 'Selesai'
   if (storageMigration.value?.status === 'failed') return 'Gagal'
@@ -502,6 +528,76 @@ onBeforeUnmount(() => {
 
       <p v-if="storageMigration.error" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         {{ storageMigration.error }}
+      </p>
+    </SurfaceCard>
+
+    <SurfaceCard v-if="storageReorganization?.status" class="p-6">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Object Storage</p>
+          <h3 class="mt-2 text-lg font-semibold text-slate-900">Penataan Folder MinIO</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Memindahkan folder dokumen langsung ke root bucket simanis-documents.
+          </p>
+        </div>
+        <span
+          class="rounded-full px-3 py-1 text-xs font-semibold"
+          :class="storageReorganization.status === 'completed'
+            ? 'bg-emerald-100 text-emerald-700'
+            : storageReorganization.status === 'failed'
+              ? 'bg-red-100 text-red-700'
+              : 'bg-blue-100 text-blue-700'"
+        >
+          {{ storageReorganization.status === 'completed' ? 'Selesai' : storageReorganization.status === 'failed' ? 'Gagal' : 'Sedang berjalan' }}
+        </span>
+      </div>
+
+      <div class="mt-5 h-3 overflow-hidden rounded-full bg-slate-200">
+        <div
+          class="h-full rounded-full bg-blue-600 transition-[width] duration-700"
+          :class="storageReorganization.status === 'completed' ? 'bg-emerald-600' : storageReorganization.status === 'failed' ? 'bg-red-600' : ''"
+          :style="{ width: `${reorganizationProgress}%` }"
+        />
+      </div>
+      <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span class="font-semibold text-slate-800">{{ reorganizationProgress.toFixed(2) }}%</span>
+        <span class="text-slate-500">
+          {{ formatBytes(storageReorganization.destination_bytes) }} dari {{ formatBytes(storageReorganization.source_bytes) }}
+        </span>
+      </div>
+
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div
+          v-for="prefix in storageReorganization.prefixes || []"
+          :key="prefix.name"
+          class="rounded-xl border border-slate-200 bg-slate-50 p-3"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <p class="truncate text-sm font-semibold text-slate-800" :title="prefix.name">{{ prefix.name }}</p>
+            <span
+              class="h-2.5 w-2.5 flex-none rounded-full"
+              :class="prefix.status === 'completed' ? 'bg-emerald-500' : prefix.status === 'running' ? 'bg-blue-500' : 'bg-slate-300'"
+            />
+          </div>
+          <p class="mt-2 text-xs text-slate-500">
+            {{ Number(prefix.destination_objects || 0).toLocaleString('id-ID') }} / {{ Number(prefix.source_objects || 0).toLocaleString('id-ID') }} objek
+          </p>
+          <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+            <div
+              class="h-full rounded-full bg-blue-500 transition-[width] duration-700"
+              :class="prefix.status === 'completed' ? 'bg-emerald-500' : ''"
+              :style="{ width: `${Math.min(100, Number(prefix.source_bytes || 0) > 0 ? (Number(prefix.destination_bytes || 0) / Number(prefix.source_bytes || 1)) * 100 : 0)}%` }"
+            />
+          </div>
+        </div>
+      </div>
+
+      <p class="mt-4 text-xs text-slate-500">
+        Folder aktif: <span class="font-semibold text-slate-700">{{ storageReorganization.current_prefix || '-' }}</span>
+        · Update {{ formatDate(storageReorganization.updated_at) }}
+      </p>
+      <p v-if="storageReorganization.error" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {{ storageReorganization.error }}
       </p>
     </SurfaceCard>
 

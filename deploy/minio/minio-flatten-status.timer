@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh SIMANIS MinIO folder reorganization progress
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=simanis-minio-flatten-status.service
+
+[Install]
+WantedBy=timers.target

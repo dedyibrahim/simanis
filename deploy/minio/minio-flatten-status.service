@@ -1,0 +1,10 @@
+[Unit]
+Description=Update SIMANIS MinIO folder reorganization progress
+After=minio.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/simanis-minio-flatten-status
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

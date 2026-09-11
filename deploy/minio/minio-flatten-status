@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+DATA_ROOT="${DATA_ROOT:-/var/www/datafile/simanis-documents}"
+STATUS_FILE="${STATUS_FILE:-/var/lib/simanis-ha/minio-flatten-status.json}"
+UNIT="simanis-minio-flatten.service"
+PREFIXES=(
+  berkasclient
+  berkaslegalisasis
+  berkasnotaris
+  berkasppat
+  berkaswarmerkings
+  chat_attachments
+  scanned-documents
+  suratnotaris
+  suratppats
+  tandaterima
+)
+
+mkdir -p "$(dirname "$STATUS_FILE")"
+
+running=false
+if pgrep -f '/usr/local/sbin/simanis-flatten-document-prefixes' >/dev/null; then
+  running=true
+fi
+
+unit_state="$(systemctl show "$UNIT" --property=ActiveState --value 2>/dev/null || true)"
+if [[ "$running" != "true" && "$unit_state" == "failed" ]]; then
+  status="failed"
+elif [[ "$running" == "true" ]]; then
+  status="running"
+else
+  status="completed"
+fi
+
+current_command="$(pgrep -a -x mc | grep 'mc mirror .*legacy-public/' | head -n 1 || true)"
+current_prefix="${current_command#*legacy-public/}"
+current_prefix="${current_prefix%% *}"
+prefix_json='[]'
+total_source_bytes=0
+total_destination_bytes=0
+total_source_objects=0
+total_destination_objects=0
+
+for prefix in "${PREFIXES[@]}"; do
+  source_dir="${DATA_ROOT}/legacy-public/${prefix}"
+  destination_dir="${DATA_ROOT}/${prefix}"
+  source_bytes=0
+  destination_bytes=0
+  source_objects=0
+  destination_objects=0
+
+  if [[ -d "$source_dir" ]]; then
+    source_bytes="$(du -sb "$source_dir" | cut -f1)"
+    source_objects="$(find "$source_dir" -type f -name xl.meta -printf . | wc -c)"
+  fi
+  if [[ -d "$destination_dir" ]]; then
+    destination_bytes="$(du -sb "$destination_dir" | cut -f1)"
+    destination_objects="$(find "$destination_dir" -type f -name xl.meta -printf . | wc -c)"
+  fi
+
+  if [[ "$status" == "completed" && "$source_bytes" -eq 0 ]]; then
+    source_bytes="$destination_bytes"
+    source_objects="$destination_objects"
+  fi
+
+  total_source_bytes=$((total_source_bytes + source_bytes))
+  total_destination_bytes=$((total_destination_bytes + destination_bytes))
+  total_source_objects=$((total_source_objects + source_objects))
+  total_destination_objects=$((total_destination_objects + destination_objects))
+
+  prefix_status="waiting"
+  if [[ "$status" == "completed" ]]; then
+    prefix_status="completed"
+  elif [[ "$prefix" == "$current_prefix" ]]; then
+    prefix_status="running"
+  elif [[ "$source_objects" -gt 0 && "$destination_objects" -eq "$source_objects" && "$destination_bytes" -eq "$source_bytes" ]]; then
+    prefix_status="completed"
+  elif [[ "$destination_objects" -gt 0 ]]; then
+    prefix_status="running"
+  fi
+
+  prefix_json="$(php -r '
+    $items = json_decode($argv[1], true) ?: [];
+    $items[] = [
+      "name" => $argv[2],
+      "status" => $argv[3],
+      "source_bytes" => (int) $argv[4],
+      "destination_bytes" => (int) $argv[5],
+      "source_objects" => (int) $argv[6],
+      "destination_objects" => (int) $argv[7],
+    ];
+    echo json_encode($items, JSON_UNESCAPED_SLASHES);
+  ' "$prefix_json" "$prefix" "$prefix_status" "$source_bytes" "$destination_bytes" "$source_objects" "$destination_objects")"
+done
+
+progress_percent="$(php -r '$source = max(1, (int) $argv[1]); echo min(100, round(((int) $argv[2] / $source) * 100, 2));' "$total_source_bytes" "$total_destination_bytes")"
+if [[ "$status" == "completed" ]]; then
+  progress_percent=100
+fi
+
+error=""
+if [[ "$status" == "failed" ]]; then
+  error="Restrukturisasi MinIO berhenti dengan error. Periksa log service."
+fi
+
+temporary_file="${STATUS_FILE}.tmp"
+php -r '
+  $data = [
+    "status" => $argv[1],
+    "progress_percent" => (float) $argv[2],
+    "source_bytes" => (int) $argv[3],
+    "destination_bytes" => (int) $argv[4],
+    "source_objects" => (int) $argv[5],
+    "destination_objects" => (int) $argv[6],
+    "current_prefix" => $argv[7],
+    "process_running" => $argv[8] === "true",
+    "updated_at" => gmdate("c"),
+    "prefixes" => json_decode($argv[9], true) ?: [],
+    "error" => $argv[10],
+  ];
+  file_put_contents($argv[11], json_encode($data, JSON_UNESCAPED_SLASHES));
+' "$status" "$progress_percent" "$total_source_bytes" "$total_destination_bytes" \
+  "$total_source_objects" "$total_destination_objects" "$current_prefix" "$running" \
+  "$prefix_json" "$error" "$temporary_file"
+
+chmod 0644 "$temporary_file"
+mv -f "$temporary_file" "$STATUS_FILE"

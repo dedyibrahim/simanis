@@ -44,6 +44,9 @@ class HaStatusController extends Controller
                 'storage_migration' => $this->jsonStatusFile(
                     (string) config('ha.minio_migration_status_file')
                 ),
+                'storage_reorganization' => $this->jsonStatusFile(
+                    (string) config('ha.minio_flatten_status_file')
+                ),
             ],
         ], 200);
     }
