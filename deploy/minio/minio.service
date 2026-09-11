@@ -1,0 +1,21 @@
+[Unit]
+Description=SIMANIS MinIO Object Storage
+Documentation=https://min.io/docs/minio/linux/index.html
+Wants=network-online.target
+After=network-online.target
+AssertFileIsExecutable=/usr/local/bin/minio
+
+[Service]
+User=minio-user
+Group=minio-user
+EnvironmentFile=/etc/default/minio
+ExecStart=/usr/local/bin/minio server $MINIO_VOLUMES $MINIO_OPTS
+Restart=always
+RestartSec=5
+LimitNOFILE=1048576
+TasksMax=infinity
+TimeoutStopSec=infinity
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target
