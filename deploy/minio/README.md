@@ -10,5 +10,11 @@ listens on port `9001`.
 The initial private bucket is `simanis-documents`. Bucket versioning must remain
 enabled so overwritten and deleted objects can be recovered.
 
+Document objects live directly below the bucket using the existing application
+directories (`berkasclient`, `berkaslegalisasis`, `berkasnotaris`, `berkasppat`,
+`berkaswarmerkings`, `chat_attachments`, `scanned-documents`, `suratnotaris`,
+`suratppats`, and `tandaterima`). Do not add a `legacy-public` wrapper around
+these prefixes.
+
 Laravel must use the restricted `simanis-app` account rather than the MinIO root
 account. Its production credentials are stored at `/etc/simanis/minio-app.env`.
