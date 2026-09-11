@@ -6,6 +6,7 @@ return [
     'peer_api' => env('HA_PEER_API'),
     'shared_key' => env('HA_SHARED_KEY'),
     'status_file' => env('HA_STATUS_FILE', '/var/lib/simanis-ha/file-sync-status.json'),
+    'minio_migration_status_file' => env('MINIO_MIGRATION_STATUS_FILE', '/var/lib/simanis-ha/minio-migration-status.json'),
     'release_file' => env('HA_RELEASE_FILE', '/var/lib/simanis-ha/release'),
     'bothwa_env_file' => env('BOTHWA_ENV_FILE', '/var/www/bothWA/bothwa.env'),
     'commands' => [

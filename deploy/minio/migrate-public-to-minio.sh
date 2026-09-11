@@ -7,6 +7,7 @@ DESTINATION="${DESTINATION:-simanis-app-migration/simanis-documents/legacy-publi
 BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/simanis/database}"
 APP_ENV="${APP_ROOT}/.env"
 MINIO_ENV="/etc/simanis/minio-app.env"
+STATUS_FILE="/var/lib/simanis-ha/minio-migration-status.json"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
 env_value() {
@@ -37,6 +38,7 @@ DB_PASSWORD="$(env_value DB_PASSWORD "$APP_ENV")"
 
 mkdir -p "$BACKUP_ROOT"
 chmod 0700 "$BACKUP_ROOT"
+rm -f "$STATUS_FILE"
 BACKUP_FILE="${BACKUP_ROOT}/${DB_DATABASE}-${TIMESTAMP}.sql.gz"
 
 echo "Creating consistent database backup: $BACKUP_FILE"

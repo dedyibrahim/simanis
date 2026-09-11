@@ -62,6 +62,27 @@ type HaStatus = {
     data?: ServerStatus
   }
   summary?: Record<string, boolean>
+  storage_migration?: StorageMigrationStatus
+}
+
+type StorageMigrationStatus = {
+  status?: 'running' | 'completed' | 'failed'
+  source_bytes?: number
+  destination_bytes?: number
+  progress_percent?: number
+  source_objects?: number
+  destination_objects?: number
+  started_at?: string
+  completed_at?: string
+  updated_at?: string
+  process_running?: boolean
+  destination?: string
+  database_backup?: {
+    file?: string
+    bytes?: number
+    checksum_verified?: boolean
+  }
+  error?: string
 }
 
 type WhatsappContainer = {
@@ -163,6 +184,14 @@ const summaryItems = computed(() => {
 
 const overallHealthy = computed(() => Boolean(status.value?.summary?.overall_healthy))
 const peerStatus = computed(() => status.value?.peer?.data)
+const storageMigration = computed(() => status.value?.storage_migration)
+const migrationProgress = computed(() => Math.min(100, Math.max(0, Number(storageMigration.value?.progress_percent || 0))))
+const migrationStatusLabel = computed(() => {
+  if (storageMigration.value?.status === 'completed') return 'Selesai'
+  if (storageMigration.value?.status === 'failed') return 'Gagal'
+  if (storageMigration.value?.status === 'running') return 'Sedang berjalan'
+  return 'Belum dimulai'
+})
 const whatsappContainers = computed(() => whatsapp.value?.containers || {})
 const whatsappReady = computed(() => {
   const statusText = String(whatsapp.value?.waha?.status || '').toLowerCase()
@@ -410,6 +439,70 @@ onBeforeUnmount(() => {
           </span>
         </div>
       </div>
+    </SurfaceCard>
+
+    <SurfaceCard v-if="storageMigration?.status" class="p-6">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Object Storage</p>
+          <h3 class="mt-2 text-lg font-semibold text-slate-900">Migrasi Folder Public ke MinIO</h3>
+          <p class="mt-1 text-sm text-slate-500">Folder sumber tetap digunakan aplikasi dan tidak dihapus selama migrasi.</p>
+        </div>
+        <span
+          class="rounded-full px-3 py-1 text-xs font-semibold"
+          :class="storageMigration.status === 'completed'
+            ? 'bg-emerald-100 text-emerald-700'
+            : storageMigration.status === 'failed'
+              ? 'bg-red-100 text-red-700'
+              : 'bg-blue-100 text-blue-700'"
+        >
+          {{ migrationStatusLabel }}
+        </span>
+      </div>
+
+      <div class="mt-5 h-3 overflow-hidden rounded-full bg-slate-200">
+        <div
+          class="h-full rounded-full bg-blue-600 transition-[width] duration-700"
+          :class="storageMigration.status === 'completed' ? 'bg-emerald-600' : storageMigration.status === 'failed' ? 'bg-red-600' : ''"
+          :style="{ width: `${migrationProgress}%` }"
+        />
+      </div>
+      <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span class="font-semibold text-slate-800">{{ migrationProgress.toFixed(2) }}%</span>
+        <span class="text-slate-500">
+          {{ formatBytes(storageMigration.destination_bytes) }} dari {{ formatBytes(storageMigration.source_bytes) }}
+        </span>
+      </div>
+
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p class="text-xs text-slate-500">Objek tersalin</p>
+          <p class="mt-1 font-semibold text-slate-800">
+            {{ Number(storageMigration.destination_objects || 0).toLocaleString('id-ID') }} / {{ Number(storageMigration.source_objects || 0).toLocaleString('id-ID') }}
+          </p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p class="text-xs text-slate-500">Backup database</p>
+          <p class="mt-1 truncate font-semibold text-slate-800" :title="storageMigration.database_backup?.file">
+            {{ storageMigration.database_backup?.file || '-' }}
+          </p>
+          <p class="mt-1 text-xs" :class="storageMigration.database_backup?.checksum_verified ? 'text-emerald-700' : 'text-amber-700'">
+            {{ storageMigration.database_backup?.checksum_verified ? 'Checksum terverifikasi' : 'Belum terverifikasi' }}
+          </p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p class="text-xs text-slate-500">Mulai</p>
+          <p class="mt-1 font-semibold text-slate-800">{{ formatDate(storageMigration.started_at) }}</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p class="text-xs text-slate-500">Update progres</p>
+          <p class="mt-1 font-semibold text-slate-800">{{ formatDate(storageMigration.updated_at) }}</p>
+        </div>
+      </div>
+
+      <p v-if="storageMigration.error" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {{ storageMigration.error }}
+      </p>
     </SurfaceCard>
 
     <SurfaceCard class="p-6">

@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SOURCE_DIR="${SOURCE_DIR:-/var/www/apinotaris/public}"
+DESTINATION="${DESTINATION:-simanis-migration-status/simanis-documents/legacy-public}"
+DESTINATION_DIR="${DESTINATION_DIR:-/var/www/datafile/simanis-documents/legacy-public}"
+STATUS_FILE="${STATUS_FILE:-/var/lib/simanis-ha/minio-migration-status.json}"
+MINIO_ENV="${MINIO_ENV:-/etc/simanis/minio-app.env}"
+MIGRATION_UNIT="simanis-public-minio-migration.service"
+
+mkdir -p "$(dirname "$STATUS_FILE")"
+
+previous_status=""
+if [[ -s "$STATUS_FILE" ]]; then
+  previous_status="$(php -r '$data = json_decode(file_get_contents($argv[1]), true); echo $data["status"] ?? "";' "$STATUS_FILE")"
+fi
+
+running=false
+if pgrep -f 'mc mirror .*simanis-documents/legacy-public' >/dev/null; then
+  running=true
+elif [[ "$previous_status" == "completed" ]]; then
+  exit 0
+fi
+
+source_bytes="$(du -sb "$SOURCE_DIR" | cut -f1)"
+source_objects="$(find "$SOURCE_DIR" -type f -printf . | wc -c)"
+destination_bytes=0
+destination_objects=0
+error=""
+
+if [[ -d "$DESTINATION_DIR" ]]; then
+  destination_bytes="$(du -sb "$DESTINATION_DIR" | cut -f1)"
+  destination_objects="$(find "$DESTINATION_DIR" -type f -name xl.meta -printf . | wc -c)"
+fi
+
+progress_percent="$(php -r '$source = max(1, (int) $argv[1]); $done = (int) $argv[2]; echo min(100, round(($done / $source) * 100, 2));' "$source_bytes" "$destination_bytes")"
+started_at="$(systemctl show "$MIGRATION_UNIT" --property=ExecMainStartTimestamp --value 2>/dev/null || true)"
+backup_file="$(find /var/backups/simanis/database -maxdepth 1 -type f -name '*.sql.gz' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2-)"
+backup_name="$(basename "${backup_file:-}" 2>/dev/null || true)"
+backup_bytes=0
+backup_verified=false
+
+if [[ -n "$backup_file" && -f "$backup_file" ]]; then
+  backup_bytes="$(stat -c %s "$backup_file")"
+  if [[ -f "${backup_file}.sha256" ]] && (cd "$(dirname "$backup_file")" && sha256sum -c "$(basename "${backup_file}.sha256")" >/dev/null 2>&1); then
+    backup_verified=true
+  fi
+fi
+
+status="running"
+completed_at=""
+if [[ "$running" != "true" ]]; then
+  completed_at="$(date -u +%FT%TZ)"
+  if systemctl is-failed --quiet "$MIGRATION_UNIT"; then
+    status="failed"
+    error="Proses migrasi berhenti dengan error. Periksa journal service migrasi."
+  else
+    status="completed"
+    progress_percent=100
+  fi
+fi
+
+temporary_file="${STATUS_FILE}.tmp"
+php -r '
+  $data = [
+    "status" => $argv[1],
+    "source_bytes" => (int) $argv[2],
+    "destination_bytes" => (int) $argv[3],
+    "progress_percent" => (float) $argv[4],
+    "source_objects" => (int) $argv[5],
+    "destination_objects" => (int) $argv[6],
+    "started_at" => $argv[7],
+    "completed_at" => $argv[8],
+    "updated_at" => gmdate("c"),
+    "process_running" => $argv[9] === "true",
+    "destination" => $argv[10],
+    "database_backup" => [
+      "file" => $argv[11],
+      "bytes" => (int) $argv[12],
+      "checksum_verified" => $argv[13] === "true",
+    ],
+    "error" => $argv[14],
+  ];
+  file_put_contents($argv[15], json_encode($data, JSON_UNESCAPED_SLASHES));
+' "$status" "$source_bytes" "$destination_bytes" "$progress_percent" \
+  "$source_objects" "$destination_objects" "$started_at" "$completed_at" \
+  "$running" "$DESTINATION" "$backup_name" "$backup_bytes" "$backup_verified" \
+  "$error" "$temporary_file"
+
+chmod 0644 "$temporary_file"
+mv -f "$temporary_file" "$STATUS_FILE"

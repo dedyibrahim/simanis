@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS builder
 
 ARG NUXT_PUBLIC_API_BASE=/api
 ARG NUXT_PUBLIC_ASSET_BASE=

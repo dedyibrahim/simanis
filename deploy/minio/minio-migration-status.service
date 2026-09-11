@@ -1,0 +1,10 @@
+[Unit]
+Description=Update SIMANIS MinIO migration progress
+After=minio.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/simanis-minio-migration-status
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

@@ -41,6 +41,9 @@ class HaStatusController extends Controller
                 'local' => $local,
                 'peer' => $peer,
                 'summary' => $this->buildSummary($local, $peer),
+                'storage_migration' => $this->jsonStatusFile(
+                    (string) config('ha.minio_migration_status_file')
+                ),
             ],
         ], 200);
     }
@@ -284,6 +287,17 @@ class HaStatusController extends Controller
             'status' => true,
             'data' => $this->localStatus(),
         ], 200);
+    }
+
+    private function jsonStatusFile(string $path): array
+    {
+        if ($path === '' || !is_readable($path)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     private function localStatus(): array
