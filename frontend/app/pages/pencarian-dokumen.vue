@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import {
   AdjustmentsHorizontalIcon,
+  ArrowLeftIcon,
   ArrowsUpDownIcon,
   BuildingOffice2Icon,
+  ClockIcon,
+  FolderIcon,
   FunnelIcon,
+  HomeIcon,
   ListBulletIcon,
   MagnifyingGlassIcon,
+  MoonIcon,
   SparklesIcon,
   Squares2X2Icon,
+  SunIcon,
   UserCircleIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
@@ -80,6 +86,7 @@ type DownloadCartItem = {
 }
 
 definePageMeta({
+  layout: false,
   middleware: 'auth',
 })
 
@@ -91,8 +98,10 @@ const route = useRoute()
 const router = useRouter()
 
 const business = useLegacyBusiness()
-const { token } = useSession()
-const { isDark } = useThemeMode()
+const { token, user } = useSession()
+const { isDark, toggleTheme } = useThemeMode()
+
+const userInitial = computed(() => String(user.value?.name || user.value?.email || 'S').trim().charAt(0).toUpperCase())
 
 const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const loading = ref(false)
@@ -108,6 +117,7 @@ const showOnlyWithDocuments = ref(false)
 const resultPage = ref(1)
 const resultPerPage = ref(9)
 const quickKeywords = ['PT', 'CV', 'Yayasan', 'Jual Beli', 'Hibah']
+const bookTypeOptions: AktaType[] = ['Akta Notaris', 'Legalisasi', 'Waarmerking', 'Akta PPAT']
 const resultSortOptions: Array<{ value: ResultSort; label: string }> = [
   { value: 'relevance', label: 'Relevansi' },
   { value: 'name_asc', label: 'Nama A-Z' },
@@ -1039,7 +1049,99 @@ watch(
 </script>
 
 <template>
-  <div class="document-search-page space-y-6" :class="isDark ? 'document-search-dark' : 'document-search-light'">
+  <div class="document-search-page drive-workspace min-h-screen" :class="isDark ? 'document-search-dark' : 'document-search-light'">
+    <header class="drive-header fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b px-4">
+      <NuxtLink to="/dashboard" class="flex shrink-0 items-center gap-3 md:w-60" aria-label="Kembali ke SIMANIS">
+        <span class="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white shadow-sm">
+          <FolderIcon class="h-6 w-6" />
+        </span>
+        <span class="hidden text-lg font-bold text-slate-800 md:inline">Dokumen SIMANIS</span>
+      </NuxtLink>
+
+      <form class="mx-auto w-full max-w-3xl" @submit.prevent="submitSearch">
+        <label class="drive-global-search flex h-12 items-center rounded-2xl px-4 transition">
+          <MagnifyingGlassIcon class="mr-3 h-5 w-5 shrink-0 text-slate-500" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            class="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] text-slate-800 outline-none placeholder:text-slate-500"
+            placeholder="Cari dalam dokumen SIMANIS"
+          />
+          <button v-if="searchQuery" type="button" class="grid h-8 w-8 place-items-center rounded-full text-slate-500 hover:bg-slate-200" title="Hapus pencarian" @click="clearSearchQuery">
+            <XMarkIcon class="h-4 w-4" />
+          </button>
+        </label>
+      </form>
+
+      <div class="ml-1 flex shrink-0 items-center gap-2 md:ml-5">
+        <button type="button" class="drive-icon-button grid h-10 w-10 place-items-center rounded-full" :title="isDark ? 'Mode terang' : 'Mode gelap'" @click="toggleTheme">
+          <SunIcon v-if="isDark" class="h-5 w-5" />
+          <MoonIcon v-else class="h-5 w-5" />
+        </button>
+        <span class="grid h-9 w-9 place-items-center rounded-full bg-blue-600 text-sm font-bold text-white">{{ userInitial }}</span>
+      </div>
+    </header>
+
+    <aside class="drive-sidebar fixed bottom-0 left-0 top-16 z-30 hidden w-64 flex-col border-r px-3 py-5 md:flex">
+      <NuxtLink to="/dashboard" class="drive-new-button mb-5 inline-flex w-fit items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-semibold">
+        <ArrowLeftIcon class="h-5 w-5" />
+        Kembali
+      </NuxtLink>
+
+      <nav class="space-y-1 text-sm">
+        <button type="button" class="drive-nav-active flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left font-semibold" @click="clientTypeFilter = 'all'; bookFilter = 'all'">
+          <HomeIcon class="h-5 w-5" /> Semua Dokumen
+        </button>
+        <button type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="resultSort = 'most_documents'">
+          <ClockIcon class="h-5 w-5" /> Terbanyak
+        </button>
+      </nav>
+
+      <p class="mb-2 mt-7 px-4 text-xs font-semibold uppercase text-slate-400">Jenis Client</p>
+      <nav class="space-y-1 text-sm">
+        <button type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="clientTypeFilter = 'perorangan'">
+          <UserCircleIcon class="h-5 w-5" /> Perorangan
+        </button>
+        <button type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="clientTypeFilter = 'badan_hukum'">
+          <BuildingOffice2Icon class="h-5 w-5" /> Badan Hukum
+        </button>
+      </nav>
+
+      <p class="mb-2 mt-7 px-4 text-xs font-semibold uppercase text-slate-400">Kategori Buku</p>
+      <nav class="space-y-1 text-sm">
+        <button v-for="type in bookTypeOptions" :key="type" type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="bookFilter = type">
+          <FolderIcon class="h-5 w-5 text-blue-500" /> {{ type }}
+        </button>
+      </nav>
+
+      <div class="mt-auto border-t px-4 pt-5 text-sm">
+        <p class="font-semibold text-slate-700">Hasil tersaring</p>
+        <p class="mt-1 text-xs text-slate-500">{{ filteredSearchResults.length }} client ditemukan</p>
+      </div>
+    </aside>
+
+    <main class="min-h-screen pt-16 md:pl-64">
+      <div class="mx-auto max-w-[1500px] space-y-5 px-5 py-6 lg:px-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-semibold text-slate-800">Semua Dokumen</h1>
+            <p class="mt-1 text-sm text-slate-500">Cari client dan buka dokumen dari seluruh buku SIMANIS.</p>
+          </div>
+          <div class="flex items-center rounded-full border border-slate-300 p-1">
+            <button type="button" :class="resultViewButtonClass('list')" title="Tampilan daftar" @click="resultViewMode = 'list'">
+              <ListBulletIcon class="h-4 w-4" /> List
+            </button>
+            <button type="button" :class="resultViewButtonClass('grid')" title="Tampilan grid" @click="resultViewMode = 'grid'">
+              <Squares2X2Icon class="h-4 w-4" /> Grid
+            </button>
+          </div>
+        </div>
+
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button type="button" class="drive-filter-chip" @click="clientTypeFilter = 'all'; bookFilter = 'all'">Semua</button>
+          <button v-for="keyword in quickKeywords" :key="`drive-${keyword}`" type="button" class="drive-filter-chip" @click="applyQuickKeyword(keyword)">{{ keyword }}</button>
+        </div>
+
     <div
       v-if="downloadCartCount"
       class="fixed bottom-6 right-6 z-[90] w-[min(92vw,420px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20"
@@ -1098,7 +1200,7 @@ watch(
     </div>
 
     <SurfaceCard
-      class="relative overflow-hidden p-0"
+      class="drive-legacy-hero relative overflow-hidden p-0"
       :class="isDark ? 'border-slate-700/80 shadow-xl shadow-slate-950/60' : 'border-slate-200/80 shadow-xl shadow-blue-100/40'"
     >
       <div
@@ -1176,7 +1278,7 @@ watch(
     </SurfaceCard>
 
     <SurfaceCard
-      class="border p-6 shadow-sm sm:p-7"
+      class="drive-results-shell border p-5 shadow-sm sm:p-6"
       :class="isDark ? 'border-slate-700/80 bg-gradient-to-b from-slate-900 to-slate-900/70' : 'border-slate-200/80 bg-gradient-to-b from-white to-slate-50/60'"
     >
       <p v-if="loading" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
@@ -1429,6 +1531,8 @@ watch(
         </div>
       </div>
     </SurfaceCard>
+      </div>
+    </main>
 
     <Teleport to="body">
       <div v-if="clientDocumentDialog.open" class="fixed inset-0 z-[100] flex h-screen w-screen items-stretch justify-stretch">
@@ -1821,6 +1925,76 @@ watch(
   --drive-surface: #ffffff;
   --drive-muted: #f8fafc;
   --drive-border: #dbe4ef;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.drive-header,
+.drive-sidebar {
+  border-color: var(--drive-border);
+  background: var(--drive-surface);
+}
+
+.drive-global-search {
+  background: #f1f5f9;
+}
+
+.drive-global-search:focus-within {
+  background: var(--drive-surface);
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.16);
+}
+
+.drive-icon-button,
+.drive-nav-item {
+  color: #475569;
+}
+
+.drive-icon-button:hover,
+.drive-nav-item:hover {
+  background: #f1f5f9;
+}
+
+.drive-new-button {
+  color: #334155;
+  background: var(--drive-surface);
+  box-shadow: 0 1px 3px 1px rgb(60 64 67 / 0.18);
+}
+
+.drive-new-button:hover {
+  background: #f8fafc;
+  box-shadow: 0 2px 6px 2px rgb(60 64 67 / 0.16);
+}
+
+.drive-nav-active {
+  color: #1e40af;
+  background: #dbeafe;
+}
+
+.drive-filter-chip {
+  white-space: nowrap;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  color: #475569;
+  background: var(--drive-surface);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.drive-filter-chip:hover {
+  color: #1d4ed8;
+  border-color: #60a5fa;
+  background: #eff6ff;
+}
+
+.drive-legacy-hero {
+  display: none !important;
+}
+
+.drive-results-shell {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .document-search-page .drive-folder-icon {
@@ -1844,6 +2018,31 @@ watch(
   --drive-surface: #111827;
   --drive-muted: #17233d;
   --drive-border: #334155;
+  background: #07111f;
+}
+
+.document-search-dark .drive-global-search,
+.document-search-dark .drive-icon-button:hover,
+.document-search-dark .drive-nav-item:hover {
+  background: #17233d;
+}
+
+.document-search-dark .drive-global-search input,
+.document-search-dark .drive-header .text-slate-800,
+.document-search-dark .drive-sidebar .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+.document-search-dark .drive-new-button,
+.document-search-dark .drive-filter-chip {
+  color: #cbd5e1;
+  border-color: #334155;
+  background: #111827;
+}
+
+.document-search-dark .drive-nav-active {
+  color: #bfdbfe;
+  background: rgb(37 99 235 / 0.24);
 }
 
 .document-search-dark .drive-folder-icon {
