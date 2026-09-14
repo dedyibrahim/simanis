@@ -18,6 +18,7 @@ export const navigationSections: NavigationSection[] = [
     title: 'Operasional Kantor',
     items: [
       { title: 'Dashboard', path: '/dashboard', icon: 'dashboard', hint: 'Ikhtisar performa kerja kantor' },
+      { title: 'Pencarian Dokumen', path: '/pencarian-dokumen', icon: 'search', hint: 'Cari client dan dokumen lintas buku' },
       { title: 'Riwayat Reportorium', path: '/riwayat-reportorium', icon: 'report', hint: 'Riwayat kerja reportorium per asisten' },
       { title: 'Dokumen Scan', path: '/dokumen-scan', icon: 'folder', hint: 'Hasil scan dari scanner kantor' },
       { title: 'Peminjaman Minuta', path: '/peminjaman-minuta', icon: 'briefcase', hint: 'Status pinjam minuta' },
