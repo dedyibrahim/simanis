@@ -48,11 +48,15 @@ class SearchService
             ->filter(static function ($document): bool {
                 $folder = trim((string) $document->nama_folder);
                 $file = trim((string) $document->nama_berkas);
+                $key = 'berkasclient/'.$folder.'/'.$file;
+                $diskName = config('filesystems.documents_disk', 'documents_local');
+                $diskConfig = config('filesystems.disks.'.$diskName);
 
                 return $folder !== ''
                     && $file !== ''
-                    && Storage::disk(config('filesystems.documents_disk', 'documents_local'))
-                        ->exists('berkasclient/'.$folder.'/'.$file);
+                    && (is_array($diskConfig) && !empty($diskConfig['driver'])
+                        ? Storage::disk($diskName)->exists($key)
+                        : is_file(public_path($key)));
             })
             ->take(60)
             ->values()
