@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import {
   AdjustmentsHorizontalIcon,
+  ArrowDownTrayIcon,
   ArrowLeftIcon,
   ArrowsUpDownIcon,
   BuildingOffice2Icon,
   ClockIcon,
+  DocumentIcon,
+  EyeIcon,
   FolderIcon,
+  FolderPlusIcon,
   FunnelIcon,
   HomeIcon,
   ListBulletIcon,
@@ -59,6 +63,11 @@ type ClientDocument = RowRecord & {
   nama_folder?: string
   nama_berkas?: string
   deskripsi?: string
+  id_client?: string | number
+  nama_client?: string
+  jenis_client?: string
+  no_identitas?: string
+  created_at?: string
 }
 
 type StandardDocument = RowRecord & {
@@ -110,6 +119,7 @@ const errorMessage = ref('')
 const responseMessage = ref('')
 const hasSearchRun = ref(false)
 const searchResults = ref<SearchClient[]>([])
+const documentResults = ref<ClientDocument[]>([])
 const clientTypeFilter = ref<ClientTypeFilter>('all')
 const bookFilter = ref<BookFilter>('all')
 const resultSort = ref<ResultSort>('relevance')
@@ -161,6 +171,8 @@ const bookDocumentDialog = reactive({
 const downloadRequestLoading = ref(false)
 const downloadCart = ref<DownloadCartItem[]>([])
 const downloadCartOpen = ref(false)
+const directPreview = reactive({ open: false, title: '', url: '' })
+const documentContextMenu = reactive({ open: false, x: 0, y: 0, document: null as ClientDocument | null })
 
 const bookDownloadMetaMap: Record<AktaType, { modulePath: string; fileCategory: string }> = {
   'Akta Notaris': {
@@ -323,8 +335,71 @@ const filteredSearchResults = computed(() => {
   return list
 })
 
+const filteredDocumentResults = computed(() => {
+  if (clientTypeFilter.value === 'all') return documentResults.value
+  return documentResults.value.filter(document => resolveClientType(document as SearchClient) === clientTypeFilter.value)
+})
+
+const paginatedDocumentResults = computed(() => {
+  const start = (resultPage.value - 1) * resultPerPage.value
+  return filteredDocumentResults.value.slice(start, start + resultPerPage.value)
+})
+
+const activeResultCount = computed(() =>
+  bookFilter.value === 'all' ? filteredDocumentResults.value.length : filteredSearchResults.value.length,
+)
+
+const documentResultKey = (document: ClientDocument, index: number) =>
+  `${toString(document.id_berkas, 'document')}-${index}`
+
+const documentExtension = (document: ClientDocument) => {
+  const fileName = toString(document.nama_berkas, '')
+  return fileName.includes('.') ? fileName.split('.').pop()?.toUpperCase() || 'FILE' : 'FILE'
+}
+
+const openDirectPreview = (document: ClientDocument) => {
+  const url = getClientDocumentUrl(document)
+  if (!url) {
+    errorMessage.value = 'File dokumen tidak tersedia.'
+    return
+  }
+  directPreview.title = displayFileName(document.nama_dokumen, document.nama_berkas)
+  directPreview.url = toIframePreviewUrl(url)
+  directPreview.open = true
+  documentContextMenu.open = false
+}
+
+const setDirectDocumentContext = (document: ClientDocument) => {
+  clientDocumentDialog.client = {
+    id_client: document.id_client,
+    nama_client: document.nama_client,
+    jenis_client: document.jenis_client,
+    no_identitas: document.no_identitas,
+  }
+}
+
+const requestDirectDocumentDownload = async (document: ClientDocument) => {
+  setDirectDocumentContext(document)
+  documentContextMenu.open = false
+  await requestClientDocumentDownload(document)
+}
+
+const addDirectDocumentToCart = (document: ClientDocument) => {
+  setDirectDocumentContext(document)
+  documentContextMenu.open = false
+  addClientDocumentToCart(document)
+}
+
+const openDocumentContextMenu = (event: MouseEvent, document: ClientDocument) => {
+  event.preventDefault()
+  documentContextMenu.document = document
+  documentContextMenu.x = Math.min(event.clientX, window.innerWidth - 230)
+  documentContextMenu.y = Math.min(event.clientY, window.innerHeight - 170)
+  documentContextMenu.open = true
+}
+
 const totalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredSearchResults.value.length / resultPerPage.value)),
+  Math.max(1, Math.ceil(activeResultCount.value / resultPerPage.value)),
 )
 
 const paginatedSearchResults = computed(() => {
@@ -334,12 +409,12 @@ const paginatedSearchResults = computed(() => {
 })
 
 const resultStart = computed(() => {
-  if (!filteredSearchResults.value.length) return 0
+  if (!activeResultCount.value) return 0
   return (resultPage.value - 1) * resultPerPage.value + 1
 })
 
 const resultEnd = computed(() =>
-  Math.min(resultStart.value + resultPerPage.value - 1, filteredSearchResults.value.length),
+  Math.min(resultStart.value + resultPerPage.value - 1, activeResultCount.value),
 )
 
 const searchStats = computed(() => {
@@ -843,12 +918,14 @@ const runSearch = async (keyword: string) => {
   errorMessage.value = ''
   responseMessage.value = ''
   searchResults.value = []
+  documentResults.value = []
 
   loading.value = true
   try {
     const response = await business.pencarian.SearchData({ query }) as ApiEnvelope<RowRecord>
-    const payload = unwrapPayload(response)
-    searchResults.value = toRowArray(payload) as SearchClient[]
+    const payload = unwrapPayload(response) as RowRecord
+    searchResults.value = Array.isArray(payload?.data_client) ? payload.data_client as SearchClient[] : []
+    documentResults.value = Array.isArray(payload?.documents) ? payload.documents as ClientDocument[] : []
     resultPage.value = 1
   } catch (error) {
     errorMessage.value = (error as { data?: { message?: string } })?.data?.message || 'Gagal melakukan pencarian dokumen.'
@@ -1032,7 +1109,7 @@ watch([clientTypeFilter, bookFilter, resultSort, showOnlyWithDocuments, resultPe
 })
 
 watch(
-  () => filteredSearchResults.value.length,
+  () => activeResultCount.value,
   () => {
     if (resultPage.value > totalPages.value) {
       resultPage.value = totalPages.value
@@ -1112,7 +1189,7 @@ watch(
 
       <div class="mt-auto border-t px-4 pt-5 text-sm">
         <p class="font-semibold text-slate-700">Hasil tersaring</p>
-        <p class="mt-1 text-xs text-slate-500">{{ filteredSearchResults.length }} client ditemukan</p>
+        <p class="mt-1 text-xs text-slate-500">{{ activeResultCount }} dokumen ditemukan</p>
       </div>
     </aside>
 
@@ -1121,7 +1198,7 @@ watch(
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 class="text-2xl font-semibold text-slate-800">{{ showingLatest ? 'Dokumen Terbaru' : 'Hasil Pencarian' }}</h1>
-            <p class="mt-1 text-sm text-slate-500">{{ showingLatest ? 'Menampilkan 15 data client terbaru.' : `Hasil untuk kata kunci “${searchQuery}”.` }}</p>
+            <p class="mt-1 text-sm text-slate-500">{{ showingLatest ? 'Menampilkan file dokumen terbaru.' : `Hasil untuk kata kunci “${searchQuery}”.` }}</p>
           </div>
           <div class="flex items-center rounded-full border border-slate-300 p-1">
             <button type="button" :class="resultViewButtonClass('list')" title="Tampilan daftar" @click="resultViewMode = 'list'">
@@ -1293,7 +1370,7 @@ watch(
       </div>
 
       <div
-        v-else-if="!searchResults.length"
+        v-else-if="!activeResultCount"
         class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-9 text-center text-sm text-slate-600"
       >
         Pencarian tidak ditemukan.
@@ -1305,7 +1382,7 @@ watch(
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ showingLatest ? 'Data terbaru' : 'File dan client' }}</p>
               <p class="mt-1 text-sm text-slate-700">
-                Menampilkan {{ resultStart }} - {{ resultEnd }} dari {{ filteredSearchResults.length }} data (total awal {{ searchResults.length }}).
+                Menampilkan {{ resultStart }} - {{ resultEnd }} dari {{ activeResultCount }} data.
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -1383,10 +1460,51 @@ watch(
         </div>
 
         <div
-          v-if="!filteredSearchResults.length"
+          v-if="!activeResultCount"
           class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600"
         >
           Tidak ada hasil untuk kombinasi filter saat ini.
+        </div>
+
+        <div v-else-if="bookFilter === 'all' && resultViewMode === 'grid'" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <article
+            v-for="(document, index) in paginatedDocumentResults"
+            :key="documentResultKey(document, index)"
+            tabindex="0"
+            class="group overflow-hidden rounded-xl border border-slate-200 bg-white outline-none transition hover:border-blue-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-blue-500"
+            @dblclick="openDirectPreview(document)"
+            @contextmenu="openDocumentContextMenu($event, document)"
+            @keydown.enter.prevent="openDirectPreview(document)"
+          >
+            <button type="button" class="flex h-32 w-full items-center justify-center bg-slate-50" @click="openDirectPreview(document)">
+              <DocumentIcon class="h-16 w-16 text-blue-500 transition group-hover:scale-105" />
+            </button>
+            <div class="p-3">
+              <div class="flex items-start gap-2">
+                <DocumentIcon class="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-slate-800" :title="displayFileName(document.nama_dokumen, document.nama_berkas)">{{ displayFileName(document.nama_dokumen, document.nama_berkas) }}</p>
+                  <p class="mt-1 truncate text-xs text-slate-500">{{ toString(document.nama_client, 'Tanpa client') }}</p>
+                </div>
+                <span class="ml-auto text-[10px] font-bold text-slate-400">{{ documentExtension(document) }}</span>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div v-else-if="bookFilter === 'all'" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <button
+            v-for="(document, index) in paginatedDocumentResults"
+            :key="documentResultKey(document, index)"
+            type="button"
+            class="grid w-full grid-cols-[minmax(0,2fr)_minmax(130px,1fr)_90px] items-center gap-4 border-b border-slate-100 px-4 py-3 text-left last:border-0 hover:bg-blue-50/60"
+            @click="openDirectPreview(document)"
+            @contextmenu="openDocumentContextMenu($event, document)"
+          >
+            <span class="flex min-w-0 items-center gap-3"><DocumentIcon class="h-6 w-6 shrink-0 text-blue-500" /><span class="truncate text-sm font-semibold text-slate-800">{{ displayFileName(document.nama_dokumen, document.nama_berkas) }}</span></span>
+            <span class="truncate text-xs text-slate-500">{{ toString(document.nama_client, 'Tanpa client') }}</span>
+            <span class="text-xs font-semibold text-slate-400">{{ documentExtension(document) }}</span>
+          </button>
         </div>
 
         <div v-else-if="resultViewMode === 'grid'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1501,7 +1619,7 @@ watch(
           </div>
         </div>
 
-        <div v-if="filteredSearchResults.length" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div v-if="activeResultCount" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p class="text-xs text-slate-600">
             Halaman {{ resultPage }} dari {{ totalPages }}.
           </p>
@@ -1529,6 +1647,32 @@ watch(
     </SurfaceCard>
       </div>
     </main>
+
+    <Teleport to="body">
+      <button v-if="documentContextMenu.open" type="button" class="fixed inset-0 z-[98] cursor-default" aria-label="Tutup menu dokumen" @click="documentContextMenu.open = false" @contextmenu.prevent="documentContextMenu.open = false" />
+      <div
+        v-if="documentContextMenu.open && documentContextMenu.document"
+        class="fixed z-[99] w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl"
+        :style="{ left: `${documentContextMenu.x}px`, top: `${documentContextMenu.y}px` }"
+        role="menu"
+        @contextmenu.prevent
+      >
+        <p class="truncate border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">{{ displayFileName(documentContextMenu.document.nama_dokumen, documentContextMenu.document.nama_berkas) }}</p>
+        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700" @click="openDirectPreview(documentContextMenu.document)"><EyeIcon class="h-5 w-5" /> Pratinjau</button>
+        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700" @click="requestDirectDocumentDownload(documentContextMenu.document)"><ArrowDownTrayIcon class="h-5 w-5" /> Download</button>
+        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700" @click="addDirectDocumentToCart(documentContextMenu.document)"><FolderPlusIcon class="h-5 w-5" /> Tambah ke keranjang</button>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="directPreview.open" class="fixed inset-0 z-[110] flex h-screen w-screen flex-col bg-slate-950">
+        <div class="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-white/10 px-5 text-white">
+          <p class="truncate font-semibold">{{ directPreview.title }}</p>
+          <button type="button" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-white/10" title="Tutup" @click="directPreview.open = false"><XMarkIcon class="h-6 w-6" /></button>
+        </div>
+        <iframe :src="directPreview.url" :title="directPreview.title" class="min-h-0 flex-1 border-0 bg-white" />
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="clientDocumentDialog.open" class="fixed inset-0 z-[100] flex h-screen w-screen items-stretch justify-stretch">

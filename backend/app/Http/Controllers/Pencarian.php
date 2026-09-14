@@ -16,10 +16,12 @@ class Pencarian extends ApiController
 
     public function index(Request $request)
     {
-        $result = $this->searchService->searchDataClient($request->post('query'));
+        $query = $request->post('query');
+        $result = $this->searchService->searchDataClient($query);
 
         $data = [
             'data_client' => $result,
+            'documents' => $this->searchService->searchDocuments($query),
         ];
 
         $response = [

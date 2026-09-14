@@ -15,6 +15,36 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class SearchService
 {
+    public function searchDocuments(?string $query = null): array
+    {
+        return tb_berkas::query()
+            ->leftJoin('data_clients', 'tb_berkas.id_client', '=', 'data_clients.id_client')
+            ->when($query, function ($builder, string $query): void {
+                $builder->where(function ($builder) use ($query): void {
+                    $like = '%' . $query . '%';
+                    $builder->where('tb_berkas.nama_dokumen', 'LIKE', $like)
+                        ->orWhere('tb_berkas.nama_berkas', 'LIKE', $like)
+                        ->orWhere('data_clients.nama_client', 'LIKE', $like)
+                        ->orWhere('data_clients.no_identitas', 'LIKE', $like);
+                });
+            })
+            ->orderByDesc('tb_berkas.created_at')
+            ->orderByDesc('tb_berkas.id_berkas')
+            ->limit(60)
+            ->get([
+                'tb_berkas.id_berkas',
+                'tb_berkas.id_client',
+                'tb_berkas.nama_dokumen',
+                'tb_berkas.nama_berkas',
+                'tb_berkas.nama_folder',
+                'tb_berkas.created_at',
+                'data_clients.nama_client',
+                'data_clients.jenis_client',
+                'data_clients.no_identitas',
+            ])
+            ->toArray();
+    }
+
     public function searchDataClient(?string $query = null): array
     {
         if ($query) {
