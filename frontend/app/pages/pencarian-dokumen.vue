@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   AdjustmentsHorizontalIcon,
+  ArchiveBoxIcon,
   ArrowDownTrayIcon,
   ArrowLeftIcon,
   ArrowPathIcon,
@@ -8,6 +9,7 @@ import {
   BuildingOffice2Icon,
   ClockIcon,
   DocumentIcon,
+  DocumentTextIcon,
   EyeIcon,
   FolderIcon,
   FolderPlusIcon,
@@ -18,9 +20,12 @@ import {
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   MoonIcon,
+  PhotoIcon,
+  PresentationChartBarIcon,
   SparklesIcon,
   Squares2X2Icon,
   SunIcon,
+  TableCellsIcon,
   UserCircleIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
@@ -366,6 +371,21 @@ const documentResultKey = (document: ClientDocument, index: number) =>
 const documentExtension = (document: ClientDocument) => {
   const fileName = toString(document.nama_berkas, '')
   return fileName.includes('.') ? fileName.split('.').pop()?.toUpperCase() || 'FILE' : 'FILE'
+}
+
+const documentIsImage = (document: ClientDocument) =>
+  ['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'BMP'].includes(documentExtension(document))
+
+const documentIsPdf = (document: ClientDocument) => documentExtension(document) === 'PDF'
+
+const documentAppearance = (document: ClientDocument) => {
+  const extension = documentExtension(document)
+  if (extension === 'PDF') return { icon: DocumentTextIcon, color: 'text-red-600', background: 'bg-red-50', badge: 'bg-red-600' }
+  if (['XLS', 'XLSX', 'CSV', 'ODS'].includes(extension)) return { icon: TableCellsIcon, color: 'text-emerald-600', background: 'bg-emerald-50', badge: 'bg-emerald-600' }
+  if (['PPT', 'PPTX', 'ODP'].includes(extension)) return { icon: PresentationChartBarIcon, color: 'text-orange-500', background: 'bg-orange-50', badge: 'bg-orange-500' }
+  if (['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'BMP'].includes(extension)) return { icon: PhotoIcon, color: 'text-violet-600', background: 'bg-violet-50', badge: 'bg-violet-600' }
+  if (['ZIP', 'RAR', '7Z', 'TAR', 'GZ'].includes(extension)) return { icon: ArchiveBoxIcon, color: 'text-amber-600', background: 'bg-amber-50', badge: 'bg-amber-600' }
+  return { icon: DocumentTextIcon, color: 'text-blue-600', background: 'bg-blue-50', badge: 'bg-blue-600' }
 }
 
 const directPreviewKind = computed(() => {
@@ -1511,17 +1531,21 @@ watch(
             @contextmenu="openDocumentContextMenu($event, document)"
             @keydown.enter.prevent="openDirectPreview(document)"
           >
-            <button type="button" class="flex h-32 w-full items-center justify-center bg-slate-50" @click="openDirectPreview(document)">
-              <DocumentIcon class="h-16 w-16 text-blue-500 transition group-hover:scale-105" />
+            <button type="button" class="relative flex h-40 w-full items-center justify-center overflow-hidden bg-slate-100" @click="openDirectPreview(document)">
+              <img v-if="documentIsImage(document)" :src="getClientDocumentUrl(document)" :alt="displayFileName(document.nama_dokumen, document.nama_berkas)" class="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]" loading="lazy" />
+              <iframe v-else-if="documentIsPdf(document)" :src="toIframePreviewUrl(getClientDocumentUrl(document))" :title="`Thumbnail ${displayFileName(document.nama_dokumen, document.nama_berkas)}`" class="pointer-events-none h-[210px] w-full border-0 bg-white" loading="lazy" tabindex="-1" />
+              <span v-else class="grid h-24 w-20 place-items-center rounded-lg border border-current/15" :class="[documentAppearance(document).background, documentAppearance(document).color]">
+                <component :is="documentAppearance(document).icon" class="h-12 w-12" />
+              </span>
+              <span class="absolute bottom-2 right-2 rounded-md px-2 py-1 text-[10px] font-bold text-white shadow" :class="documentAppearance(document).badge">{{ documentExtension(document) }}</span>
             </button>
             <div class="p-3">
               <div class="flex items-start gap-2">
-                <DocumentIcon class="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+                <component :is="documentAppearance(document).icon" class="mt-0.5 h-5 w-5 shrink-0" :class="documentAppearance(document).color" />
                 <div class="min-w-0">
                   <p class="truncate text-sm font-semibold text-slate-800" :title="displayFileName(document.nama_dokumen, document.nama_berkas)">{{ displayFileName(document.nama_dokumen, document.nama_berkas) }}</p>
                   <p class="mt-1 truncate text-xs text-slate-500">{{ toString(document.nama_client, 'Tanpa client') }}</p>
                 </div>
-                <span class="ml-auto text-[10px] font-bold text-slate-400">{{ documentExtension(document) }}</span>
               </div>
             </div>
           </article>
@@ -1536,9 +1560,9 @@ watch(
             @click="openDirectPreview(document)"
             @contextmenu="openDocumentContextMenu($event, document)"
           >
-            <span class="flex min-w-0 items-center gap-3"><DocumentIcon class="h-6 w-6 shrink-0 text-blue-500" /><span class="truncate text-sm font-semibold text-slate-800">{{ displayFileName(document.nama_dokumen, document.nama_berkas) }}</span></span>
+            <span class="flex min-w-0 items-center gap-3"><span class="grid h-9 w-8 shrink-0 place-items-center rounded-md" :class="[documentAppearance(document).background, documentAppearance(document).color]"><component :is="documentAppearance(document).icon" class="h-5 w-5" /></span><span class="truncate text-sm font-semibold text-slate-800">{{ displayFileName(document.nama_dokumen, document.nama_berkas) }}</span></span>
             <span class="truncate text-xs text-slate-500">{{ toString(document.nama_client, 'Tanpa client') }}</span>
-            <span class="text-xs font-semibold text-slate-400">{{ documentExtension(document) }}</span>
+            <span class="w-fit rounded-md px-2 py-1 text-[10px] font-bold text-white" :class="documentAppearance(document).badge">{{ documentExtension(document) }}</span>
           </button>
         </div>
 
