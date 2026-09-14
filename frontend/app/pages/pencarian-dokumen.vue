@@ -1040,7 +1040,7 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="document-search-page space-y-6" :class="isDark ? 'document-search-dark' : 'document-search-light'">
     <div
       v-if="downloadCartCount"
       class="fixed bottom-6 right-6 z-[90] w-[min(92vw,420px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20"
@@ -1109,19 +1109,26 @@ watch(
       <div class="pointer-events-none absolute -left-16 top-8 h-40 w-40 rounded-full blur-3xl" :class="isDark ? 'bg-sky-500/20' : 'bg-sky-300/35'" />
       <div class="pointer-events-none absolute -right-14 -bottom-10 h-40 w-40 rounded-full blur-3xl" :class="isDark ? 'bg-indigo-500/20' : 'bg-indigo-300/30'" />
 
-      <div class="relative space-y-5 p-6 sm:p-7">
-        <div class="space-y-2">
-          <p class="display-kicker">Ringkasan</p>
-          <h2 class="font-display text-4xl text-slate-900 sm:text-5xl">Pencarian Dokumen</h2>
-          <p class="max-w-3xl text-base leading-7 text-slate-600">
-            Cari data client, buka buku terkait, dan akses dokumen pendukung langsung dari satu halaman.
-          </p>
+      <div class="relative space-y-5 p-5 sm:p-7">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="drive-folder-icon inline-flex h-11 w-11 items-center justify-center rounded-xl">
+              <MagnifyingGlassIcon class="h-6 w-6" />
+            </div>
+            <div>
+              <p class="display-kicker">Ruang Dokumen</p>
+              <h2 class="font-display text-3xl text-slate-900 sm:text-4xl">Pencarian Dokumen</h2>
+            </div>
+          </div>
+          <div class="drive-location inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold">
+            <span class="h-2 w-2 rounded-full bg-emerald-500" /> Semua lokasi
+          </div>
         </div>
 
         <form class="mx-auto flex max-w-5xl flex-col gap-3 lg:flex-row" @submit.prevent="submitSearch">
           <label class="flex-1">
             <span class="sr-only">Pencarian Dokumen</span>
-            <div class="group relative">
+            <div class="drive-search-field group relative">
               <input
                 v-model="searchQuery"
                 type="text"
@@ -1141,7 +1148,7 @@ watch(
           </label>
           <button
             type="submit"
-            class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="loading"
           >
             <SparklesIcon class="h-4 w-4" />
@@ -1149,7 +1156,7 @@ watch(
           </button>
         </form>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2 border-t border-slate-200/70 pt-4">
           <p class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
             <FunnelIcon class="h-4 w-4" />
             Kata Kunci Cepat
@@ -1196,10 +1203,10 @@ watch(
       </div>
 
       <div v-else class="space-y-5">
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="drive-toolbar rounded-2xl border border-slate-200 p-4 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Hasil Pencarian</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">File dan client</p>
               <p class="mt-1 text-sm text-slate-700">
                 Menampilkan {{ resultStart }} - {{ resultEnd }} dari {{ filteredSearchResults.length }} data (total awal {{ searchResults.length }}).
               </p>
@@ -1811,6 +1818,79 @@ watch(
 </template>
 
 <style>
+.document-search-page {
+  --drive-surface: #ffffff;
+  --drive-muted: #f8fafc;
+  --drive-border: #dbe4ef;
+}
+
+.document-search-page .drive-folder-icon {
+  color: #2563eb;
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+}
+
+.document-search-page .drive-location {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.document-search-page .drive-search-field input {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.document-search-dark {
+  --drive-surface: #111827;
+  --drive-muted: #17233d;
+  --drive-border: #334155;
+}
+
+.document-search-dark .drive-folder-icon {
+  color: #93c5fd;
+  background: rgb(37 99 235 / 0.18);
+  border-color: rgb(96 165 250 / 0.35);
+}
+
+.document-search-dark .drive-location,
+.document-search-dark .drive-search-field input,
+.document-search-dark .bg-white,
+.document-search-dark .bg-slate-50,
+.document-search-dark .bg-slate-50\/60,
+.document-search-dark .bg-slate-100\/80 {
+  background-color: var(--drive-surface) !important;
+}
+
+.document-search-dark .drive-location,
+.document-search-dark .text-slate-900,
+.document-search-dark .text-slate-800,
+.document-search-dark .text-slate-700,
+.document-search-dark .text-slate-600 {
+  color: #e2e8f0 !important;
+}
+
+.document-search-dark .drive-search-field input {
+  border-color: var(--drive-border);
+}
+
+.document-search-dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.document-search-dark .border-slate-100,
+.document-search-dark .border-slate-200,
+.document-search-dark .border-slate-300,
+.document-search-dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.document-search-dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--drive-border) !important;
+}
+
+.document-search-dark .drive-toolbar {
+  background: var(--drive-muted);
+  border-color: var(--drive-border);
+}
+
 .document-fullscreen-dialog.document-dialog-light {
   color: #0f172a;
   background:
