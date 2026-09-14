@@ -366,6 +366,26 @@ const activeResultCount = computed(() =>
   bookFilter.value === 'all' ? filteredDocumentResults.value.length : filteredSearchResults.value.length,
 )
 
+const workspaceTitle = computed(() => {
+  if (bookFilter.value !== 'all') return bookFilter.value
+  if (clientTypeFilter.value === 'perorangan') return 'Dokumen Perorangan'
+  if (clientTypeFilter.value === 'badan_hukum') return 'Dokumen Badan Hukum'
+  return showingLatest.value ? 'Dokumen Terbaru' : 'Hasil Pencarian'
+})
+
+const workspaceSubtitle = computed(() => {
+  if (bookFilter.value !== 'all') return `Pilih client untuk melihat data ${bookFilter.value}.`
+  if (clientTypeFilter.value !== 'all') return `Menampilkan file untuk ${clientTypeFilter.value === 'perorangan' ? 'client perorangan' : 'badan hukum'}.`
+  return showingLatest.value ? 'File terbaru yang tersedia di penyimpanan.' : `Hasil untuk kata kunci “${searchQuery.value}”.`
+})
+
+const selectedBookType = computed<AktaType | null>(() =>
+  bookFilter.value === 'all' ? null : bookFilter.value,
+)
+
+const selectedBookCount = (client: SearchClient) =>
+  selectedBookType.value ? countByBook(client, selectedBookType.value) : 0
+
 const documentResultKey = (document: ClientDocument, index: number) =>
   `${toString(document.id_berkas, 'document')}-${index}`
 
@@ -1290,8 +1310,8 @@ watch(
       <div class="mx-auto max-w-[1500px] space-y-5 px-5 py-6 lg:px-8">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 class="text-2xl font-semibold text-slate-800">{{ showingLatest ? 'Dokumen Terbaru' : 'Hasil Pencarian' }}</h1>
-            <p class="mt-1 text-sm text-slate-500">{{ showingLatest ? 'Menampilkan file dokumen terbaru.' : `Hasil untuk kata kunci “${searchQuery}”.` }}</p>
+            <h1 class="text-2xl font-semibold text-slate-800">{{ workspaceTitle }}</h1>
+            <p class="mt-1 text-sm text-slate-500">{{ workspaceSubtitle }}</p>
           </div>
           <div class="flex items-center rounded-full border border-slate-300 p-1">
             <button type="button" :class="resultViewButtonClass('list')" title="Tampilan daftar" @click="resultViewMode = 'list'">
@@ -1303,7 +1323,7 @@ watch(
           </div>
         </div>
 
-        <div class="flex gap-2 overflow-x-auto pb-1">
+        <div v-if="bookFilter === 'all'" class="flex gap-2 overflow-x-auto pb-1">
           <button type="button" class="drive-filter-chip" @click="clientTypeFilter = 'all'; bookFilter = 'all'">Semua</button>
           <button v-for="keyword in quickKeywords" :key="`drive-${keyword}`" type="button" class="drive-filter-chip" @click="applyQuickKeyword(keyword)">{{ keyword }}</button>
         </div>
@@ -1473,25 +1493,18 @@ watch(
         <div class="drive-toolbar rounded-2xl border border-slate-200 p-4 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ showingLatest ? 'Data terbaru' : 'File dan client' }}</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ bookFilter !== 'all' ? 'Client terkait' : showingLatest ? 'Data terbaru' : 'Hasil pencarian' }}</p>
               <p class="mt-1 text-sm text-slate-700">
                 Menampilkan {{ resultStart }} - {{ resultEnd }} dari {{ activeResultCount }} data.
               </p>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" :class="resultViewButtonClass('grid')" @click="resultViewMode = 'grid'">
-                <Squares2X2Icon class="h-4 w-4" />
-                Grid
-              </button>
-              <button type="button" :class="resultViewButtonClass('list')" @click="resultViewMode = 'list'">
-                <ListBulletIcon class="h-4 w-4" />
-                List
-              </button>
-            </div>
+            <span v-if="bookFilter !== 'all'" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">
+              <FolderIcon class="h-4 w-4" /> {{ bookFilter }}
+            </span>
           </div>
 
-          <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <label class="flex flex-col gap-1.5">
+          <div class="mt-4 grid gap-3 md:grid-cols-3">
+            <label v-if="bookFilter !== 'all'" class="flex flex-col gap-1.5">
               <span class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 <FunnelIcon class="h-4 w-4" />
                 Jenis Client
@@ -1500,19 +1513,6 @@ watch(
                 <option value="all">Semua</option>
                 <option value="perorangan">Perorangan</option>
                 <option value="badan_hukum">Badan Hukum</option>
-              </select>
-            </label>
-            <label class="flex flex-col gap-1.5">
-              <span class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                <AdjustmentsHorizontalIcon class="h-4 w-4" />
-                Kategori Buku
-              </span>
-              <select v-model="bookFilter" class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
-                <option value="all">Semua Buku</option>
-                <option value="Akta Notaris">Akta Notaris</option>
-                <option value="Legalisasi">Legalisasi</option>
-                <option value="Waarmerking">Waarmerking</option>
-                <option value="Akta PPAT">Akta PPAT</option>
               </select>
             </label>
             <label class="flex flex-col gap-1.5">
@@ -1527,10 +1527,6 @@ watch(
               </select>
             </label>
             <div class="flex flex-col justify-end gap-2">
-              <label class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
-                <input v-model="showOnlyWithDocuments" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600" />
-                Hanya data dengan dokumen
-              </label>
               <select v-model.number="resultPerPage" class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
                 <option :value="9">9 / halaman</option>
                 <option :value="12">12 / halaman</option>
@@ -1539,17 +1535,6 @@ watch(
             </div>
           </div>
 
-          <div class="mt-4 grid gap-2 sm:grid-cols-3">
-            <p class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
-              Perorangan: {{ searchStats.perorangan }}
-            </p>
-            <p class="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700">
-              Badan Hukum: {{ searchStats.badan_hukum }}
-            </p>
-            <p class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-              Memiliki Dokumen: {{ searchStats.with_docs }}
-            </p>
-          </div>
         </div>
 
         <div
@@ -1634,31 +1619,18 @@ watch(
               </div>
             </div>
 
-            <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-              Total dokumen buku: {{ totalBookCount(client) }}
-            </div>
-
-            <div class="mt-3 space-y-2">
-              <button
-                v-for="actionItem in cardActionItems(client)"
-                :key="`${toString(client.id_client)}-${actionItem.type}`"
-                type="button"
-                :class="bookButtonClass(actionItem.type)"
-                @click="openBookDialog(actionItem.type, client)"
-              >
-                <span>{{ actionItem.label }}</span>
-                <span class="inline-flex min-w-[28px] justify-center rounded-lg border border-white/70 bg-white/80 px-2 py-0.5 text-xs font-semibold">
-                  {{ toDisplayCount(actionItem.count) }}
-                </span>
-              </button>
+            <div class="mt-3 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+              <span>{{ selectedBookType }}</span>
+              <span>{{ selectedBookCount(client) }} data</span>
             </div>
 
             <button
+              v-if="selectedBookType"
               type="button"
-              class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-              @click="openClientDocumentDialog(client)"
+              class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+              @click="openBookDialog(selectedBookType, client)"
             >
-              Lihat Dokumen Pendukung
+              <FolderIcon class="h-4 w-4" /> Buka {{ selectedBookType }}
             </button>
           </article>
         </div>
@@ -1672,8 +1644,8 @@ watch(
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Nama Client</th>
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">No Identitas</th>
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Jenis</th>
-                  <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Total Buku</th>
-                  <th class="w-[320px] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Aksi</th>
+                  <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Jumlah</th>
+                  <th class="w-[180px] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Aksi</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 bg-white">
@@ -1686,27 +1658,15 @@ watch(
                       {{ resolveClientType(client) === 'perorangan' ? 'Perorangan' : resolveClientType(client) === 'badan_hukum' ? 'Badan Hukum' : 'Tidak diketahui' }}
                     </span>
                   </td>
-                  <td class="px-3 py-2 text-sm font-semibold text-slate-800">{{ totalBookCount(client) }}</td>
+                  <td class="px-3 py-2 text-sm font-semibold text-slate-800">{{ selectedBookCount(client) }} data</td>
                   <td class="px-3 py-2">
-                    <div class="flex flex-wrap gap-1.5">
-                      <button
-                        v-for="actionItem in cardActionItems(client)"
-                        :key="`${toString(client.id_client)}-${actionItem.type}-list`"
-                        type="button"
-                        :class="bookButtonCompactClass(actionItem.type)"
-                        @click="openBookDialog(actionItem.type, client)"
-                      >
-                        <span>{{ actionItem.label }}</span>
-                        <span class="inline-flex min-w-[24px] justify-center rounded-md border border-white/70 bg-white/90 px-1.5 py-0.5 text-[11px] font-semibold">
-                          {{ toDisplayCount(actionItem.count) }}
-                        </span>
-                      </button>
+                    <div v-if="selectedBookType" class="flex flex-wrap gap-1.5">
                       <button
                         type="button"
-                        class="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                        @click="openClientDocumentDialog(client)"
+                        class="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
+                        @click="openBookDialog(selectedBookType, client)"
                       >
-                        Dokumen Client
+                        <FolderIcon class="h-4 w-4" /> Buka
                       </button>
                     </div>
                   </td>
