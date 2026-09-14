@@ -90,10 +90,6 @@ useHead({
 const route = useRoute()
 const router = useRouter()
 
-if (route.path === '/pencarian-dokumen') {
-  await navigateTo({ path: '/dashboard', query: { ...route.query, view: 'documents' } }, { replace: true })
-}
-
 const business = useLegacyBusiness()
 const { token } = useSession()
 const { isDark } = useThemeMode()
@@ -857,9 +853,12 @@ const runSearch = async (keyword: string) => {
 
 const submitSearch = async () => {
   const query = searchQuery.value.trim()
+  const isDashboardSearch = route.path === '/dashboard'
   await router.replace({
-    path: '/pencarian-dokumen',
-    query: query ? { q: query } : {},
+    path: isDashboardSearch ? '/dashboard' : '/pencarian-dokumen',
+    query: isDashboardSearch
+      ? (query ? { view: 'documents', q: query } : { view: 'documents' })
+      : (query ? { q: query } : {}),
   })
 }
 
