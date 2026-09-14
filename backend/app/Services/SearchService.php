@@ -11,6 +11,7 @@ use App\Models\PenghadapWarmerking;
 use App\Models\tb_berkas;
 use App\Support\NumericValue;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class SearchService
@@ -50,7 +51,8 @@ class SearchService
 
                 return $folder !== ''
                     && $file !== ''
-                    && DocumentStorage::exists('berkasclient/'.$folder.'/'.$file);
+                    && Storage::disk(config('filesystems.documents_disk', 'documents_local'))
+                        ->exists('berkasclient/'.$folder.'/'.$file);
             })
             ->take(60)
             ->values()
