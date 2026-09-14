@@ -3,6 +3,7 @@ import {
   AdjustmentsHorizontalIcon,
   ArrowDownTrayIcon,
   ArrowLeftIcon,
+  ArrowPathIcon,
   ArrowsUpDownIcon,
   BuildingOffice2Icon,
   ClockIcon,
@@ -14,6 +15,8 @@ import {
   HomeIcon,
   ListBulletIcon,
   MagnifyingGlassIcon,
+  MagnifyingGlassMinusIcon,
+  MagnifyingGlassPlusIcon,
   MoonIcon,
   SparklesIcon,
   Squares2X2Icon,
@@ -171,7 +174,15 @@ const bookDocumentDialog = reactive({
 const downloadRequestLoading = ref(false)
 const downloadCart = ref<DownloadCartItem[]>([])
 const downloadCartOpen = ref(false)
-const directPreview = reactive({ open: false, title: '', url: '' })
+const directPreview = reactive({
+  open: false,
+  title: '',
+  url: '',
+  extension: '',
+  zoom: 1,
+  rotation: 0,
+  document: null as ClientDocument | null,
+})
 const documentContextMenu = reactive({ open: false, x: 0, y: 0, document: null as ClientDocument | null })
 
 const bookDownloadMetaMap: Record<AktaType, { modulePath: string; fileCategory: string }> = {
@@ -357,6 +368,27 @@ const documentExtension = (document: ClientDocument) => {
   return fileName.includes('.') ? fileName.split('.').pop()?.toUpperCase() || 'FILE' : 'FILE'
 }
 
+const directPreviewKind = computed(() => {
+  if (['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'BMP'].includes(directPreview.extension)) return 'image'
+  if (directPreview.extension === 'PDF') return 'pdf'
+  return 'other'
+})
+
+const resetDirectPreviewTransform = () => {
+  directPreview.zoom = 1
+  directPreview.rotation = 0
+}
+
+const closeDirectPreview = () => {
+  directPreview.open = false
+  directPreview.document = null
+  resetDirectPreviewTransform()
+}
+
+const changeDirectPreviewZoom = (amount: number) => {
+  directPreview.zoom = Math.min(3, Math.max(0.25, Number((directPreview.zoom + amount).toFixed(2))))
+}
+
 const openDirectPreview = (document: ClientDocument) => {
   const url = getClientDocumentUrl(document)
   if (!url) {
@@ -365,6 +397,9 @@ const openDirectPreview = (document: ClientDocument) => {
   }
   directPreview.title = displayFileName(document.nama_dokumen, document.nama_berkas)
   directPreview.url = toIframePreviewUrl(url)
+  directPreview.extension = documentExtension(document)
+  directPreview.document = document
+  resetDirectPreviewTransform()
   directPreview.open = true
   documentContextMenu.open = false
 }
@@ -1665,12 +1700,42 @@ watch(
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="directPreview.open" class="fixed inset-0 z-[110] flex h-screen w-screen flex-col bg-slate-950">
-        <div class="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-white/10 px-5 text-white">
-          <p class="truncate font-semibold">{{ directPreview.title }}</p>
-          <button type="button" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-white/10" title="Tutup" @click="directPreview.open = false"><XMarkIcon class="h-6 w-6" /></button>
+      <div v-if="directPreview.open" class="fixed inset-0 z-[110] flex h-screen w-screen flex-col bg-slate-950/95 backdrop-blur-sm" @keydown.esc="closeDirectPreview">
+        <div class="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-slate-950/90 px-4 text-white sm:px-5">
+          <DocumentIcon class="h-6 w-6 shrink-0 text-blue-400" />
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-semibold">{{ directPreview.title }}</p>
+            <p class="text-xs text-slate-400">{{ directPreview.extension }}</p>
+          </div>
+
+          <div v-if="directPreviewKind === 'image'" class="hidden items-center gap-1 rounded-lg bg-white/5 p-1 sm:flex">
+            <button type="button" class="grid h-9 w-9 place-items-center rounded-md hover:bg-white/10" title="Perkecil" @click="changeDirectPreviewZoom(-0.25)"><MagnifyingGlassMinusIcon class="h-5 w-5" /></button>
+            <button type="button" class="h-9 min-w-16 rounded-md px-2 text-xs font-semibold hover:bg-white/10" title="Ukuran asli" @click="resetDirectPreviewTransform">{{ Math.round(directPreview.zoom * 100) }}%</button>
+            <button type="button" class="grid h-9 w-9 place-items-center rounded-md hover:bg-white/10" title="Perbesar" @click="changeDirectPreviewZoom(0.25)"><MagnifyingGlassPlusIcon class="h-5 w-5" /></button>
+            <button type="button" class="grid h-9 w-9 place-items-center rounded-md hover:bg-white/10" title="Putar" @click="directPreview.rotation = (directPreview.rotation + 90) % 360"><ArrowPathIcon class="h-5 w-5" /></button>
+          </div>
+
+          <button v-if="directPreview.document" type="button" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-white/10" title="Download" @click="requestDirectDocumentDownload(directPreview.document)"><ArrowDownTrayIcon class="h-5 w-5" /></button>
+          <button type="button" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-white/10" title="Tutup" @click="closeDirectPreview"><XMarkIcon class="h-6 w-6" /></button>
         </div>
-        <iframe :src="directPreview.url" :title="directPreview.title" class="min-h-0 flex-1 border-0 bg-white" />
+
+        <div v-if="directPreviewKind === 'image'" class="relative min-h-0 flex-1 overflow-auto bg-slate-900 p-5 sm:p-8">
+          <div class="flex min-h-full min-w-full items-center justify-center">
+            <img
+              :src="directPreview.url"
+              :alt="directPreview.title"
+              class="block max-h-[calc(100vh-8rem)] max-w-[calc(100vw-3rem)] select-none object-contain shadow-2xl transition-transform duration-200"
+              :style="{ transform: `scale(${directPreview.zoom}) rotate(${directPreview.rotation}deg)` }"
+              draggable="false"
+            />
+          </div>
+        </div>
+        <iframe v-else-if="directPreviewKind === 'pdf'" :src="directPreview.url" :title="directPreview.title" class="min-h-0 flex-1 border-0 bg-slate-800" />
+        <div v-else class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-8 text-center text-white">
+          <DocumentIcon class="h-20 w-20 text-slate-500" />
+          <p class="text-lg font-semibold">Preview belum tersedia untuk format {{ directPreview.extension }}.</p>
+          <button v-if="directPreview.document" type="button" class="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold hover:bg-blue-500" @click="requestDirectDocumentDownload(directPreview.document)"><ArrowDownTrayIcon class="h-5 w-5" /> Download file</button>
+        </div>
       </div>
     </Teleport>
 
