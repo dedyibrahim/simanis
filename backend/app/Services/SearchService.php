@@ -11,6 +11,8 @@ use App\Models\PenghadapWarmerking;
 use App\Models\tb_berkas;
 use App\Support\NumericValue;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -31,7 +33,7 @@ class SearchService
             })
             ->orderByDesc('tb_berkas.created_at')
             ->orderByDesc('tb_berkas.id_berkas')
-            ->limit(100)
+            ->limit(5000)
             ->get([
                 'tb_berkas.id_berkas',
                 'tb_berkas.id_client',
@@ -44,23 +46,46 @@ class SearchService
                 'data_clients.no_identitas',
             ]);
 
+        $availableKeys = $this->availableClientDocumentKeys();
+
         return $documents
-            ->filter(static function ($document): bool {
+            ->filter(static function ($document) use ($availableKeys): bool {
                 $folder = trim((string) $document->nama_folder);
                 $file = trim((string) $document->nama_berkas);
                 $key = 'berkasclient/'.$folder.'/'.$file;
-                $diskName = config('filesystems.documents_disk', 'documents_local');
-                $diskConfig = config('filesystems.disks.'.$diskName);
 
                 return $folder !== ''
                     && $file !== ''
-                    && (is_array($diskConfig) && !empty($diskConfig['driver'])
-                        ? Storage::disk($diskName)->exists($key)
-                        : is_file(public_path($key)));
+                    && isset($availableKeys[$key]);
             })
             ->take(60)
             ->values()
             ->toArray();
+    }
+
+    private function availableClientDocumentKeys(): array
+    {
+        return Cache::remember('search.available-client-document-keys.v1', now()->addMinutes(5), static function (): array {
+            $diskName = config('filesystems.documents_disk', 'documents_local');
+            $diskConfig = config('filesystems.disks.'.$diskName);
+
+            if (is_array($diskConfig) && !empty($diskConfig['driver'])) {
+                return array_fill_keys(Storage::disk($diskName)->allFiles('berkasclient'), true);
+            }
+
+            $root = public_path('berkasclient');
+            if (!is_dir($root)) {
+                return [];
+            }
+
+            $keys = [];
+            foreach (File::allFiles($root) as $file) {
+                $relativePath = str_replace('\\', '/', $file->getRelativePathname());
+                $keys['berkasclient/'.$relativePath] = true;
+            }
+
+            return $keys;
+        });
     }
 
     public function searchDataClient(?string $query = null): array
