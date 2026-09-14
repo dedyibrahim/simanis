@@ -102,6 +102,7 @@ const { token, user } = useSession()
 const { isDark, toggleTheme } = useThemeMode()
 
 const userInitial = computed(() => String(user.value?.name || user.value?.email || 'S').trim().charAt(0).toUpperCase())
+const showingLatest = computed(() => !searchQuery.value.trim())
 
 const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const loading = ref(false)
@@ -838,15 +839,10 @@ const toggleBookRowExpand = (row: RowRecord, index: number) => {
 
 const runSearch = async (keyword: string) => {
   const query = keyword.trim()
-  hasSearchRun.value = Boolean(query)
+  hasSearchRun.value = true
   errorMessage.value = ''
   responseMessage.value = ''
   searchResults.value = []
-
-  if (!query) {
-    resultPage.value = 1
-    return
-  }
 
   loading.value = true
   try {
@@ -1092,8 +1088,8 @@ watch(
         <button type="button" class="drive-nav-active flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left font-semibold" @click="clientTypeFilter = 'all'; bookFilter = 'all'">
           <HomeIcon class="h-5 w-5" /> Semua Dokumen
         </button>
-        <button type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="resultSort = 'most_documents'">
-          <ClockIcon class="h-5 w-5" /> Terbanyak
+        <button type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="clearSearchQuery(); resultSort = 'relevance'">
+          <ClockIcon class="h-5 w-5" /> Terbaru
         </button>
       </nav>
 
@@ -1124,8 +1120,8 @@ watch(
       <div class="mx-auto max-w-[1500px] space-y-5 px-5 py-6 lg:px-8">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 class="text-2xl font-semibold text-slate-800">Semua Dokumen</h1>
-            <p class="mt-1 text-sm text-slate-500">Cari client dan buka dokumen dari seluruh buku SIMANIS.</p>
+            <h1 class="text-2xl font-semibold text-slate-800">{{ showingLatest ? 'Dokumen Terbaru' : 'Hasil Pencarian' }}</h1>
+            <p class="mt-1 text-sm text-slate-500">{{ showingLatest ? 'Menampilkan 15 data client terbaru.' : `Hasil untuk kata kunci “${searchQuery}”.` }}</p>
           </div>
           <div class="flex items-center rounded-full border border-slate-300 p-1">
             <button type="button" :class="resultViewButtonClass('list')" title="Tampilan daftar" @click="resultViewMode = 'list'">
@@ -1307,7 +1303,7 @@ watch(
         <div class="drive-toolbar rounded-2xl border border-slate-200 p-4 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">File dan client</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ showingLatest ? 'Data terbaru' : 'File dan client' }}</p>
               <p class="mt-1 text-sm text-slate-700">
                 Menampilkan {{ resultStart }} - {{ resultEnd }} dari {{ filteredSearchResults.length }} data (total awal {{ searchResults.length }}).
               </p>
@@ -1925,7 +1921,11 @@ watch(
   --drive-surface: #ffffff;
   --drive-muted: #f8fafc;
   --drive-border: #dbe4ef;
-  background: #ffffff;
+  background:
+    linear-gradient(rgb(var(--simanis-accent-rgb) / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--simanis-accent-rgb) / 0.035) 1px, transparent 1px),
+    #f8fafc;
+  background-size: 32px 32px;
   color: #1e293b;
 }
 
@@ -1935,13 +1935,25 @@ watch(
   background: var(--drive-surface);
 }
 
+.drive-header {
+  background:
+    linear-gradient(90deg, rgb(var(--simanis-accent-rgb) / 0.08), transparent 42%),
+    var(--drive-surface);
+}
+
+.drive-header .bg-blue-600,
+.drive-workspace .bg-blue-600 {
+  background: linear-gradient(135deg, var(--simanis-accent-grad-from), var(--simanis-accent-grad-to)) !important;
+}
+
 .drive-global-search {
   background: #f1f5f9;
 }
 
 .drive-global-search:focus-within {
   background: var(--drive-surface);
-  box-shadow: 0 2px 8px rgb(15 23 42 / 0.16);
+  border-color: rgb(var(--simanis-accent-rgb) / 0.45);
+  box-shadow: 0 2px 10px var(--simanis-accent-shadow);
 }
 
 .drive-icon-button,
@@ -1966,8 +1978,8 @@ watch(
 }
 
 .drive-nav-active {
-  color: #1e40af;
-  background: #dbeafe;
+  color: var(--simanis-accent-700);
+  background: var(--simanis-accent-100);
 }
 
 .drive-filter-chip {
@@ -1982,9 +1994,9 @@ watch(
 }
 
 .drive-filter-chip:hover {
-  color: #1d4ed8;
-  border-color: #60a5fa;
-  background: #eff6ff;
+  color: var(--simanis-accent-700);
+  border-color: var(--simanis-accent-500);
+  background: var(--simanis-accent-50);
 }
 
 .drive-legacy-hero {
@@ -2018,7 +2030,11 @@ watch(
   --drive-surface: #111827;
   --drive-muted: #17233d;
   --drive-border: #334155;
-  background: #07111f;
+  background:
+    linear-gradient(rgb(var(--simanis-accent-rgb) / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--simanis-accent-rgb) / 0.07) 1px, transparent 1px),
+    #020817;
+  background-size: 36px 36px;
 }
 
 .document-search-dark .drive-global-search,
@@ -2041,8 +2057,8 @@ watch(
 }
 
 .document-search-dark .drive-nav-active {
-  color: #bfdbfe;
-  background: rgb(37 99 235 / 0.24);
+  color: #ffffff;
+  background: linear-gradient(90deg, rgb(var(--simanis-accent-rgb) / 0.48), rgb(var(--simanis-accent-rgb) / 0.18));
 }
 
 .document-search-dark .drive-folder-icon {
