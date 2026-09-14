@@ -55,6 +55,14 @@ const business = useLegacyBusiness()
 const { isDark } = useThemeMode()
 const route = useRoute()
 
+// Keep old document-search links working after the search view moved to its own page.
+if (route.query.view === 'documents') {
+  await navigateTo({
+    path: '/pencarian-dokumen',
+    query: typeof route.query.q === 'string' && route.query.q ? { q: route.query.q } : {},
+  }, { replace: true })
+}
+
 type DashboardView = 'overview' | 'documents' | 'schedule'
 const activeDashboardView = computed<DashboardView>(() => {
   if (route.query.view === 'documents') return 'documents'
