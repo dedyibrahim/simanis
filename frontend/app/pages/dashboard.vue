@@ -9,7 +9,6 @@ import {
   TrophyIcon,
 } from '@heroicons/vue/24/outline'
 import type { Ref } from 'vue'
-import DocumentSearchPage from './pencarian-dokumen.vue'
 import NotarySchedulePage from './jadwal-notaris.vue'
 
 definePageMeta({
@@ -70,6 +69,10 @@ const dashboardViews = [
 ]
 
 const setDashboardView = async (view: DashboardView) => {
+  if (view === 'documents') {
+    await navigateTo('/pencarian-dokumen')
+    return
+  }
   await navigateTo({
     path: '/dashboard',
     query: view === 'overview' ? {} : { view },
@@ -269,8 +272,8 @@ const refreshDashboard = async () => {
 const openDocumentSearch = async () => {
   const query = quickSearchQuery.value.trim()
   await navigateTo({
-    path: '/dashboard',
-    query: query ? { view: 'documents', q: query } : { view: 'documents' },
+    path: '/pencarian-dokumen',
+    query: query ? { q: query } : {},
   })
 }
 
@@ -677,7 +680,6 @@ onMounted(() => {
     </SurfaceCard>
     </div>
 
-    <DocumentSearchPage v-else-if="activeDashboardView === 'documents'" />
-    <NotarySchedulePage v-else />
+    <NotarySchedulePage v-else-if="activeDashboardView === 'schedule'" />
   </div>
 </template>

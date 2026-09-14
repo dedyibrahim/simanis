@@ -1313,8 +1313,8 @@ const isGroupActive = (group: NavigationGroup) => group.children.some(child => i
 const submitTopbarSearch = async () => {
   const query = topbarSearch.value.trim()
   await navigateTo({
-    path: '/dashboard',
-    query: query ? { view: 'documents', q: query } : { view: 'documents' },
+    path: '/pencarian-dokumen',
+    query: query ? { q: query } : {},
   })
 }
 
@@ -1325,8 +1325,8 @@ const submitWindowsSearch = async () => {
 
 const clearTopbarSearch = async () => {
   topbarSearch.value = ''
-  if (route.path === '/dashboard' && route.query.view === 'documents') {
-    await navigateTo({ path: '/dashboard', query: { view: 'documents' } })
+  if (route.path === '/pencarian-dokumen') {
+    await navigateTo({ path: '/pencarian-dokumen' })
   }
 }
 
