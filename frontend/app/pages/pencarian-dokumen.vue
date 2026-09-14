@@ -47,7 +47,7 @@ type DownloadRequestPayload = {
 }
 
 type RowRecord = Record<string, unknown>
-type AktaType = 'Akta Notaris' | 'Legalisasi' | 'Waarmerking' | 'Akta PPAT'
+type AktaType = 'Akta Notaris' | 'Legalisasi' | 'Waarmerking' | 'Akta PPAT' | 'Surat Notaris' | 'Surat PPAT'
 type ClientTypeFilter = 'all' | 'perorangan' | 'badan_hukum'
 type BookFilter = 'all' | AktaType
 type ResultSort = 'relevance' | 'name_asc' | 'name_desc' | 'most_documents'
@@ -76,6 +76,11 @@ type ClientDocument = RowRecord & {
   jenis_client?: string
   no_identitas?: string
   created_at?: string
+  row_id?: string | number
+  storage_folder?: string
+  document_category?: string
+  module_path?: string
+  file_category?: string
 }
 
 type StandardDocument = RowRecord & {
@@ -137,7 +142,7 @@ const showOnlyWithDocuments = ref(false)
 const resultPage = ref(1)
 const resultPerPage = ref(9)
 const quickKeywords = ['PT', 'CV', 'Yayasan', 'Jual Beli', 'Hibah']
-const bookTypeOptions: AktaType[] = ['Akta Notaris', 'Legalisasi', 'Waarmerking', 'Akta PPAT']
+const bookTypeOptions: AktaType[] = ['Akta Notaris', 'Legalisasi', 'Waarmerking', 'Akta PPAT', 'Surat Notaris', 'Surat PPAT']
 const resultSortOptions: Array<{ value: ResultSort; label: string }> = [
   { value: 'relevance', label: 'Relevansi' },
   { value: 'name_asc', label: 'Nama A-Z' },
@@ -208,6 +213,8 @@ const bookDownloadMetaMap: Record<AktaType, { modulePath: string; fileCategory: 
     modulePath: '/buku_ppat',
     fileCategory: 'standard_ppat',
   },
+  'Surat Notaris': { modulePath: '/buku_surat_notaris', fileCategory: 'surat_notaris' },
+  'Surat PPAT': { modulePath: '/buku_surat_ppat', fileCategory: 'surat_ppat' },
 }
 
 const expandedBookRows = reactive<Record<string, boolean>>({})
@@ -289,7 +296,8 @@ const countByBook = (client: SearchClient, type: AktaType) => {
   if (type === 'Akta Notaris') return toNumericCount(client.akta_notaris)
   if (type === 'Legalisasi') return toNumericCount(client.legalisasi)
   if (type === 'Waarmerking') return toNumericCount(client.warmerking ?? client.waarmerking)
-  return toNumericCount(client.akta_ppat)
+  if (type === 'Akta PPAT') return toNumericCount(client.akta_ppat)
+  return 0
 }
 
 const totalBookCount = (client: SearchClient) =>
@@ -353,8 +361,14 @@ const filteredSearchResults = computed(() => {
 })
 
 const filteredDocumentResults = computed(() => {
-  if (clientTypeFilter.value === 'all') return documentResults.value
-  return documentResults.value.filter(document => resolveClientType(document as SearchClient) === clientTypeFilter.value)
+  let list = documentResults.value
+  if (clientTypeFilter.value !== 'all') {
+    list = list.filter(document => resolveClientType(document as SearchClient) === clientTypeFilter.value)
+  }
+  if (bookFilter.value !== 'all') {
+    list = list.filter(document => toString(document.document_category, '') === bookFilter.value)
+  }
+  return list
 })
 
 const paginatedDocumentResults = computed(() => {
@@ -362,9 +376,7 @@ const paginatedDocumentResults = computed(() => {
   return filteredDocumentResults.value.slice(start, start + resultPerPage.value)
 })
 
-const activeResultCount = computed(() =>
-  bookFilter.value === 'all' ? filteredDocumentResults.value.length : filteredSearchResults.value.length,
-)
+const activeResultCount = computed(() => filteredDocumentResults.value.length)
 
 const workspaceTitle = computed(() => {
   if (bookFilter.value !== 'all') return bookFilter.value
@@ -645,6 +657,18 @@ const bookConfigs: Record<AktaType, BookConfig> = {
     ],
     assetUrl: fileName => business.assets.berkasPpat(fileName),
   },
+  'Surat Notaris': {
+    list: payload => business.surat.getBukuSuratNotaris(payload),
+    listDocuments: async () => [],
+    idField: 'id_surat_notaris', numberField: 'no_surat', columns: [],
+    assetUrl: fileName => business.assets.suratNotaris(fileName),
+  },
+  'Surat PPAT': {
+    list: payload => business.surat.getBukuSuratPPAT(payload),
+    listDocuments: async () => [],
+    idField: 'id_surat_ppat', numberField: 'no_surat', columns: [],
+    assetUrl: fileName => business.assets.suratPpat(fileName),
+  },
 }
 
 const cardActionItems = (client: SearchClient) => [
@@ -690,12 +714,19 @@ const ppatDetailPairs = (row: RowRecord): Array<[string, unknown]> => [
 ]
 
 const getClientDocumentUrl = (item: ClientDocument) => {
-  const folder = toString(item.nama_folder, '')
+  const folder = toString(item.storage_folder || item.nama_folder, '')
   const fileName = toString(item.nama_berkas, '')
   if (!folder || !fileName) {
     return ''
   }
-  return business.assets.berkasClient(folder, fileName)
+  if (item.file_category === 'client_document') return business.assets.berkasClient(folder, fileName)
+  if (item.file_category === 'standard_notaris') return business.assets.berkasNotaris(fileName)
+  if (item.file_category === 'standard_legalisasi') return business.assets.berkasLegalisasi(fileName)
+  if (item.file_category === 'standard_waarmerking') return business.assets.berkasWarmerking(fileName)
+  if (item.file_category === 'standard_ppat') return business.assets.berkasPpat(fileName)
+  if (item.file_category === 'surat_notaris') return business.assets.suratNotaris(fileName)
+  if (item.file_category === 'surat_ppat') return business.assets.suratPpat(fileName)
+  return ''
 }
 
 const toIframePreviewUrl = (url: string) => {
@@ -909,22 +940,22 @@ const submitDownloadCart = async () => {
 const addClientDocumentToCart = (document: ClientDocument) => {
   const clientId = toString(clientDocumentDialog.client?.id_client, '')
   const clientName = toString(clientDocumentDialog.client?.nama_client, 'Client')
-  const folder = toString(document.nama_folder, '')
+  const folder = toString(document.storage_folder || document.nama_folder, '')
   const fileName = toString(document.nama_berkas, '')
-  const rowDocId = toString(document.id_berkas, '')
+  const rowDocId = toString(document.row_id || document.id_berkas, '')
 
-  if (!clientId || !folder || !fileName) {
+  if (!rowDocId || !folder || !fileName) {
     errorMessage.value = 'Data dokumen client tidak valid untuk masuk keranjang.'
     return
   }
 
-  const rowId = rowDocId ? `${clientId}:${rowDocId}` : `${clientId}:${fileName}`
+  const rowId = document.file_category === 'client_document' ? `${clientId}:${rowDocId}` : rowDocId
   const displayName = displayFileName(document.nama_dokumen, fileName)
   addDownloadCartItem({
-    module_path: '/pencarian-dokumen',
+    module_path: toString(document.module_path, '/pencarian-dokumen'),
     row_id: rowId,
-    file_name: `${folder}/${fileName}`,
-    file_category: 'client_document',
+    file_name: document.file_category === 'client_document' ? `${folder}/${fileName}` : fileName,
+    file_category: toString(document.file_category, 'client_document'),
     label: `${clientName} - ${displayName}`,
     display_name: displayName,
   })
@@ -950,24 +981,24 @@ const addBookDocumentToCart = (document: StandardDocument) => {
 
 const requestClientDocumentDownload = async (document: ClientDocument) => {
   const clientId = toString(clientDocumentDialog.client?.id_client, '')
-  const folder = toString(document.nama_folder, '')
+  const folder = toString(document.storage_folder || document.nama_folder, '')
   const fileName = toString(document.nama_berkas, '')
-  const rowDocId = toString(document.id_berkas, '')
+  const rowDocId = toString(document.row_id || document.id_berkas, '')
 
-  if (!clientId || !folder || !fileName) {
+  if (!rowDocId || !folder || !fileName) {
     errorMessage.value = 'Data dokumen client tidak valid untuk request download.'
     return
   }
 
-  const rowId = rowDocId ? `${clientId}:${rowDocId}` : `${clientId}:${fileName}`
+  const rowId = document.file_category === 'client_document' ? `${clientId}:${rowDocId}` : rowDocId
   const displayName = displayFileName(document.nama_dokumen, fileName)
 
   await requestDownloadWithApproval({
-    module_path: '/pencarian-dokumen',
+    module_path: toString(document.module_path, '/pencarian-dokumen'),
     row_id: rowId,
-    file_name: `${folder}/${fileName}`,
+    file_name: document.file_category === 'client_document' ? `${folder}/${fileName}` : fileName,
     display_name: displayName,
-    file_category: 'client_document',
+    file_category: toString(document.file_category, 'client_document'),
   }, displayName)
 }
 
@@ -1295,7 +1326,7 @@ watch(
         </button>
       </nav>
 
-      <p class="mb-2 mt-7 px-4 text-xs font-semibold uppercase text-slate-400">Kategori Buku</p>
+      <p class="mb-2 mt-7 px-4 text-xs font-semibold uppercase text-slate-400">Kategori Dokumen</p>
       <nav class="space-y-1 text-sm">
         <button v-for="type in bookTypeOptions" :key="type" type="button" :class="sidebarNavClass(activeSidebar === type)" @click="selectBookFilter(type)">
           <FolderIcon class="h-5 w-5" :class="activeSidebar === type ? 'text-current' : 'text-blue-500'" /> {{ type }}
@@ -1495,7 +1526,7 @@ watch(
         <div class="drive-toolbar rounded-2xl border border-slate-200 p-4 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ bookFilter !== 'all' ? 'Client terkait' : showingLatest ? 'Data terbaru' : 'Hasil pencarian' }}</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ bookFilter !== 'all' ? 'Dokumen kategori' : showingLatest ? 'Data terbaru' : 'Hasil pencarian' }}</p>
               <p class="mt-1 text-sm text-slate-700">
                 Menampilkan {{ resultStart }} - {{ resultEnd }} dari {{ activeResultCount }} data.
               </p>
@@ -1546,7 +1577,7 @@ watch(
           Tidak ada hasil untuk kombinasi filter saat ini.
         </div>
 
-        <div v-else-if="bookFilter === 'all' && resultViewMode === 'grid'" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div v-else-if="resultViewMode === 'grid'" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <article
             v-for="(document, index) in paginatedDocumentResults"
             :key="documentResultKey(document, index)"
@@ -1570,13 +1601,14 @@ watch(
                 <div class="min-w-0">
                   <p class="truncate text-sm font-semibold text-slate-800" :title="displayFileName(document.nama_dokumen, document.nama_berkas)">{{ displayFileName(document.nama_dokumen, document.nama_berkas) }}</p>
                   <p class="mt-1 truncate text-xs text-slate-500">{{ toString(document.nama_client, 'Tanpa client') }}</p>
+                  <p class="mt-1 truncate text-[11px] font-semibold text-blue-600">{{ toString(document.document_category, 'Dokumen Client') }}</p>
                 </div>
               </div>
             </div>
           </article>
         </div>
 
-        <div v-else-if="bookFilter === 'all'" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div v-else-if="resultViewMode === 'list'" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <button
             v-for="(document, index) in paginatedDocumentResults"
             :key="documentResultKey(document, index)"
@@ -1591,7 +1623,7 @@ watch(
           </button>
         </div>
 
-        <div v-else-if="resultViewMode === 'grid'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div v-else-if="false" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <article
             v-for="(client, index) in paginatedSearchResults"
             :key="clientCardKey(client, index)"

@@ -485,6 +485,8 @@ export function useLegacyBusinessService() {
     berkasLegalisasi: (fileName: string) => buildAssetUrl(`berkaslegalisasis/${cleanPath(fileName)}`),
     berkasWarmerking: (fileName: string) => buildAssetUrl(`berkaswarmerkings/${cleanPath(fileName)}`),
     berkasPpat: (fileName: string) => buildAssetUrl(`berkasppat/${cleanPath(fileName)}`),
+    suratNotaris: (fileName: string) => buildAssetUrl(`suratnotaris/${cleanPath(fileName)}`),
+    suratPpat: (fileName: string) => buildAssetUrl(`suratppats/${cleanPath(fileName)}`),
     api: (path: string) => withBase(path),
   }
 

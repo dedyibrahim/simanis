@@ -20,7 +20,7 @@ class SearchService
 {
     public function searchDocuments(?string $query = null): array
     {
-        $documents = tb_berkas::query()
+        $clientDocuments = tb_berkas::query()
             ->leftJoin('data_clients', 'tb_berkas.id_client', '=', 'data_clients.id_client')
             ->when($query, function ($builder, string $query): void {
                 $builder->where(function ($builder) use ($query): void {
@@ -31,11 +31,9 @@ class SearchService
                         ->orWhere('data_clients.no_identitas', 'LIKE', $like);
                 });
             })
-            ->orderByDesc('tb_berkas.created_at')
-            ->orderByDesc('tb_berkas.id_berkas')
-            ->limit(5000)
+            ->orderByDesc('tb_berkas.created_at')->limit(500)
             ->get([
-                'tb_berkas.id_berkas',
+                DB::raw('tb_berkas.id_berkas as row_id'),
                 'tb_berkas.id_client',
                 'tb_berkas.nama_dokumen',
                 'tb_berkas.nama_berkas',
@@ -44,44 +42,123 @@ class SearchService
                 'data_clients.nama_client',
                 'data_clients.jenis_client',
                 'data_clients.no_identitas',
+                DB::raw("'Dokumen Client' as document_category"),
+                DB::raw("'/pencarian-dokumen' as module_path"),
+                DB::raw("'client_document' as file_category"),
             ]);
 
-        $availableKeys = $this->availableClientDocumentKeys();
+        $documents = collect($clientDocuments);
+        $documents = $documents->merge($this->standardBookDocuments('notaris', $query));
+        $documents = $documents->merge($this->standardBookDocuments('legalisasi', $query));
+        $documents = $documents->merge($this->standardBookDocuments('waarmerking', $query));
+        $documents = $documents->merge($this->standardBookDocuments('ppat', $query));
+        $documents = $documents->merge($this->letterDocuments('notaris', $query));
+        $documents = $documents->merge($this->letterDocuments('ppat', $query));
+
+        $availableKeys = $this->availableDocumentKeys();
 
         return $documents
             ->filter(static function ($document) use ($availableKeys): bool {
-                $folder = trim((string) $document->nama_folder);
+                $folder = trim((string) ($document->storage_folder ?? $document->nama_folder));
                 $file = trim((string) $document->nama_berkas);
-                $key = 'berkasclient/'.$folder.'/'.$file;
+                $key = ($document->file_category ?? '') === 'client_document'
+                    ? trim('berkasclient/'.$folder.'/'.$file, '/')
+                    : trim($folder.'/'.$file, '/');
 
-                return $folder !== ''
-                    && $file !== ''
-                    && isset($availableKeys[$key]);
+                return $folder !== '' && $file !== '' && isset($availableKeys[$key]);
             })
-            ->take(60)
+            ->sortByDesc('created_at')
+            ->take(240)
             ->values()
             ->toArray();
     }
 
-    private function availableClientDocumentKeys(): array
+    private function standardBookDocuments(string $type, ?string $query)
     {
-        return Cache::remember('search.available-client-document-keys.v1', now()->addMinutes(5), static function (): array {
+        $configs = [
+            'notaris' => ['tb_dokumen_notaris', 'id_dokumen_notaris', 'id_buku_notaris', 'buku_notaris', 'penghadap_notaris', 'berkasnotaris', 'Akta Notaris', '/buku_akta', 'standard_notaris'],
+            'legalisasi' => ['tb_dokumen_legalisasis', 'id_dokumen_legalisasi', 'id_buku_legalisasi', 'buku_legalisasis', 'penghadap_legalisasis', 'berkaslegalisasis', 'Legalisasi', '/buku_legalisasi', 'standard_legalisasi'],
+            'waarmerking' => ['tb_dokumen_warmerkings', 'id_dokumen_warmerking', 'id_buku_warmerking', 'buku_warmerkings', 'penghadap_warmerkings', 'berkaswarmerkings', 'Waarmerking', '/buku_waarmerking', 'standard_waarmerking'],
+            'ppat' => ['tb_dokumen_ppat', 'id_dokumen_ppat', 'id_buku_ppat', 'buku_ppats', 'penghadap_ppats', 'berkasppat', 'Akta PPAT', '/buku_ppat', 'standard_ppat'],
+        ];
+        [$table, $id, $bookId, $bookTable, $partyTable, $folder, $category, $module, $fileCategory] = $configs[$type];
+
+        return DB::table($table)
+            ->leftJoin($bookTable, "$table.$bookId", '=', "$bookTable.$bookId")
+            ->leftJoin($partyTable, "$bookTable.$bookId", '=', "$partyTable.$bookId")
+            ->leftJoin('data_clients', function ($join) use ($partyTable): void {
+                $join->on("$partyTable.id_client", '=', 'data_clients.id_client')
+                    ->orOn("$partyTable.id_mewakili", '=', 'data_clients.id_client');
+            })
+            ->when($query, function ($builder, string $query) use ($table): void {
+                $like = '%'.$query.'%';
+                $builder->where(function ($builder) use ($table, $like): void {
+                    $builder->where("$table.nama_dokumen", 'LIKE', $like)
+                        ->orWhere("$table.nama_berkas", 'LIKE', $like)
+                        ->orWhere('data_clients.nama_client', 'LIKE', $like)
+                        ->orWhere('data_clients.no_identitas', 'LIKE', $like);
+                });
+            })
+            ->whereNotNull("$table.nama_berkas")
+            ->select([
+                DB::raw("$table.$id as row_id"), "$table.nama_dokumen", "$table.nama_berkas",
+                "$table.created_at", 'data_clients.id_client', 'data_clients.nama_client',
+                'data_clients.jenis_client', 'data_clients.no_identitas',
+                DB::raw("'$folder' as storage_folder"), DB::raw("'$category' as document_category"),
+                DB::raw("'$module' as module_path"), DB::raw("'$fileCategory' as file_category"),
+            ])->distinct()->orderByDesc("$table.created_at")->limit(500)->get();
+    }
+
+    private function letterDocuments(string $type, ?string $query)
+    {
+        $table = $type === 'notaris' ? 'buku_surat_notaris' : 'buku_surat_ppats';
+        $id = $type === 'notaris' ? 'id_surat_notaris' : 'id_surat_ppat';
+        $folder = $type === 'notaris' ? 'suratnotaris' : 'suratppats';
+        $category = $type === 'notaris' ? 'Surat Notaris' : 'Surat PPAT';
+        $module = $type === 'notaris' ? '/buku_surat_notaris' : '/buku_surat_ppat';
+        $fileCategory = $type === 'notaris' ? 'surat_notaris' : 'surat_ppat';
+
+        return DB::table($table)->leftJoin('data_clients', "$table.id_client", '=', 'data_clients.id_client')
+            ->when($query, function ($builder, string $query) use ($table): void {
+                $like = '%'.$query.'%';
+                $builder->where(function ($builder) use ($table, $like): void {
+                    $builder->where("$table.file", 'LIKE', $like)->orWhere("$table.keterangan", 'LIKE', $like)
+                        ->orWhere("$table.no_surat", 'LIKE', $like)->orWhere('data_clients.nama_client', 'LIKE', $like)
+                        ->orWhere('data_clients.no_identitas', 'LIKE', $like);
+                });
+            })->whereNotNull("$table.file")->where("$table.file", '<>', '')
+            ->select([
+                DB::raw("$table.$id as row_id"), DB::raw("COALESCE($table.keterangan, 'Surat') as nama_dokumen"),
+                DB::raw("$table.file as nama_berkas"), "$table.created_at", 'data_clients.id_client',
+                'data_clients.nama_client', 'data_clients.jenis_client', 'data_clients.no_identitas',
+                DB::raw("'$folder' as storage_folder"), DB::raw("'$category' as document_category"),
+                DB::raw("'$module' as module_path"), DB::raw("'$fileCategory' as file_category"),
+            ])->orderByDesc("$table.created_at")->limit(500)->get();
+    }
+
+    private function availableDocumentKeys(): array
+    {
+        return Cache::remember('search.available-document-keys.v2', now()->addMinutes(5), static function (): array {
             $diskName = config('filesystems.documents_disk', 'documents_local');
             $diskConfig = config('filesystems.disks.'.$diskName);
+            $folders = ['berkasclient', 'berkasnotaris', 'berkaslegalisasis', 'berkaswarmerkings', 'berkasppat', 'suratnotaris', 'suratppats'];
 
             if (is_array($diskConfig) && !empty($diskConfig['driver'])) {
-                return array_fill_keys(Storage::disk($diskName)->allFiles('berkasclient'), true);
-            }
-
-            $root = public_path('berkasclient');
-            if (!is_dir($root)) {
-                return [];
+                $keys = [];
+                foreach ($folders as $folder) {
+                    $keys += array_fill_keys(Storage::disk($diskName)->allFiles($folder), true);
+                }
+                return $keys;
             }
 
             $keys = [];
-            foreach (File::allFiles($root) as $file) {
-                $relativePath = str_replace('\\', '/', $file->getRelativePathname());
-                $keys['berkasclient/'.$relativePath] = true;
+            foreach ($folders as $folder) {
+                $root = public_path($folder);
+                if (!is_dir($root)) continue;
+                foreach (File::allFiles($root) as $file) {
+                    $relativePath = str_replace('\\', '/', $file->getRelativePathname());
+                    $keys[$folder.'/'.$relativePath] = true;
+                }
             }
 
             return $keys;
