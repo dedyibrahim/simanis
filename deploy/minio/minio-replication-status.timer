@@ -1,0 +1,11 @@
+[Unit]
+Description=Pantau replikasi MinIO SIMANIS setiap menit
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

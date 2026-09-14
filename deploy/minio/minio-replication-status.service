@@ -1,0 +1,6 @@
+[Unit]
+Description=Status replikasi MinIO SIMANIS ke server standby
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/simanis-minio-replication-status

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+STATUS_FILE=/var/lib/simanis-ha/minio-flatten-status.json
+PREFIXES=(berkasclient berkaslegalisasis berkasnotaris berkasppat berkaswarmerkings chat_attachments scanned-documents suratnotaris suratppats tandaterima)
+source /etc/default/minio
+mc alias set replication-source http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+mc alias set replication-target http://192.168.0.10:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+
+running=false
+if pgrep -f 'mc mirror --overwrite --preserve --summary source/simanis-documents target/simanis-documents' >/dev/null; then running=true; fi
+status=completed
+if [[ "$running" == true ]]; then status=running; fi
+current_prefix=""
+command_line="$(pgrep -a -x mc | grep 'mirror --overwrite' | head -1 || true)"
+if [[ -n "$command_line" ]]; then current_prefix="$(printf '%s' "$command_line" | sed -n 's/.*simanis-documents\/\([^ ]*\).*/\1/p')"; fi
+
+du_json() {
+  local output
+  if output="$(mc du --json "$1" 2>/dev/null | tail -1)" && [[ "$output" == \{* ]]; then
+    printf '%s\n' "$output"
+  else
+    printf '%s\n' '{"size":0,"objects":0,"status":"empty"}'
+  fi
+}
+source_json="$(du_json replication-source/simanis-documents)"
+destination_json="$(du_json replication-target/simanis-documents)"
+source_bytes=$(php -r '$d=json_decode($argv[1],true)?:[]; echo (int)($d["size"]??0);' "$source_json")
+destination_bytes=$(php -r '$d=json_decode($argv[1],true)?:[]; echo (int)($d["size"]??0);' "$destination_json")
+source_objects=$(php -r '$d=json_decode($argv[1],true)?:[]; echo (int)($d["objects"]??0);' "$source_json")
+destination_objects=$(php -r '$d=json_decode($argv[1],true)?:[]; echo (int)($d["objects"]??0);' "$destination_json")
+prefixes='[]'
+for prefix in "${PREFIXES[@]}"; do
+  s="$(du_json "replication-source/simanis-documents/$prefix")"
+  d="$(du_json "replication-target/simanis-documents/$prefix")"
+  sb=$(php -r '$d=json_decode($argv[1],true)?:[];echo (int)($d["size"]??0);' "$s")
+  db=$(php -r '$d=json_decode($argv[1],true)?:[];echo (int)($d["size"]??0);' "$d")
+  so=$(php -r '$d=json_decode($argv[1],true)?:[];echo (int)($d["objects"]??0);' "$s")
+  do=$(php -r '$d=json_decode($argv[1],true)?:[];echo (int)($d["objects"]??0);' "$d")
+  ps=waiting
+  if (( so > 0 && so == do && sb == db )); then ps=completed; elif [[ "$prefix" == "$current_prefix" || $do -gt 0 ]]; then ps=running; fi
+  prefixes=$(php -r '$a=json_decode($argv[1],true)?:[];$a[]=["name"=>$argv[2],"status"=>$argv[3],"source_bytes"=>(int)$argv[4],"destination_bytes"=>(int)$argv[5],"source_objects"=>(int)$argv[6],"destination_objects"=>(int)$argv[7]];echo json_encode($a);' "$prefixes" "$prefix" "$ps" "$sb" "$db" "$so" "$do")
+done
+percent=$(php -r '$s=max(1,(int)$argv[1]);echo min(100,round((int)$argv[2]/$s*100,2));' "$source_bytes" "$destination_bytes")
+if [[ "$running" == false && "$destination_objects" == "$source_objects" && "$source_bytes" == "$destination_bytes" ]]; then percent=100; fi
+tmp="$STATUS_FILE.tmp"
+php -r '$d=["status"=>$argv[1],"progress_percent"=>(float)$argv[2],"source_bytes"=>(int)$argv[3],"destination_bytes"=>(int)$argv[4],"source_objects"=>(int)$argv[5],"destination_objects"=>(int)$argv[6],"current_prefix"=>$argv[7],"process_running"=>$argv[8]==="true","updated_at"=>gmdate("c"),"prefixes"=>json_decode($argv[9],true)?:[],"error"=>""];file_put_contents($argv[10],json_encode($d));' "$status" "$percent" "$source_bytes" "$destination_bytes" "$source_objects" "$destination_objects" "$current_prefix" "$running" "$prefixes" "$tmp"
+mv -f "$tmp" "$STATUS_FILE"

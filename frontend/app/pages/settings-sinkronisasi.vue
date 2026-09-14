@@ -535,9 +535,9 @@ onBeforeUnmount(() => {
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Object Storage</p>
-          <h3 class="mt-2 text-lg font-semibold text-slate-900">Penataan Folder MinIO</h3>
+          <h3 class="mt-2 text-lg font-semibold text-slate-900">Replikasi Dokumen ke Server Standby</h3>
           <p class="mt-1 text-sm text-slate-500">
-            Memindahkan folder dokumen langsung ke root bucket simanis-documents.
+            Menyalin dokumen dari MinIO server utama ke MinIO server standby.
           </p>
         </div>
         <span
@@ -565,6 +565,10 @@ onBeforeUnmount(() => {
           {{ formatBytes(storageReorganization.destination_bytes) }} dari {{ formatBytes(storageReorganization.source_bytes) }}
         </span>
       </div>
+      <p class="mt-2 text-xs text-slate-500">
+        {{ storageReorganization.current_prefix ? `Folder aktif: ${storageReorganization.current_prefix}` : 'Memeriksa kesamaan objek...' }}
+        · Diperbarui {{ formatDate(storageReorganization.updated_at) }}
+      </p>
 
       <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div
