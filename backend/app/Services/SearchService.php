@@ -17,7 +17,7 @@ class SearchService
 {
     public function searchDocuments(?string $query = null): array
     {
-        return tb_berkas::query()
+        $documents = tb_berkas::query()
             ->leftJoin('data_clients', 'tb_berkas.id_client', '=', 'data_clients.id_client')
             ->when($query, function ($builder, string $query): void {
                 $builder->where(function ($builder) use ($query): void {
@@ -30,18 +30,30 @@ class SearchService
             })
             ->orderByDesc('tb_berkas.created_at')
             ->orderByDesc('tb_berkas.id_berkas')
-            ->limit(60)
+            ->limit(100)
             ->get([
                 'tb_berkas.id_berkas',
                 'tb_berkas.id_client',
                 'tb_berkas.nama_dokumen',
                 'tb_berkas.nama_berkas',
-                'data_clients.nama_folder',
+                DB::raw("COALESCE(data_clients.nama_folder, CONCAT('Dok', tb_berkas.id_client)) AS nama_folder"),
                 'tb_berkas.created_at',
                 'data_clients.nama_client',
                 'data_clients.jenis_client',
                 'data_clients.no_identitas',
-            ])
+            ]);
+
+        return $documents
+            ->filter(static function ($document): bool {
+                $folder = trim((string) $document->nama_folder);
+                $file = trim((string) $document->nama_berkas);
+
+                return $folder !== ''
+                    && $file !== ''
+                    && DocumentStorage::exists('berkasclient/'.$folder.'/'.$file);
+            })
+            ->take(60)
+            ->values()
             ->toArray();
     }
 
