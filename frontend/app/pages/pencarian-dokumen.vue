@@ -315,8 +315,8 @@ const bookButtonCompactClass = (type: AktaType) => {
 const resultViewButtonClass = (mode: ResultViewMode) => {
   const active = resultViewMode.value === mode
   return active
-    ? 'inline-flex h-9 items-center gap-1 rounded-lg border border-slate-300 bg-slate-900 px-3 text-xs font-semibold text-white'
-    : 'inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50'
+    ? 'inline-flex h-9 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm'
+    : 'inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800'
 }
 
 const filteredSearchResults = computed(() => {
@@ -1247,12 +1247,12 @@ watch(
       </NuxtLink>
 
       <form class="mx-auto w-full max-w-3xl" @submit.prevent="submitSearch">
-        <label class="drive-global-search flex h-12 items-center rounded-2xl px-4 transition">
+        <label class="drive-global-search flex h-11 items-center rounded-xl border border-transparent px-4 transition">
           <MagnifyingGlassIcon class="mr-3 h-5 w-5 shrink-0 text-slate-500" />
           <input
             v-model="searchQuery"
             type="search"
-            class="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] text-slate-800 outline-none placeholder:text-slate-500"
+            class="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[15px] text-slate-800 shadow-none outline-none ring-0 placeholder:text-slate-500 focus:border-0 focus:outline-none focus:ring-0"
             placeholder="Cari dalam dokumen SIMANIS"
           />
           <button v-if="searchQuery" type="button" class="grid h-8 w-8 place-items-center rounded-full text-slate-500 hover:bg-slate-200" title="Hapus pencarian" @click="clearSearchQuery">
@@ -1315,7 +1315,7 @@ watch(
             <h1 class="text-2xl font-semibold text-slate-800">{{ workspaceTitle }}</h1>
             <p class="mt-1 text-sm text-slate-500">{{ workspaceSubtitle }}</p>
           </div>
-          <div class="flex items-center rounded-full border border-slate-300 p-1">
+          <div class="flex items-center gap-0.5 rounded-lg border border-slate-300 bg-transparent p-0.5">
             <button type="button" :class="resultViewButtonClass('list')" title="Tampilan daftar" @click="resultViewMode = 'list'">
               <ListBulletIcon class="h-4 w-4" /> List
             </button>
@@ -2030,6 +2030,12 @@ watch(
 
 .drive-global-search {
   background: #f1f5f9;
+}
+
+.drive-global-search input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .drive-global-search:focus-within {
