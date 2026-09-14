@@ -36,7 +36,7 @@ class SearchService
                 'tb_berkas.id_client',
                 'tb_berkas.nama_dokumen',
                 'tb_berkas.nama_berkas',
-                'tb_berkas.nama_folder',
+                'data_clients.nama_folder',
                 'tb_berkas.created_at',
                 'data_clients.nama_client',
                 'data_clients.jenis_client',
