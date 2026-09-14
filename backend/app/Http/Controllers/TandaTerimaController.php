@@ -175,8 +175,8 @@ class TandaTerimaController extends Controller
             $tandaTerima->delete();
         });
 
-        if ($tandaTerima->file && is_file($path)) {
-            @unlink($path);
+        if ($tandaTerima->file && \App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         return response()->json(['message' => 'Tanda Terima berhasil dihapus'], 200);

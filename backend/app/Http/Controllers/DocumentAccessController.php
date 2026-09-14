@@ -575,7 +575,7 @@ class DocumentAccessController extends Controller
         }
 
         $absolutePath = public_path($relativePath);
-        if (!is_file($absolutePath)) {
+        if (!\App\Services\DocumentStorage::exists($absolutePath)) {
             throw new \RuntimeException('File tidak ditemukan: '.basename($storedFileName));
         }
 
@@ -1041,7 +1041,7 @@ class DocumentAccessController extends Controller
         }
 
         $absolutePath = public_path($relativePath);
-        if (!is_file($absolutePath)) {
+        if (!\App\Services\DocumentStorage::exists($absolutePath)) {
             return response()->json([
                 'status' => false,
                 'message' => 'File tidak ditemukan.',
@@ -1049,7 +1049,7 @@ class DocumentAccessController extends Controller
             ], 404);
         }
 
-        return response()->download($absolutePath, $this->inferDisplayName($record));
+        return \App\Services\DocumentStorage::response($absolutePath, $this->inferDisplayName($record), true);
     }
 
     public function downloadBulk(Request $request)
@@ -1139,7 +1139,7 @@ class DocumentAccessController extends Controller
         foreach ($records as $record) {
             $relativePath = $this->resolveRelativePath((string) $record->file_category, (string) $record->file_name);
             $absolutePath = $relativePath ? public_path($relativePath) : '';
-            if (!$absolutePath || !is_file($absolutePath)) {
+            if (!$absolutePath || !\App\Services\DocumentStorage::exists($absolutePath)) {
                 continue;
             }
 
@@ -1155,7 +1155,7 @@ class DocumentAccessController extends Controller
                 $counter++;
             }
             $usedNames[strtolower($zipName)] = true;
-            $zip->addFile($absolutePath, $zipName);
+            $zip->addFile(\App\Services\DocumentStorage::temporaryFile($absolutePath), $zipName);
         }
         $zip->close();
 

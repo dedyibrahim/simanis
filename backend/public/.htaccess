@@ -9,6 +9,9 @@
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+    # Route migrated documents through storage even if a legacy copy exists.
+    RewriteRule ^(berkasclient|berkaslegalisasis|berkasnotaris|berkasppat|berkaswarmerkings|chat_attachments|scanned-documents|suratnotaris|suratppats|tandaterima)/.+$ index.php [L]
+
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$

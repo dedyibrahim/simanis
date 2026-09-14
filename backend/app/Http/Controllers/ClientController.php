@@ -350,9 +350,6 @@ class ClientController extends ApiController
             DB::transaction(function () use ($request) {
                 $id_client = $this->nextClientId();
 
-                if (!file_exists('berkasclient/Dok'.$id_client)) {
-                    mkdir('berkasclient/Dok'.$id_client, 0777);
-                }
 
                 $data = [
                 'id_client' => $id_client,
@@ -647,14 +644,10 @@ class ClientController extends ApiController
     private function attachKtpFileToClient(DataClient $client, $file, string $userId): array
     {
         $folder = $client->nama_folder ?: 'Dok'.$client->id_client;
-        $targetDirectory = public_path('berkasclient/'.$folder);
-        if (!is_dir($targetDirectory)) {
-            mkdir($targetDirectory, 0755, true);
-        }
 
         $extension = strtolower((string) $file->getClientOriginalExtension()) ?: 'jpg';
         $safeName = 'KTP-'.$client->no_identitas.'-'.date('Ymd-His').'-'.Str::random(6).'.'.$extension;
-        $file->move($targetDirectory, $safeName);
+        \App\Services\DocumentStorage::upload($file, 'berkasclient/'.$folder, $safeName);
 
         $berkas = tb_berkas::create([
             'id_berkas' => $this->nextBerkasId(),

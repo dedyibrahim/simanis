@@ -14,6 +14,7 @@ return [
     */
 
     'default' => env('FILESYSTEM_DISK', 'local'),
+    'documents_disk' => env('DOCUMENTS_DISK', 'documents_local'),
 
     /*
     |--------------------------------------------------------------------------
@@ -29,6 +30,22 @@ return [
     */
 
     'disks' => [
+        'documents_local' => [
+            'driver' => 'local',
+            'root' => public_path(),
+            'throw' => true,
+        ],
+        'documents' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'bucket' => env('AWS_BUCKET', 'simanis-documents'),
+            'endpoint' => env('AWS_ENDPOINT', 'http://192.168.0.11:9000'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => true,
+        ],
 
         'local' => [
             'driver' => 'local',

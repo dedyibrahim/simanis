@@ -2,6 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 
+Route::get('/{prefix}/{path}', [\App\Http\Controllers\StoredDocumentController::class, 'show'])
+    ->where('prefix', implode('|', \App\Services\DocumentStorage::PREFIXES))
+    ->where('path', '.+');
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes

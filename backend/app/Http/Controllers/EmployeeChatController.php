@@ -304,10 +304,6 @@ class EmployeeChatController extends ApiController
 
     private function storeAttachment(UploadedFile $file): array
     {
-        $directory = public_path('chat_attachments');
-        if (!is_dir($directory)) {
-            mkdir($directory, 0755, true);
-        }
 
         $originalName = (string) $file->getClientOriginalName();
         $mimeType = (string) $file->getClientMimeType();
@@ -320,14 +316,8 @@ class EmployeeChatController extends ApiController
 
         $safeExtension = strtolower((string) $file->getClientOriginalExtension());
         $storedName = uniqid('chat_', true) . ($safeExtension ? '.' . $safeExtension : '');
-        $file->move($directory, $storedName);
+        \App\Services\DocumentStorage::upload($file, 'chat_attachments', $storedName);
 
-        if ($size <= 0) {
-            $movedPath = $directory . DIRECTORY_SEPARATOR . $storedName;
-            if (is_file($movedPath)) {
-                $size = (int) (filesize($movedPath) ?: 0);
-            }
-        }
 
         return [
             'path' => 'chat_attachments/' . $storedName,

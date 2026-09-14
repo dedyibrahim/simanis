@@ -45,13 +45,9 @@ class DokumenNotaris extends Controller
         }
 
         $candidate = $safeName.($extension ? '.'.$extension : '');
-        $targetDirectory = public_path($directory);
-        if (!is_dir($targetDirectory)) {
-            mkdir($targetDirectory, 0755, true);
-        }
 
         $counter = 2;
-        while (is_file($targetDirectory.DIRECTORY_SEPARATOR.$candidate)) {
+        while (\App\Services\DocumentStorage::exists($directory.'/'.$candidate)) {
             $candidate = $safeName.'-'.$counter.($extension ? '.'.$extension : '');
             $counter++;
         }
@@ -62,7 +58,7 @@ class DokumenNotaris extends Controller
     private function moveWithOriginalName($file, string $directory): string
     {
         $filename = $this->safeOriginalFileName($file, $directory);
-        $file->move(public_path($directory), $filename);
+        \App\Services\DocumentStorage::upload($file, $directory, $filename);
 
         return $filename;
     }
@@ -448,8 +444,8 @@ class DokumenNotaris extends Controller
 
         $path = public_path('berkasnotaris/'.$data->nama_berkas);
 
-        if (file_exists($path)) {
-            unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         tb_dokumen_notaris::where('id_dokumen_notaris', $request->post('id_dokumen_notaris'))->delete();
@@ -473,8 +469,8 @@ class DokumenNotaris extends Controller
 
         $path = public_path('berkasppat/'.$data->nama_berkas);
 
-        if (file_exists($path)) {
-            unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         tb_dokumen_ppat::where('id_dokumen_ppat', $request->post('id_dokumen_ppat'))->delete();
@@ -496,8 +492,8 @@ class DokumenNotaris extends Controller
 
         $path = public_path('suratnotaris/'.$data->file);
 
-        if (file_exists($path)) {
-            unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         BukuSuratNotaris::where('id_surat_notaris', $request->post('id_surat_notaris'))->update(['file' => null]);
@@ -519,8 +515,8 @@ class DokumenNotaris extends Controller
 
         $path = public_path('tandaterima/'.$data->file);
 
-        if (file_exists($path)) {
-            unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         TandaTerima::where('id', $request->post('id'))->update(['file' => null]);
@@ -542,8 +538,8 @@ class DokumenNotaris extends Controller
 
         $path = public_path('suratppats/'.$data->file);
 
-        if (file_exists($path)) {
-            unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         BukuSuratPPAT::where('id_surat_ppat', $request->post('id_surat_ppat'))->update(['file' => null]);
@@ -567,8 +563,8 @@ class DokumenNotaris extends Controller
 
         $path = public_path('berkaswarmerkings/'.$data->nama_berkas);
 
-        if (file_exists($path)) {
-            unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         tb_dokumen_warmerkings::where('id_dokumen_warmerking', $request->post('id_dokumen_warmerking'))->delete();
@@ -591,8 +587,8 @@ class DokumenNotaris extends Controller
 
         $path = public_path('berkaslegalisasis/'.$data->nama_berkas);
 
-        if (file_exists($path)) {
-            unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         tb_dokumen_legalisasis::where('id_dokumen_legalisasi', $request->post('id_dokumen_legalisasi'))->delete();
@@ -677,10 +673,6 @@ class DokumenNotaris extends Controller
     {
         $data = DataClient::where('id_client', $request->post('id_client'))->first();
 
-        $path = public_path('berkasclient/'.$data->nama_folder);
-        if (!file_exists($path)) {
-            mkdir($path);
-        }
 
         foreach ($request->file('dokumens') as $key => $file) {
             $berkas = DB::table('tb_berkas')
@@ -726,8 +718,8 @@ class DokumenNotaris extends Controller
 
         $path = public_path('berkasclient/'.$data->nama_folder.'/'.$data->nama_berkas);
 
-        if (file_exists($path)) {
-            unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         tb_berkas::where('id_berkas', $request->post('id_berkas'))->delete();

@@ -240,13 +240,8 @@ class ScannedDocumentController extends Controller
         $sizeBytes = (int) $file->getSize();
         $directory = 'scanned-documents/' . now()->format('Y/m');
         $fileName = now()->format('YmdHis') . '-' . Str::random(16) . '.' . $extension;
-        $destination = public_path($directory);
 
-        if (!is_dir($destination)) {
-            mkdir($destination, 0775, true);
-        }
-
-        $file->move($destination, $fileName);
+        \App\Services\DocumentStorage::upload($file, $directory, $fileName);
 
         $document = DB::transaction(function () use ($session, $directory, $fileName, $extension, $originalName, $mimeType, $sizeBytes, $validated) {
             $document = ScannedDocument::create([
@@ -322,14 +317,10 @@ class ScannedDocumentController extends Controller
         $safeName = $this->safeDisplayFileName($displayName);
         $extension = pathinfo($safeName, PATHINFO_EXTENSION);
         $base = pathinfo($safeName, PATHINFO_FILENAME) ?: 'dokumen';
-        $targetDirectory = public_path($directory);
-        if (!is_dir($targetDirectory)) {
-            mkdir($targetDirectory, 0775, true);
-        }
 
         $candidate = $safeName;
         $counter = 2;
-        while (is_file($targetDirectory . DIRECTORY_SEPARATOR . $candidate)) {
+        while (\App\Services\DocumentStorage::exists($directory.'/'.$candidate)) {
             $candidate = $base . '-' . $counter . ($extension ? '.' . $extension : '');
             $counter++;
         }
@@ -492,13 +483,11 @@ class ScannedDocumentController extends Controller
         }
 
         $path = public_path($document->posted_file_path ?: $document->file_path);
-        if (!is_file($path)) {
+        if (!\App\Services\DocumentStorage::exists($path)) {
             return response()->json(['status' => false, 'message' => 'File scan tidak ditemukan di server.', 'data' => []], 404);
         }
 
-        return response()->file($path, [
-            'Content-Disposition' => 'inline; filename="' . addslashes($document->original_name) . '"',
-        ]);
+        return \App\Services\DocumentStorage::response($path, $document->original_name);
     }
 
     private function persistPostToModule(ScannedDocument $document, array $validated, ?User $user)
@@ -510,7 +499,7 @@ class ScannedDocumentController extends Controller
         }
 
         $sourcePath = public_path($document->file_path);
-        if (!is_file($sourcePath)) {
+        if (!\App\Services\DocumentStorage::exists($sourcePath)) {
             return response()->json(['status' => false, 'message' => 'File scan tidak ditemukan di server.', 'data' => []], 404);
         }
 
@@ -537,7 +526,7 @@ class ScannedDocumentController extends Controller
                     $directory = 'berkasclient/' . $folder;
                     $newFileName = $this->uniquePublicFileName($directory, $displayName);
                     $targetPath = public_path($directory . '/' . $newFileName);
-                    if (!@rename($sourcePath, $targetPath)) {
+                    if (!\App\Services\DocumentStorage::copy($sourcePath, $targetPath)) {
                         throw new \RuntimeException('Gagal memindahkan file scan ke folder client.');
                     }
 
@@ -582,7 +571,7 @@ class ScannedDocumentController extends Controller
                 $directory = $config['directory'];
                 $newFileName = $this->uniquePublicFileName($directory, $displayName);
                 $targetPath = public_path($directory . '/' . $newFileName);
-                if (!@rename($sourcePath, $targetPath)) {
+                if (!\App\Services\DocumentStorage::copy($sourcePath, $targetPath)) {
                     throw new \RuntimeException('Gagal memindahkan file scan ke folder modul tujuan.');
                 }
 
@@ -727,7 +716,7 @@ class ScannedDocumentController extends Controller
         }
 
         $path = public_path($document->posted_file_path ?: $document->file_path);
-        if (!is_file($path)) {
+        if (!\App\Services\DocumentStorage::exists($path)) {
             return response()->json([
                 'status' => false,
                 'message' => 'File scan tidak ditemukan di server.',
@@ -735,7 +724,7 @@ class ScannedDocumentController extends Controller
             ], 404);
         }
 
-        return response()->download($path, $document->original_name);
+        return \App\Services\DocumentStorage::response($path, $document->original_name, true);
     }
 
     public function destroy(Request $request, int $id)
@@ -763,8 +752,8 @@ class ScannedDocumentController extends Controller
         $path = public_path($document->file_path);
         $document->delete();
 
-        if (is_file($path)) {
-            @unlink($path);
+        if (\App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         return response()->json([

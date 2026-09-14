@@ -615,8 +615,8 @@ class PembuatanNomor extends ApiController
         DB::transaction(function () use ($id) {
             BukuSuratNotaris::where('id_surat_notaris', $id)->delete();
         });
-        if ($buku->file && is_file($path)) {
-            @unlink($path);
+        if ($buku->file && \App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         return $this->successResponse(null, 'Berhasil menghapus Surat Notaris No '.$buku->no_surat);
@@ -653,8 +653,8 @@ class PembuatanNomor extends ApiController
         DB::transaction(function () use ($id) {
             BukuSuratPPAT::where('id_surat_ppat', $id)->delete();
         });
-        if ($buku->file && is_file($path)) {
-            @unlink($path);
+        if ($buku->file && \App\Services\DocumentStorage::exists($path)) {
+            \App\Services\DocumentStorage::delete($path);
         }
 
         return $this->successResponse(null, 'Berhasil menghapus Surat PPAT No '.$buku->no_surat);
