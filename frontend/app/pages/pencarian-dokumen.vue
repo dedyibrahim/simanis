@@ -1165,8 +1165,13 @@ const openBookDocumentPreview = (document: StandardDocument) => {
   const url = getBookDocumentUrl(document)
   if (!url) return
   const fileName = toString(document.nama_berkas, '')
-  bookDocumentDialog.previewUrl = toIframePreviewUrl(url)
-  bookDocumentDialog.previewTitle = toString(document.nama_dokumen, fileName || 'Dokumen')
+  const previewDocument = document as ClientDocument
+  directPreview.title = displayFileName(document.nama_dokumen, fileName)
+  directPreview.url = toIframePreviewUrl(url)
+  directPreview.extension = documentExtension(previewDocument)
+  directPreview.document = null
+  resetDirectPreviewTransform()
+  directPreview.open = true
 }
 
 const openBookDocumentDialog = async (row: RowRecord) => {
@@ -1196,9 +1201,6 @@ const openBookDocumentDialog = async (row: RowRecord) => {
     const response = await config.listDocuments({ id }) as ApiEnvelope<StandardDocument[]>
     const payload = unwrapPayload(response)
     bookDocumentDialog.documents = Array.isArray(payload) ? payload as StandardDocument[] : []
-    if (bookDocumentDialog.documents.length) {
-      openBookDocumentPreview(bookDocumentDialog.documents[0] as StandardDocument)
-    }
   } catch (error) {
     bookDocumentDialog.error = (error as { data?: { message?: string } })?.data?.message || 'Gagal memuat dokumen.'
   } finally {
@@ -1897,156 +1899,41 @@ watch(
               Data {{ bookDialog.type }} tidak tersedia untuk client ini.
             </p>
 
-            <div v-else class="overflow-x-auto rounded-xl border border-slate-200">
-              <table class="min-w-full divide-y divide-slate-200 bg-white">
-                <thead class="bg-slate-100/80">
-                  <tr>
-                    <th class="w-14 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">No</th>
-                    <th class="w-20 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Detail</th>
-                    <th
-                      v-for="column in bookColumns"
-                      :key="column.key"
-                      class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600"
-                    >
-                      {{ column.label }}
-                    </th>
-                    <th class="w-[150px] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  <template v-for="(row, index) in bookDialog.rows" :key="rowIdentity(row, index)">
-                    <tr class="hover:bg-slate-50/70">
-                      <td class="px-3 py-2 text-sm text-slate-600">{{ index + 1 }}</td>
-                      <td class="px-3 py-2">
-                        <button
-                          type="button"
-                          class="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                          @click="toggleBookRowExpand(row, index)"
-                        >
-                          {{ isBookRowExpanded(row, index) ? 'Tutup' : 'Expand' }}
-                        </button>
-                      </td>
-                      <td
-                        v-for="column in bookColumns"
-                        :key="`${rowIdentity(row, index)}-${column.key}`"
-                        class="max-w-[240px] px-3 py-2 text-sm text-slate-700"
-                      >
-                        <span
-                          v-if="column.badge"
-                          class="inline-flex min-w-[84px] items-center justify-center rounded-lg bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700"
-                        >
-                          {{ toString(row[column.key]) }}
-                        </span>
-                        <span v-else-if="column.key.includes('tgl') || column.key.includes('tanggal')">
-                          {{ formatDateOnly(row[column.key]) }}
-                        </span>
-                        <span v-else class="block truncate" :title="toString(row[column.key])">
-                          {{ toString(row[column.key]) }}
-                        </span>
-                      </td>
-                      <td class="px-3 py-2">
-                        <button
-                          type="button"
-                          class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                          @click="openBookDocumentDialog(row)"
-                        >
-                          Lihat Dokumen
-                        </button>
-                      </td>
-                    </tr>
-
-                    <tr v-if="isBookRowExpanded(row, index)" class="bg-slate-50/60">
-                      <td colspan="100%" class="px-3 py-4">
-                        <div class="space-y-3">
-                          <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                            <div class="border-b border-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
-                              Data Penghadap
-                            </div>
-                            <div class="overflow-x-auto">
-                              <table class="min-w-full divide-y divide-slate-200">
-                                <thead class="bg-slate-100/70">
-                                  <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600">Nama Penghadap</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600">No Identitas</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600">Jenis Client</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600">Status Kedudukan</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600">Mewakili</th>
-                                  </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 bg-white">
-                                  <tr
-                                    v-for="(penghadap, pIndex) in getPenghadapRows(row)"
-                                    :key="`${rowIdentity(row, index)}-penghadap-${pIndex}`"
-                                  >
-                                    <td class="px-3 py-2 text-xs text-slate-700">
-                                      <button
-                                        type="button"
-                                        class="rounded-lg border border-slate-300 px-2 py-1 font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                                        @click="openClientDocumentDialogById(penghadap.id_client, penghadap.nama_client)"
-                                      >
-                                        {{ toString(penghadap.nama_client) }}
-                                      </button>
-                                    </td>
-                                    <td class="px-3 py-2 text-xs text-slate-700">{{ toString(penghadap.no_identitas) }}</td>
-                                    <td class="px-3 py-2 text-xs text-slate-700">{{ toString(penghadap.jenis_client) }}</td>
-                                    <td class="px-3 py-2 text-xs text-slate-700">{{ toString(penghadap.status_kedudukan) }}</td>
-                                    <td class="px-3 py-2 text-xs text-slate-700">
-                                      <button
-                                        v-if="toString(penghadap.id_mewakili, '')"
-                                        type="button"
-                                        class="rounded-lg border border-slate-300 px-2 py-1 font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                                        @click="openClientDocumentDialogById(penghadap.id_mewakili, penghadap.mewakili)"
-                                      >
-                                        {{ toString(penghadap.mewakili) }}
-                                      </button>
-                                      <span v-else>-</span>
-                                    </td>
-                                  </tr>
-                                  <tr v-if="!getPenghadapRows(row).length">
-                                    <td colspan="5" class="px-3 py-3 text-center text-xs text-slate-500">
-                                      Data penghadap tidak tersedia.
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-
-                          <div
-                            v-if="bookDialog.type === 'Akta PPAT'"
-                            class="grid gap-2 sm:grid-cols-2"
-                          >
-                            <div
-                              v-for="pair in ppatDetailPairs(row)"
-                              :key="`${rowIdentity(row, index)}-${pair[0]}`"
-                              class="rounded-lg border border-slate-200 bg-white px-3 py-2"
-                            >
-                              <p class="text-xs font-semibold text-slate-600">{{ pair[0] }}</p>
-                              <p class="mt-1 text-sm text-slate-700">{{ toString(pair[1]) }}</p>
-                            </div>
-                          </div>
-
-                          <div
-                            v-if="bookDialog.type === 'Akta PPAT' && barcodeImageUrl(row)"
-                            class="rounded-xl border border-slate-200 bg-white p-4"
-                          >
-                            <img :src="barcodeImageUrl(row)" alt="Barcode Akta" class="mx-auto max-h-36 w-auto" />
-                            <div class="mt-3 flex justify-center">
-                              <button
-                                type="button"
-                                class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                                @click="downloadBarcode(row)"
-                              >
-                                Download Barcode Akta
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
+            <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <article v-for="(row, index) in bookDialog.rows" :key="rowIdentity(row, index)" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div class="border-b border-slate-100 p-4">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase text-blue-600">{{ bookDialog.type }}</p>
+                      <h4 class="mt-1 truncate text-base font-semibold text-slate-900">{{ toString(row[bookConfigs[bookDialog.type].numberField], `Data ${index + 1}`) }}</h4>
+                    </div>
+                    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600"><FolderIcon class="h-5 w-5" /></span>
+                  </div>
+                  <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div v-for="column in bookColumns" :key="`${rowIdentity(row, index)}-${column.key}`" class="min-w-0">
+                      <dt class="text-[10px] font-semibold uppercase text-slate-400">{{ column.label }}</dt>
+                      <dd class="mt-1 truncate text-sm text-slate-700" :title="toString(row[column.key])">{{ column.key.includes('tgl') || column.key.includes('tanggal') ? formatDateOnly(row[column.key]) : toString(row[column.key]) }}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div v-if="isBookRowExpanded(row, index)" class="space-y-3 border-b border-slate-100 bg-slate-50 p-4">
+                  <p class="text-xs font-semibold uppercase text-slate-500">Data Penghadap</p>
+                  <div v-if="getPenghadapRows(row).length" class="space-y-2">
+                    <button v-for="(penghadap, pIndex) in getPenghadapRows(row)" :key="`${rowIdentity(row, index)}-penghadap-${pIndex}`" type="button" class="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left" @click="openClientDocumentDialogById(penghadap.id_client, penghadap.nama_client)">
+                      <span class="min-w-0"><span class="block truncate text-sm font-semibold text-slate-800">{{ toString(penghadap.nama_client) }}</span><span class="text-xs text-slate-500">{{ toString(penghadap.status_kedudukan) }}</span></span>
+                      <UserCircleIcon class="h-5 w-5 shrink-0 text-slate-400" />
+                    </button>
+                  </div>
+                  <p v-else class="text-xs text-slate-500">Data penghadap tidak tersedia.</p>
+                  <div v-if="bookDialog.type === 'Akta PPAT'" class="grid gap-2 sm:grid-cols-2">
+                    <div v-for="pair in ppatDetailPairs(row)" :key="`${rowIdentity(row, index)}-${pair[0]}`" class="rounded-lg border border-slate-200 bg-white px-3 py-2"><p class="text-[10px] font-semibold uppercase text-slate-400">{{ pair[0] }}</p><p class="mt-1 text-xs text-slate-700">{{ toString(pair[1]) }}</p></div>
+                  </div>
+                </div>
+                <div class="flex gap-2 p-3">
+                  <button type="button" class="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="toggleBookRowExpand(row, index)">{{ isBookRowExpanded(row, index) ? 'Tutup Detail' : 'Lihat Detail' }}</button>
+                  <button type="button" class="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700" @click="openBookDocumentDialog(row)"><DocumentIcon class="h-4 w-4" /> Lihat Dokumen</button>
+                </div>
+              </article>
             </div>
           </div>
         </div>
@@ -2054,13 +1941,13 @@ watch(
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="bookDocumentDialog.open" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div v-if="bookDocumentDialog.open" class="fixed inset-0 z-[105] flex h-screen w-screen items-stretch justify-stretch">
         <button
           type="button"
           class="absolute inset-0 bg-slate-900/65"
           @click="closeBookDocumentDialog"
         />
-        <div class="relative z-10 flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div class="document-fullscreen-dialog relative z-10 flex h-full w-full flex-col overflow-hidden bg-white" :class="isDark ? 'document-dialog-dark' : 'document-dialog-light'">
           <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Dokumen Buku</p>
@@ -2075,7 +1962,7 @@ watch(
             </button>
           </div>
 
-          <div class="min-h-0 flex-1 overflow-y-auto p-5">
+          <div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
             <p v-if="bookDocumentDialog.loading" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               Memuat dokumen...
             </p>
@@ -2086,59 +1973,23 @@ watch(
               Dokumen belum ditambahkan.
             </p>
 
-            <div v-else class="overflow-x-auto rounded-xl border border-slate-200">
-              <table class="min-w-full divide-y divide-slate-200 bg-white">
-                <thead class="bg-slate-100/80">
-                  <tr>
-                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Nama Dokumen</th>
-                    <th class="w-[120px] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  <tr v-for="(document, index) in bookDocumentDialog.documents" :key="`${toString(document.nama_berkas, 'berkas')}-${index}`">
-                    <td class="px-3 py-2 text-sm text-slate-700">{{ truncateText(document.nama_dokumen, 70) }}</td>
-                    <td class="px-3 py-2">
-                      <div v-if="getBookDocumentUrl(document)" class="flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          class="inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                          @click="openBookDocumentPreview(document)"
-                        >
-                          Lihat
-                        </button>
-                        <button
-                          type="button"
-                          class="inline-flex rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-                          :disabled="downloadRequestLoading"
-                          @click="requestBookDocumentDownload(document)"
-                        >
-                          {{ downloadRequestLoading ? 'Memproses...' : 'Request Download' }}
-                        </button>
-                        <button
-                          type="button"
-                          class="inline-flex rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
-                          @click="addBookDocumentToCart(document)"
-                        >
-                          Keranjang
-                        </button>
-                      </div>
-                      <span v-else class="text-xs text-slate-400">-</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div v-if="bookDocumentDialog.previewUrl" class="mt-3 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-600">Preview Dokumen</p>
-              <p class="truncate text-xs text-slate-500" :title="bookDocumentDialog.previewTitle">
-                {{ bookDocumentDialog.previewTitle }}
-              </p>
-              <iframe
-                :src="bookDocumentDialog.previewUrl"
-                class="h-[56vh] w-full rounded-lg border border-slate-200 bg-white"
-                frameborder="0"
-              />
+            <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <article v-for="(document, index) in bookDocumentDialog.documents" :key="`${toString(document.nama_berkas, 'berkas')}-${index}`" class="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-blue-300 hover:shadow-md">
+                <button type="button" class="relative flex h-40 w-full items-center justify-center overflow-hidden bg-slate-100" @click="openBookDocumentPreview(document)">
+                  <img v-if="documentIsImage(document as ClientDocument)" :src="getBookDocumentUrl(document)" :alt="displayFileName(document.nama_dokumen, document.nama_berkas)" class="h-full w-full object-cover transition group-hover:scale-[1.02]" loading="lazy" />
+                  <iframe v-else-if="documentIsPdf(document as ClientDocument)" :src="toIframePreviewUrl(getBookDocumentUrl(document))" :title="`Thumbnail ${displayFileName(document.nama_dokumen, document.nama_berkas)}`" class="pointer-events-none h-[210px] w-full border-0 bg-white" loading="lazy" tabindex="-1" />
+                  <span v-else class="grid h-24 w-20 place-items-center rounded-lg border border-current/15" :class="[documentAppearance(document as ClientDocument).background, documentAppearance(document as ClientDocument).color]"><component :is="documentAppearance(document as ClientDocument).icon" class="h-12 w-12" /></span>
+                  <span class="absolute bottom-2 right-2 rounded-md px-2 py-1 text-[10px] font-bold text-white shadow" :class="documentAppearance(document as ClientDocument).badge">{{ documentExtension(document as ClientDocument) }}</span>
+                </button>
+                <div class="p-3">
+                  <div class="flex min-w-0 items-start gap-2"><component :is="documentAppearance(document as ClientDocument).icon" class="mt-0.5 h-5 w-5 shrink-0" :class="documentAppearance(document as ClientDocument).color" /><p class="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800" :title="displayFileName(document.nama_dokumen, document.nama_berkas)">{{ displayFileName(document.nama_dokumen, document.nama_berkas) }}</p></div>
+                  <div class="mt-3 flex gap-2">
+                    <button type="button" class="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-lg bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700" @click="openBookDocumentPreview(document)"><EyeIcon class="h-4 w-4" /> Preview</button>
+                    <button type="button" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50" title="Request download" :disabled="downloadRequestLoading" @click="requestBookDocumentDownload(document)"><ArrowDownTrayIcon class="h-4 w-4" /></button>
+                    <button type="button" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50" title="Tambah ke keranjang" @click="addBookDocumentToCart(document)"><FolderPlusIcon class="h-4 w-4" /></button>
+                  </div>
+                </div>
+              </article>
             </div>
           </div>
         </div>
