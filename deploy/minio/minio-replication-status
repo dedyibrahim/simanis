@@ -8,11 +8,11 @@ mc alias set replication-source http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO
 mc alias set replication-target http://192.168.0.10:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
 
 running=false
-if pgrep -f 'mc mirror --overwrite --preserve --summary source/simanis-documents target/simanis-documents' >/dev/null; then running=true; fi
+if pgrep -f 'mc mirror .*source/simanis-documents target/simanis-documents' >/dev/null; then running=true; fi
 status=completed
 if [[ "$running" == true ]]; then status=running; fi
 current_prefix=""
-command_line="$(pgrep -a -x mc | grep 'mirror --overwrite' | head -1 || true)"
+command_line="$(pgrep -a -x mc | grep 'mirror .*source/simanis-documents' | head -1 || true)"
 if [[ -n "$command_line" ]]; then current_prefix="$(printf '%s' "$command_line" | sed -n 's/.*simanis-documents\/\([^ ]*\).*/\1/p')"; fi
 
 du_json() {
