@@ -132,6 +132,7 @@ const clientTypeFilter = ref<ClientTypeFilter>('all')
 const bookFilter = ref<BookFilter>('all')
 const resultSort = ref<ResultSort>('relevance')
 const resultViewMode = ref<ResultViewMode>('grid')
+const activeSidebar = ref<'all' | 'recent' | ClientTypeFilter | AktaType>('recent')
 const showOnlyWithDocuments = ref(false)
 const resultPage = ref(1)
 const resultPerPage = ref(9)
@@ -494,6 +495,9 @@ const goToNextPage = () => {
 }
 
 const applyQuickKeyword = (keyword: string) => {
+  activeSidebar.value = 'all'
+  clientTypeFilter.value = 'all'
+  bookFilter.value = 'all'
   searchQuery.value = keyword
   void submitSearch()
 }
@@ -502,6 +506,39 @@ const clearSearchQuery = () => {
   searchQuery.value = ''
   void submitSearch()
 }
+
+const selectAllDocuments = () => {
+  activeSidebar.value = 'all'
+  clientTypeFilter.value = 'all'
+  bookFilter.value = 'all'
+  resultPage.value = 1
+}
+
+const selectRecentDocuments = () => {
+  activeSidebar.value = 'recent'
+  selectAllDocuments()
+  resultSort.value = 'relevance'
+  clearSearchQuery()
+}
+
+const selectClientType = (type: Exclude<ClientTypeFilter, 'all'>) => {
+  activeSidebar.value = type
+  clientTypeFilter.value = type
+  bookFilter.value = 'all'
+  resultPage.value = 1
+}
+
+const selectBookFilter = (type: AktaType) => {
+  activeSidebar.value = type
+  bookFilter.value = type
+  clientTypeFilter.value = 'all'
+  resultPage.value = 1
+}
+
+const sidebarNavClass = (active: boolean) => [
+  'flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left font-medium transition',
+  active ? 'drive-nav-active' : 'drive-nav-item',
+]
 
 const clientCardKey = (client: SearchClient, index: number) =>
   `${toString(client.id_client, '')}-${toString(client.no_identitas, '')}-${index}`
@@ -1154,6 +1191,7 @@ watch(
   (value) => {
     const normalized = typeof value === 'string' ? value : ''
     searchQuery.value = normalized
+    if (normalized) activeSidebar.value = 'all'
     void runSearch(normalized)
   },
   { immediate: true },
@@ -1217,28 +1255,28 @@ watch(
       </NuxtLink>
 
       <nav class="space-y-1 text-sm">
-        <button type="button" class="drive-nav-active flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left font-semibold" @click="clientTypeFilter = 'all'; bookFilter = 'all'">
+        <button type="button" :class="sidebarNavClass(activeSidebar === 'all')" @click="selectAllDocuments">
           <HomeIcon class="h-5 w-5" /> Semua Dokumen
         </button>
-        <button type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="clearSearchQuery(); resultSort = 'relevance'">
+        <button type="button" :class="sidebarNavClass(activeSidebar === 'recent')" @click="selectRecentDocuments">
           <ClockIcon class="h-5 w-5" /> Terbaru
         </button>
       </nav>
 
       <p class="mb-2 mt-7 px-4 text-xs font-semibold uppercase text-slate-400">Jenis Client</p>
       <nav class="space-y-1 text-sm">
-        <button type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="clientTypeFilter = 'perorangan'">
+        <button type="button" :class="sidebarNavClass(activeSidebar === 'perorangan')" @click="selectClientType('perorangan')">
           <UserCircleIcon class="h-5 w-5" /> Perorangan
         </button>
-        <button type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="clientTypeFilter = 'badan_hukum'">
+        <button type="button" :class="sidebarNavClass(activeSidebar === 'badan_hukum')" @click="selectClientType('badan_hukum')">
           <BuildingOffice2Icon class="h-5 w-5" /> Badan Hukum
         </button>
       </nav>
 
       <p class="mb-2 mt-7 px-4 text-xs font-semibold uppercase text-slate-400">Kategori Buku</p>
       <nav class="space-y-1 text-sm">
-        <button v-for="type in bookTypeOptions" :key="type" type="button" class="drive-nav-item flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left" @click="bookFilter = type">
-          <FolderIcon class="h-5 w-5 text-blue-500" /> {{ type }}
+        <button v-for="type in bookTypeOptions" :key="type" type="button" :class="sidebarNavClass(activeSidebar === type)" @click="selectBookFilter(type)">
+          <FolderIcon class="h-5 w-5" :class="activeSidebar === type ? 'text-current' : 'text-blue-500'" /> {{ type }}
         </button>
       </nav>
 
@@ -2274,6 +2312,10 @@ watch(
 .document-search-dark .drive-icon-button:hover,
 .document-search-dark .drive-nav-item:hover {
   background: #17233d;
+}
+
+.document-search-dark .drive-nav-item {
+  color: #aebdd3;
 }
 
 .document-search-dark .drive-global-search input,
