@@ -1990,7 +1990,7 @@ watch(
             </button>
           </div>
 
-          <div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
+          <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
             <p v-if="bookDialog.loading" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               Memuat data {{ bookDialog.type }}...
             </p>
@@ -2001,29 +2001,29 @@ watch(
               Data {{ bookDialog.type }} tidak tersedia untuk client ini.
             </p>
 
-            <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <article v-for="(row, index) in bookDialog.rows" :key="rowIdentity(row, index)" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-100 p-4">
-                  <div class="flex items-start justify-between gap-3">
+            <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              <article v-for="(row, index) in bookDialog.rows" :key="rowIdentity(row, index)" class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div class="border-b border-slate-100 p-3">
+                  <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0">
-                      <p class="text-xs font-semibold uppercase text-blue-600">{{ bookDialog.type }}</p>
-                      <h4 class="mt-1 truncate text-base font-semibold text-slate-900">{{ toString(row[bookConfigs[bookDialog.type].numberField], `Data ${index + 1}`) }}</h4>
+                      <p class="text-[10px] font-semibold uppercase text-blue-600">{{ bookDialog.type }}</p>
+                      <h4 class="mt-0.5 truncate text-sm font-semibold text-slate-900">{{ toString(row[bookConfigs[bookDialog.type].numberField], `Data ${index + 1}`) }}</h4>
                     </div>
-                    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600"><FolderIcon class="h-5 w-5" /></span>
+                    <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-blue-50 text-blue-600"><FolderIcon class="h-4 w-4" /></span>
                   </div>
-                  <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                  <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
                     <div v-for="column in bookColumns" :key="`${rowIdentity(row, index)}-${column.key}`" class="min-w-0">
-                      <dt class="text-[10px] font-semibold uppercase text-slate-400">{{ column.label }}</dt>
-                      <dd class="mt-1 truncate text-sm text-slate-700" :title="toString(row[column.key])">{{ column.key.includes('tgl') || column.key.includes('tanggal') ? formatDateOnly(row[column.key]) : toString(row[column.key]) }}</dd>
+                      <dt class="text-[9px] font-semibold uppercase text-slate-400">{{ column.label }}</dt>
+                      <dd class="mt-0.5 truncate text-xs font-medium text-slate-700" :title="toString(row[column.key])">{{ column.key.includes('tgl') || column.key.includes('tanggal') ? formatDateOnly(row[column.key]) : toString(row[column.key]) }}</dd>
                     </div>
                   </dl>
                 </div>
-                <div v-if="isBookRowExpanded(row, index)" class="space-y-3 border-b border-slate-100 bg-slate-50 p-4">
-                  <p class="text-xs font-semibold uppercase text-slate-500">Data Penghadap</p>
-                  <div v-if="getPenghadapRows(row).length" class="space-y-2">
-                    <button v-for="(penghadap, pIndex) in getPenghadapRows(row)" :key="`${rowIdentity(row, index)}-penghadap-${pIndex}`" type="button" class="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left" @click="openClientDocumentDialogById(penghadap.id_client, penghadap.nama_client)">
-                      <span class="min-w-0"><span class="block truncate text-sm font-semibold text-slate-800">{{ toString(penghadap.nama_client) }}</span><span class="text-xs text-slate-500">{{ toString(penghadap.status_kedudukan) }}</span></span>
-                      <UserCircleIcon class="h-5 w-5 shrink-0 text-slate-400" />
+                <div v-if="isBookRowExpanded(row, index)" class="space-y-2 border-b border-slate-100 bg-slate-50 p-3">
+                  <p class="text-[10px] font-semibold uppercase text-slate-500">Data Penghadap</p>
+                  <div v-if="getPenghadapRows(row).length" class="space-y-1.5">
+                    <button v-for="(penghadap, pIndex) in getPenghadapRows(row)" :key="`${rowIdentity(row, index)}-penghadap-${pIndex}`" type="button" class="flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-left" @click="openClientDocumentDialogById(penghadap.id_client, penghadap.nama_client)">
+                      <span class="min-w-0"><span class="block truncate text-xs font-semibold text-slate-800">{{ toString(penghadap.nama_client) }}</span><span class="text-[11px] text-slate-500">{{ toString(penghadap.status_kedudukan) }}</span></span>
+                      <UserCircleIcon class="h-4 w-4 shrink-0 text-slate-400" />
                     </button>
                   </div>
                   <p v-else class="text-xs text-slate-500">Data penghadap tidak tersedia.</p>
@@ -2031,9 +2031,9 @@ watch(
                     <div v-for="pair in ppatDetailPairs(row)" :key="`${rowIdentity(row, index)}-${pair[0]}`" class="rounded-lg border border-slate-200 bg-white px-3 py-2"><p class="text-[10px] font-semibold uppercase text-slate-400">{{ pair[0] }}</p><p class="mt-1 text-xs text-slate-700">{{ toString(pair[1]) }}</p></div>
                   </div>
                 </div>
-                <div class="flex gap-2 p-3">
-                  <button type="button" class="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="toggleBookRowExpand(row, index)">{{ isBookRowExpanded(row, index) ? 'Tutup Detail' : 'Lihat Detail' }}</button>
-                  <button type="button" class="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700" @click="openBookDocumentDialog(row)"><DocumentIcon class="h-4 w-4" /> Lihat Dokumen</button>
+                <div class="flex gap-2 p-2">
+                  <button type="button" class="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-300 text-[11px] font-semibold text-slate-700 hover:bg-slate-50" @click="toggleBookRowExpand(row, index)">{{ isBookRowExpanded(row, index) ? 'Tutup Detail' : 'Lihat Detail' }}</button>
+                  <button type="button" class="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md bg-blue-600 text-[11px] font-semibold text-white hover:bg-blue-700" @click="openBookDocumentDialog(row)"><DocumentIcon class="h-3.5 w-3.5" /> Lihat Dokumen</button>
                 </div>
               </article>
             </div>
