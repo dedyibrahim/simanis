@@ -134,7 +134,7 @@ class SearchService
             ])->orderByDesc("$table.created_at")->limit(500)->get();
     }
 
-    public function searchDataClient(?string $query = null, ?string $category = null): array
+    public function searchDataClient(?string $query = null, ?string $category = null, ?string $clientType = null): array
     {
         $categoryTables = [
             'Akta Notaris' => ['penghadap_notaris', 'id_buku_notaris'],
@@ -151,6 +151,12 @@ class SearchService
                 $builder->where('nama_client', 'LIKE', '%' . $query . '%')
                     ->orWhere('no_identitas', 'LIKE', '%' . $query . '%');
             });
+        }
+
+        if ($clientType === 'perorangan') {
+            $clientQuery->where('jenis_client', 'LIKE', '%perorangan%');
+        } elseif ($clientType === 'badan_hukum') {
+            $clientQuery->where('jenis_client', 'LIKE', '%badan%');
         }
 
         if (isset($categoryTables[$category])) {

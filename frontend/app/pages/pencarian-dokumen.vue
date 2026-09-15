@@ -1081,6 +1081,7 @@ const runSearch = async (keyword: string) => {
     const response = await business.pencarian.SearchData({
       query,
       client_category: showsBookClientResults.value ? bookFilter.value : null,
+      client_type: clientTypeFilter.value !== 'all' ? clientTypeFilter.value : null,
     }) as ApiEnvelope<RowRecord>
     const payload = unwrapPayload(response) as RowRecord
     searchResults.value = Array.isArray(payload?.data_client) ? payload.data_client as SearchClient[] : []
