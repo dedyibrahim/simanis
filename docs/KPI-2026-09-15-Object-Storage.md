@@ -10,6 +10,7 @@
 | Optimasi SearchData | Pencarian lintas tujuh kategori menggunakan lookup ID client dan subquery buku tanpa join penghadap yang menghasilkan data besar | `sanggar` 0,383 detik, data awal 0,198 detik, `PT` 0,263 detik, dan `legalisasi` 0,370 detik |
 | Perbaikan tombol Kembali pencarian | Tombol Kembali dan logo pada layout khusus pencarian melakukan navigasi penuh ke dashboard agar layout utama selalu dipulihkan | Build production dan uji akses dashboard pada kedua server |
 | Detail penghadap dan menu konteks | Kategori buku menampilkan client beserta akses Lihat Detail ke data buku/penghadap; menu klik kanan mengikuti tema terang dan gelap dengan kontras yang jelas | Build production dan uji halaman pencarian dokumen |
+| Riwayat buku per jenis client | Menu Perorangan dan Badan Hukum menampilkan setiap client, kategori buku yang pernah melibatkannya, jumlah data, serta akses langsung ke detail penghadap | Build production dan uji mode grid/list pencarian dokumen |
 
 Total replikasi terverifikasi: 68.857 object dan 168.373.635.769 byte pada
 MinIO `.11` maupun `.10`.

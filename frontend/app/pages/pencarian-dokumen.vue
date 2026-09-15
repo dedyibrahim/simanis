@@ -375,25 +375,29 @@ const showsBookClientResults = computed(() =>
   ['Akta Notaris', 'Legalisasi', 'Waarmerking', 'Akta PPAT'].includes(bookFilter.value),
 )
 
+const showsClientResults = computed(() =>
+  showsBookClientResults.value || clientTypeFilter.value !== 'all',
+)
+
 const paginatedDocumentResults = computed(() => {
   const start = (resultPage.value - 1) * resultPerPage.value
   return filteredDocumentResults.value.slice(start, start + resultPerPage.value)
 })
 
 const activeResultCount = computed(() =>
-  showsBookClientResults.value ? filteredSearchResults.value.length : filteredDocumentResults.value.length,
+  showsClientResults.value ? filteredSearchResults.value.length : filteredDocumentResults.value.length,
 )
 
 const workspaceTitle = computed(() => {
   if (bookFilter.value !== 'all') return bookFilter.value
-  if (clientTypeFilter.value === 'perorangan') return 'Dokumen Perorangan'
-  if (clientTypeFilter.value === 'badan_hukum') return 'Dokumen Badan Hukum'
+  if (clientTypeFilter.value === 'perorangan') return 'Client Perorangan'
+  if (clientTypeFilter.value === 'badan_hukum') return 'Client Badan Hukum'
   return showingLatest.value ? 'Dokumen Terbaru' : 'Hasil Pencarian'
 })
 
 const workspaceSubtitle = computed(() => {
   if (bookFilter.value !== 'all') return `Pilih client untuk melihat data ${bookFilter.value}.`
-  if (clientTypeFilter.value !== 'all') return `Menampilkan file untuk ${clientTypeFilter.value === 'perorangan' ? 'client perorangan' : 'badan hukum'}.`
+  if (clientTypeFilter.value !== 'all') return `Pilih client untuk melihat buku yang pernah melibatkannya beserta jumlah datanya.`
   return showingLatest.value ? 'File terbaru yang tersedia di penyimpanan.' : `Hasil untuk kata kunci “${searchQuery.value}”.`
 })
 
@@ -1341,7 +1345,7 @@ watch(
 
       <div class="mt-auto border-t px-4 pt-5 text-sm">
         <p class="font-semibold text-slate-700">Hasil tersaring</p>
-        <p class="mt-1 text-xs text-slate-500">{{ activeResultCount }} {{ showsBookClientResults ? 'client ditemukan' : 'dokumen ditemukan' }}</p>
+        <p class="mt-1 text-xs text-slate-500">{{ activeResultCount }} {{ showsClientResults ? 'client ditemukan' : 'dokumen ditemukan' }}</p>
       </div>
     </aside>
 
@@ -1532,7 +1536,7 @@ watch(
         <div class="drive-toolbar rounded-2xl border border-slate-200 p-4 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ showsBookClientResults ? 'Client pada kategori' : bookFilter !== 'all' ? 'Dokumen kategori' : showingLatest ? 'Data terbaru' : 'Hasil pencarian' }}</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ showsBookClientResults ? 'Client pada kategori' : showsClientResults ? 'Riwayat keterlibatan client' : bookFilter !== 'all' ? 'Dokumen kategori' : showingLatest ? 'Data terbaru' : 'Hasil pencarian' }}</p>
               <p class="mt-1 text-sm text-slate-700">
                 Menampilkan {{ resultStart }} - {{ resultEnd }} dari {{ activeResultCount }} data.
               </p>
@@ -1583,7 +1587,7 @@ watch(
           Tidak ada hasil untuk kombinasi filter saat ini.
         </div>
 
-        <div v-else-if="!showsBookClientResults && resultViewMode === 'grid'" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div v-else-if="!showsClientResults && resultViewMode === 'grid'" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <article
             v-for="(document, index) in paginatedDocumentResults"
             :key="documentResultKey(document, index)"
@@ -1614,7 +1618,7 @@ watch(
           </article>
         </div>
 
-        <div v-else-if="!showsBookClientResults && resultViewMode === 'list'" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div v-else-if="!showsClientResults && resultViewMode === 'list'" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <button
             v-for="(document, index) in paginatedDocumentResults"
             :key="documentResultKey(document, index)"
@@ -1629,7 +1633,7 @@ watch(
           </button>
         </div>
 
-        <div v-else-if="showsBookClientResults && resultViewMode === 'grid'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div v-else-if="showsClientResults && resultViewMode === 'grid'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <article
             v-for="(client, index) in paginatedSearchResults"
             :key="clientCardKey(client, index)"
@@ -1659,9 +1663,23 @@ watch(
               </div>
             </div>
 
-            <div class="mt-3 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+            <div v-if="selectedBookType" class="mt-3 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
               <span>{{ selectedBookType }}</span>
               <span>{{ selectedBookCount(client) }} data</span>
+            </div>
+
+            <div v-else class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                v-for="item in cardActionItems(client)"
+                :key="`${clientCardKey(client, index)}-${item.type}`"
+                type="button"
+                :class="bookButtonCompactClass(item.type)"
+                :disabled="!toNumericCount(item.count)"
+                @click="toNumericCount(item.count) && openBookDialog(item.type, client)"
+              >
+                <span class="truncate">{{ item.label }}</span>
+                <span class="ml-auto shrink-0">{{ toDisplayCount(item.count) }}</span>
+              </button>
             </div>
 
             <button
@@ -1684,7 +1702,7 @@ watch(
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Nama Client</th>
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">No Identitas</th>
                   <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Jenis</th>
-                  <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Jumlah</th>
+                  <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Keterlibatan Buku</th>
                   <th class="w-[180px] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Aksi</th>
                 </tr>
               </thead>
@@ -1698,7 +1716,7 @@ watch(
                       {{ resolveClientType(client) === 'perorangan' ? 'Perorangan' : resolveClientType(client) === 'badan_hukum' ? 'Badan Hukum' : 'Tidak diketahui' }}
                     </span>
                   </td>
-                  <td class="px-3 py-2 text-sm font-semibold text-slate-800">{{ selectedBookCount(client) }} data</td>
+                  <td class="px-3 py-2 text-sm font-semibold text-slate-800">{{ selectedBookType ? selectedBookCount(client) : totalBookCount(client) }} data</td>
                   <td class="px-3 py-2">
                     <div v-if="selectedBookType" class="flex flex-wrap gap-1.5">
                       <button
@@ -1708,6 +1726,18 @@ watch(
                       >
                         <FolderIcon class="h-4 w-4" /> Lihat Detail
                       </button>
+                    </div>
+                    <div v-else class="flex flex-wrap gap-1.5">
+                      <button
+                        v-for="item in cardActionItems(client).filter(action => toNumericCount(action.count) > 0)"
+                        :key="`${clientCardKey(client, index)}-list-${item.type}`"
+                        type="button"
+                        :class="bookButtonCompactClass(item.type)"
+                        @click="openBookDialog(item.type, client)"
+                      >
+                        {{ item.label }} ({{ toDisplayCount(item.count) }})
+                      </button>
+                      <span v-if="!totalBookCount(client)" class="text-xs text-slate-500">Belum pernah terlibat</span>
                     </div>
                   </td>
                 </tr>
