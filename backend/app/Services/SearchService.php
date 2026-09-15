@@ -17,6 +17,16 @@ class SearchService
 {
     public function searchDocuments(?string $query = null): array
     {
+        $matchingClientIds = collect();
+        if ($query) {
+            $like = '%'.$query.'%';
+            $matchingClientIds = DataClient::query()
+                ->where('nama_client', 'LIKE', $like)
+                ->orWhere('no_identitas', 'LIKE', $like)
+                ->limit(250)
+                ->pluck('id_client');
+        }
+
         $clientDocuments = tb_berkas::query()
             ->leftJoin('data_clients', 'tb_berkas.id_client', '=', 'data_clients.id_client')
             ->when($query, function ($builder, string $query): void {
@@ -45,12 +55,12 @@ class SearchService
             ]);
 
         $documents = collect($clientDocuments);
-        $documents = $documents->merge($this->standardBookDocuments('notaris', $query));
-        $documents = $documents->merge($this->standardBookDocuments('legalisasi', $query));
-        $documents = $documents->merge($this->standardBookDocuments('waarmerking', $query));
-        $documents = $documents->merge($this->standardBookDocuments('ppat', $query));
-        $documents = $documents->merge($this->letterDocuments('notaris', $query));
-        $documents = $documents->merge($this->letterDocuments('ppat', $query));
+        $documents = $documents->merge($this->standardBookDocuments('notaris', $query, $matchingClientIds->all()));
+        $documents = $documents->merge($this->standardBookDocuments('legalisasi', $query, $matchingClientIds->all()));
+        $documents = $documents->merge($this->standardBookDocuments('waarmerking', $query, $matchingClientIds->all()));
+        $documents = $documents->merge($this->standardBookDocuments('ppat', $query, $matchingClientIds->all()));
+        $documents = $documents->merge($this->letterDocuments('notaris', $query, $matchingClientIds->all()));
+        $documents = $documents->merge($this->letterDocuments('ppat', $query, $matchingClientIds->all()));
 
         return $documents
             ->filter(static fn ($document): bool => trim((string) $document->nama_berkas) !== '')
@@ -62,7 +72,7 @@ class SearchService
             ->toArray();
     }
 
-    private function standardBookDocuments(string $type, ?string $query)
+    private function standardBookDocuments(string $type, ?string $query, array $matchingClientIds)
     {
         $configs = [
             'notaris' => ['tb_dokumen_notaris', 'id_dokumen_notaris', 'id_buku_notaris', 'buku_notaris', 'penghadap_notaris', 'berkasnotaris', 'Akta Notaris', '/buku_akta', 'standard_notaris'],
@@ -72,41 +82,31 @@ class SearchService
         ];
         [$table, $id, $bookId, $bookTable, $partyTable, $folder, $category, $module, $fileCategory] = $configs[$type];
 
-        $builder = DB::table($table);
-        $clientColumns = [
-            DB::raw('NULL as id_client'), DB::raw('NULL as nama_client'),
-            DB::raw('NULL as jenis_client'), DB::raw('NULL as no_identitas'),
-        ];
-
-        if ($query) {
-            $builder->leftJoin($partyTable, "$table.$bookId", '=', "$partyTable.$bookId")
-                ->leftJoin('data_clients', function ($join) use ($partyTable): void {
-                    $join->on("$partyTable.id_client", '=', 'data_clients.id_client')
-                        ->orOn("$partyTable.id_mewakili", '=', 'data_clients.id_client');
-                });
-            $clientColumns = ['data_clients.id_client', 'data_clients.nama_client', 'data_clients.jenis_client', 'data_clients.no_identitas'];
-        }
-
-        return $builder->when($query, function ($builder, string $query) use ($table): void {
+        return DB::table($table)->when($query, function ($builder, string $query) use ($table, $bookId, $partyTable, $matchingClientIds): void {
                 $like = '%'.$query.'%';
-                $builder->where(function ($builder) use ($table, $like): void {
+                $builder->where(function ($builder) use ($table, $bookId, $partyTable, $like, $matchingClientIds): void {
                     $builder->where("$table.nama_dokumen", 'LIKE', $like)
-                        ->orWhere("$table.nama_berkas", 'LIKE', $like)
-                        ->orWhere('data_clients.nama_client', 'LIKE', $like)
-                        ->orWhere('data_clients.no_identitas', 'LIKE', $like);
+                        ->orWhere("$table.nama_berkas", 'LIKE', $like);
+                    if ($matchingClientIds) {
+                        $builder->orWhereIn("$table.$bookId", function ($subquery) use ($partyTable, $bookId, $matchingClientIds): void {
+                            $subquery->select($bookId)->from($partyTable)
+                                ->whereIn('id_client', $matchingClientIds)
+                                ->orWhereIn('id_mewakili', $matchingClientIds);
+                        });
+                    }
                 });
             })
             ->whereNotNull("$table.nama_berkas")
-            ->select(array_merge([
+            ->select([
                 DB::raw("$table.$id as row_id"), "$table.nama_dokumen", "$table.nama_berkas",
-                "$table.created_at",
-            ], $clientColumns, [
+                "$table.created_at", DB::raw('NULL as id_client'), DB::raw('NULL as nama_client'),
+                DB::raw('NULL as jenis_client'), DB::raw('NULL as no_identitas'),
                 DB::raw("'$folder' as storage_folder"), DB::raw("'$category' as document_category"),
                 DB::raw("'$module' as module_path"), DB::raw("'$fileCategory' as file_category"),
-            ]))->distinct()->orderByDesc("$table.created_at")->limit(500)->get();
+            ])->orderByDesc("$table.created_at")->limit(500)->get();
     }
 
-    private function letterDocuments(string $type, ?string $query)
+    private function letterDocuments(string $type, ?string $query, array $matchingClientIds)
     {
         $table = $type === 'notaris' ? 'buku_surat_notaris' : 'buku_surat_ppats';
         $id = $type === 'notaris' ? 'id_surat_notaris' : 'id_surat_ppat';
@@ -115,31 +115,23 @@ class SearchService
         $module = $type === 'notaris' ? '/buku_surat_notaris' : '/buku_surat_ppat';
         $fileCategory = $type === 'notaris' ? 'surat_notaris' : 'surat_ppat';
 
-        $builder = DB::table($table);
-        $clientColumns = [
-            DB::raw('NULL as id_client'), DB::raw('NULL as nama_client'),
-            DB::raw('NULL as jenis_client'), DB::raw('NULL as no_identitas'),
-        ];
-        if ($query) {
-            $builder->leftJoin('data_clients', "$table.id_client", '=', 'data_clients.id_client');
-            $clientColumns = ['data_clients.id_client', 'data_clients.nama_client', 'data_clients.jenis_client', 'data_clients.no_identitas'];
-        }
-
-        return $builder->when($query, function ($builder, string $query) use ($table): void {
+        return DB::table($table)->when($query, function ($builder, string $query) use ($table, $matchingClientIds): void {
                 $like = '%'.$query.'%';
-                $builder->where(function ($builder) use ($table, $like): void {
+                $builder->where(function ($builder) use ($table, $like, $matchingClientIds): void {
                     $builder->where("$table.file", 'LIKE', $like)->orWhere("$table.keterangan", 'LIKE', $like)
-                        ->orWhere("$table.no_surat", 'LIKE', $like)->orWhere('data_clients.nama_client', 'LIKE', $like)
-                        ->orWhere('data_clients.no_identitas', 'LIKE', $like);
+                        ->orWhere("$table.no_surat", 'LIKE', $like);
+                    if ($matchingClientIds) {
+                        $builder->orWhereIn("$table.id_client", $matchingClientIds);
+                    }
                 });
             })->whereNotNull("$table.file")->where("$table.file", '<>', '')
-            ->select(array_merge([
+            ->select([
                 DB::raw("$table.$id as row_id"), DB::raw("COALESCE($table.keterangan, 'Surat') as nama_dokumen"),
-                DB::raw("$table.file as nama_berkas"), "$table.created_at",
-            ], $clientColumns, [
+                DB::raw("$table.file as nama_berkas"), "$table.created_at", "$table.id_client",
+                DB::raw('NULL as nama_client'), DB::raw('NULL as jenis_client'), DB::raw('NULL as no_identitas'),
                 DB::raw("'$folder' as storage_folder"), DB::raw("'$category' as document_category"),
                 DB::raw("'$module' as module_path"), DB::raw("'$fileCategory' as file_category"),
-            ]))->orderByDesc("$table.created_at")->limit(500)->get();
+            ])->orderByDesc("$table.created_at")->limit(500)->get();
     }
 
     public function searchDataClient(?string $query = null): array
