@@ -182,6 +182,7 @@ const normalizeClientNameInput = () => {
   if (isBusinessClient()) {
     clientForm.nama_client = sanitizeBusinessText(clientForm.nama_client)
   }
+  clearIdentityMatchOnInput()
 }
 
 const toIframePreviewUrl = (url: string) => {
@@ -454,12 +455,15 @@ const clearIdentityMatchOnInput = () => {
 const checkClientIdentity = async () => {
   if (isBusinessClient()) {
     clientForm.no_identitas = sanitizeBusinessIdentity(clientForm.no_identitas)
+    clientForm.nama_client = sanitizeBusinessText(clientForm.nama_client).trim()
   }
   const identity = toString(clientForm.no_identitas, '').trim()
+  const clientName = toString(clientForm.nama_client, '').trim()
   clientForm.no_identitas = identity
+  clientForm.nama_client = clientName
   clientIdentityMatch.value = null
 
-  if (!identity || checkingClientIdentity.value) return
+  if ((!identity && (!isBusinessClient() || !clientName)) || checkingClientIdentity.value) return
 
   checkingClientIdentity.value = true
   clearClientDialogError()
@@ -467,6 +471,7 @@ const checkClientIdentity = async () => {
   try {
     const response = await business.client.checkClientIdentity({
       no_identitas: identity,
+      nama_client: clientName,
       jenis_client: props.clientType,
       id_client: clientForm.id_client || undefined,
     }) as ApiEnvelope<ClientIdentityCheck>
@@ -475,7 +480,11 @@ const checkClientIdentity = async () => {
     if (matchedClient) {
       clientIdentityMatch.value = matchedClient
       applyIdentityMatchPreview(matchedClient)
-      showClientDialogError(`${identityLabel.value} sudah terdaftar atas nama ${toString(matchedClient.nama_client, 'client ini')}. Tidak perlu input ulang.`)
+      showClientDialogError(
+        isBusinessClient()
+          ? `NPWP atau nama client sudah terdaftar atas nama ${toString(matchedClient.nama_client, 'client ini')}. Tidak perlu input ulang.`
+          : `${identityLabel.value} sudah terdaftar atas nama ${toString(matchedClient.nama_client, 'client ini')}. Tidak perlu input ulang.`,
+      )
     }
   } catch (error) {
     showClientDialogError((error as { data?: { message?: string } })?.data?.message || `Gagal mengecek ${identityLabel.value}.`)
@@ -487,7 +496,7 @@ const checkClientIdentity = async () => {
 const saveClient = async () => {
   if (savingClient.value || clientIdentityBlocked.value) {
     if (clientIdentityBlocked.value) {
-      showClientDialogError(`${identityLabel.value} sudah terdaftar. Data tidak perlu disimpan ulang.`)
+      showClientDialogError(isBusinessClient() ? 'NPWP atau nama client sudah terdaftar. Data tidak perlu disimpan ulang.' : `${identityLabel.value} sudah terdaftar. Data tidak perlu disimpan ulang.`)
     }
     return
   }
@@ -1442,6 +1451,8 @@ onBeforeUnmount(() => {
                 :disabled="clientIdentityBlocked"
                 class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500"
                 @input="normalizeClientNameInput"
+                @change="checkClientIdentity"
+                @blur="checkClientIdentity"
               />
             </label>
             <div v-if="clientIdentityMatch" class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

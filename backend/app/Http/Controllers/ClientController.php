@@ -43,6 +43,37 @@ class ClientController extends ApiController
         return Str::upper($clean);
     }
 
+    private function duplicateClientQuery(?string $identity, ?string $name, ?string $type, ?string $excludeClientId = null)
+    {
+        $query = DataClient::query();
+
+        if ($this->isBusinessClient($type)) {
+            $query->where('jenis_client', 'Badan Hukum')
+                ->where(function ($duplicateQuery) use ($identity, $name) {
+                    if ($identity !== '') {
+                        $duplicateQuery->where('no_identitas', $identity);
+                    }
+
+                    if ($name !== '') {
+                        $method = $identity !== '' ? 'orWhere' : 'where';
+                        $duplicateQuery->{$method}('nama_client', $name);
+                    }
+                });
+        } else {
+            $query->where('no_identitas', $identity);
+
+            if ($type) {
+                $query->where('jenis_client', $type);
+            }
+        }
+
+        if ($excludeClientId) {
+            $query->where('id_client', '!=', $excludeClientId);
+        }
+
+        return $query;
+    }
+
     private function assertInternalApiKey(Request $request)
     {
         if ($request->header('X-API-Key') !== config('services.internal_api_key')) {
@@ -273,23 +304,27 @@ class ClientController extends ApiController
     public function checkClientIdentity(Request $request)
     {
         $validated = $request->validate([
-            'no_identitas' => ['required', 'string', 'max:100'],
+            'no_identitas' => ['nullable', 'string', 'max:100'],
+            'nama_client' => ['nullable', 'string', 'max:255'],
             'jenis_client' => ['nullable', 'string', 'in:Perorangan,Badan Hukum'],
             'id_client' => ['nullable', 'string', 'max:20'],
         ]);
-        $identity = $this->normalizeClientIdentity($validated['no_identitas'], $validated['jenis_client'] ?? null);
+        $identity = $this->normalizeClientIdentity($validated['no_identitas'] ?? null, $validated['jenis_client'] ?? null);
+        $name = $this->normalizeClientName($validated['nama_client'] ?? null, $validated['jenis_client'] ?? null);
 
-        $query = DataClient::query()
-            ->leftJoin('users', 'data_clients.pembuat_client', '=', 'users.id_user')
-            ->where('data_clients.no_identitas', $identity);
-
-        if (!empty($validated['jenis_client'])) {
-            $query->where('data_clients.jenis_client', $validated['jenis_client']);
+        if ($identity === '' && $name === '') {
+            return response()->json([
+                'status' => true,
+                'message' => 'Nomor identitas atau nama client belum diisi.',
+                'data' => [
+                    'exists' => false,
+                    'client' => null,
+                ],
+            ], 200);
         }
 
-        if (!empty($validated['id_client'])) {
-            $query->where('data_clients.id_client', '!=', $validated['id_client']);
-        }
+        $query = $this->duplicateClientQuery($identity, $name, $validated['jenis_client'] ?? null, $validated['id_client'] ?? null)
+            ->leftJoin('users', 'data_clients.pembuat_client', '=', 'users.id_user');
 
         $client = $query
             ->select(
@@ -306,7 +341,7 @@ class ClientController extends ApiController
 
         return response()->json([
             'status' => true,
-            'message' => $client ? 'Nomor identitas sudah terdaftar.' : 'Nomor identitas tersedia.',
+            'message' => $client ? 'Nomor identitas atau nama client sudah terdaftar.' : 'Nomor identitas dan nama client tersedia.',
             'data' => [
                 'exists' => (bool) $client,
                 'client' => $client,
@@ -321,6 +356,8 @@ class ClientController extends ApiController
             'no_identitas' => $this->normalizeClientIdentity($request->post('no_identitas'), $jenisClient),
             'nama_client' => $this->normalizeClientName($request->post('nama_client'), $jenisClient),
         ]);
+        $identity = (string) $request->post('no_identitas');
+        $name = (string) $request->post('nama_client');
 
         if ($request->post('id_client')) {
             $request->validate([
@@ -328,9 +365,7 @@ class ClientController extends ApiController
                 'nama_client' => 'required|',
             ]);
 
-            $duplicateClient = DataClient::query()
-                ->where('no_identitas', $request->post('no_identitas'))
-                ->where('id_client', '!=', $request->post('id_client'))
+            $duplicateClient = $this->duplicateClientQuery($identity, $name, $jenisClient, (string) $request->post('id_client'))
                 ->first(['id_client', 'nama_client']);
 
             if ($duplicateClient) {
@@ -339,7 +374,9 @@ class ClientController extends ApiController
                         'id_client' => $duplicateClient->id_client,
                         'nama_client' => $duplicateClient->nama_client,
                     ],
-                    'Nomor identitas sudah digunakan oleh client lain.',
+                    $this->isBusinessClient($jenisClient)
+                        ? 'NPWP atau nama client sudah digunakan oleh client lain.'
+                        : 'Nomor identitas sudah digunakan oleh client lain.',
                     422
                 );
             }
@@ -369,8 +406,7 @@ class ClientController extends ApiController
                 'nama_client' => 'required|',
             ]);
 
-            $duplicateClient = DataClient::query()
-                ->where('no_identitas', $request->post('no_identitas'))
+            $duplicateClient = $this->duplicateClientQuery($identity, $name, $jenisClient)
                 ->first(['id_client', 'nama_client']);
 
             if ($duplicateClient) {
@@ -379,7 +415,9 @@ class ClientController extends ApiController
                         'id_client' => $duplicateClient->id_client,
                         'nama_client' => $duplicateClient->nama_client,
                     ],
-                    'Nomor identitas sudah terdaftar.',
+                    $this->isBusinessClient($jenisClient)
+                        ? 'NPWP atau nama client sudah terdaftar.'
+                        : 'Nomor identitas sudah terdaftar.',
                     422
                 );
             }
