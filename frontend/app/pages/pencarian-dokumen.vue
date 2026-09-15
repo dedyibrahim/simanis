@@ -1606,9 +1606,11 @@ watch(
           >
             <button type="button" class="relative flex h-40 w-full items-center justify-center overflow-hidden bg-slate-100" @click="openDirectPreview(document)">
               <img v-if="documentIsImage(document)" :src="getClientDocumentUrl(document)" :alt="displayFileName(document.nama_dokumen, document.nama_berkas)" class="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]" loading="lazy" />
-              <span v-else-if="documentIsPdf(document)" class="grid h-24 w-20 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-600">
-                <DocumentTextIcon class="h-12 w-12" />
-              </span>
+              <object v-else-if="documentIsPdf(document)" :data="toIframePreviewUrl(getClientDocumentUrl(document))" type="application/pdf" class="pointer-events-none h-full w-full border-0 bg-white" aria-label="Preview PDF">
+                <span class="grid h-24 w-20 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-600">
+                  <DocumentTextIcon class="h-12 w-12" />
+                </span>
+              </object>
               <span v-else class="grid h-24 w-20 place-items-center rounded-lg border border-current/15" :class="[documentAppearance(document).background, documentAppearance(document).color]">
                 <component :is="documentAppearance(document).icon" class="h-12 w-12" />
               </span>
@@ -1925,9 +1927,11 @@ watch(
               >
                 <button type="button" class="relative flex h-40 w-full items-center justify-center overflow-hidden bg-slate-100" @click="openDirectPreview(document)">
                   <img v-if="documentIsImage(document)" :src="getClientDocumentUrl(document)" :alt="displayFileName(document.nama_dokumen, document.nama_berkas)" class="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]" loading="lazy" />
-                  <span v-else-if="documentIsPdf(document)" class="grid h-24 w-20 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-600">
-                    <DocumentTextIcon class="h-12 w-12" />
-                  </span>
+                  <object v-else-if="documentIsPdf(document)" :data="toIframePreviewUrl(getClientDocumentUrl(document))" type="application/pdf" class="pointer-events-none h-full w-full border-0 bg-white" aria-label="Preview PDF">
+                    <span class="grid h-24 w-20 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-600">
+                      <DocumentTextIcon class="h-12 w-12" />
+                    </span>
+                  </object>
                   <span v-else class="grid h-24 w-20 place-items-center rounded-lg border border-current/15" :class="[documentAppearance(document).background, documentAppearance(document).color]">
                     <component :is="documentAppearance(document).icon" class="h-12 w-12" />
                   </span>
@@ -2086,9 +2090,11 @@ watch(
               <article v-for="(document, index) in bookDocumentDialog.documents" :key="`${toString(document.nama_berkas, 'berkas')}-${index}`" class="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-blue-300 hover:shadow-md">
                 <button type="button" class="relative flex h-40 w-full items-center justify-center overflow-hidden bg-slate-100" @click="openBookDocumentPreview(document)">
                   <img v-if="documentIsImage(document as ClientDocument)" :src="getBookDocumentUrl(document)" :alt="displayFileName(document.nama_dokumen, document.nama_berkas)" class="h-full w-full object-cover transition group-hover:scale-[1.02]" loading="lazy" />
-                  <span v-else-if="documentIsPdf(document as ClientDocument)" class="grid h-24 w-20 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-600">
-                    <DocumentTextIcon class="h-12 w-12" />
-                  </span>
+                  <object v-else-if="documentIsPdf(document as ClientDocument)" :data="toIframePreviewUrl(getBookDocumentUrl(document))" type="application/pdf" class="pointer-events-none h-full w-full border-0 bg-white" aria-label="Preview PDF">
+                    <span class="grid h-24 w-20 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-600">
+                      <DocumentTextIcon class="h-12 w-12" />
+                    </span>
+                  </object>
                   <span v-else class="grid h-24 w-20 place-items-center rounded-lg border border-current/15" :class="[documentAppearance(document as ClientDocument).background, documentAppearance(document as ClientDocument).color]"><component :is="documentAppearance(document as ClientDocument).icon" class="h-12 w-12" /></span>
                   <span class="absolute bottom-2 right-2 rounded-md px-2 py-1 text-[10px] font-bold text-white shadow" :class="documentAppearance(document as ClientDocument).badge">{{ documentExtension(document as ClientDocument) }}</span>
                 </button>
