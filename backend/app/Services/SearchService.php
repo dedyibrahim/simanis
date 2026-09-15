@@ -213,6 +213,7 @@ class SearchService
             ->orderByDesc('buku_notaris.id_buku_notaris')
             ->where('penghadap_notaris.id_client', $idClient)
             ->orWhere('penghadap_notaris.id_mewakili', $idClient)
+            ->distinct()
             ->get();
 
         $data = [];
@@ -253,6 +254,7 @@ class SearchService
             ->orderByDesc('buku_warmerkings.id_buku_warmerking')
             ->where('penghadap_warmerkings.id_client', $idClient)
             ->orWhere('penghadap_warmerkings.id_mewakili', $idClient)
+            ->distinct()
             ->get();
 
         $data = [];
@@ -293,6 +295,7 @@ class SearchService
             ->where('id_client', $idClient)
             ->orWhere('id_mewakili', $idClient)
             ->orderByDesc('buku_legalisasis.id_buku_legalisasi')
+            ->distinct()
             ->get();
 
         $data = [];
@@ -345,6 +348,7 @@ class SearchService
                 'buku_ppats.keterangan'
             )
             ->orderByDesc('buku_ppats.id_buku_ppat')
+            ->distinct()
             ->get();
 
         $data = [];

@@ -1689,14 +1689,25 @@ watch(
               </button>
             </div>
 
-            <button
-              v-if="selectedBookType"
-              type="button"
-              class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-              @click="openBookDialog(selectedBookType, client)"
-            >
-              <FolderIcon class="h-4 w-4" /> Lihat Detail
-            </button>
+            <div class="mt-3 grid gap-2" :class="selectedBookType ? 'grid-cols-2' : 'grid-cols-1'">
+              <button
+                type="button"
+                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                @click="openClientDocumentDialog(client)"
+              >
+                <DocumentTextIcon class="h-4 w-4" /> Dokumen Pendukung
+              </button>
+              <button
+                v-if="selectedBookType"
+                type="button"
+                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="!selectedBookCount(client)"
+                @click="selectedBookCount(client) && openBookDialog(selectedBookType, client)"
+              >
+                <FolderIcon class="h-4 w-4" /> Lihat Buku
+              </button>
+            </div>
+
           </article>
         </div>
 
@@ -1728,13 +1739,28 @@ watch(
                     <div v-if="selectedBookType" class="flex flex-wrap gap-1.5">
                       <button
                         type="button"
-                        class="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
+                        class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                        @click="openClientDocumentDialog(client)"
+                      >
+                        <DocumentTextIcon class="h-4 w-4" /> Dokumen Pendukung
+                      </button>
+                      <button
+                        type="button"
+                        class="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="!selectedBookCount(client)"
                         @click="openBookDialog(selectedBookType, client)"
                       >
-                        <FolderIcon class="h-4 w-4" /> Lihat Detail
+                        <FolderIcon class="h-4 w-4" /> Lihat Buku
                       </button>
                     </div>
                     <div v-else class="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                        @click="openClientDocumentDialog(client)"
+                      >
+                        <DocumentTextIcon class="h-4 w-4" /> Dokumen Pendukung
+                      </button>
                       <button
                         v-for="item in cardActionItems(client).filter(action => toNumericCount(action.count) > 0)"
                         :key="`${clientCardKey(client, index)}-list-${item.type}`"
