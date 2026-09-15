@@ -412,7 +412,24 @@ class SearchService
         $data = tb_berkas::where('tb_berkas.id_client', $idClient)
             ->orderBy('tb_berkas.id_berkas', 'DESC')
             ->leftJoin('data_clients', 'tb_berkas.id_client', '=', 'data_clients.id_client')
+            ->select([
+                DB::raw('tb_berkas.id_berkas as row_id'),
+                'tb_berkas.id_berkas',
+                'tb_berkas.id_client',
+                'tb_berkas.nama_dokumen',
+                'tb_berkas.nama_berkas',
+                DB::raw("COALESCE(data_clients.nama_folder, CONCAT('Dok', tb_berkas.id_client)) AS nama_folder"),
+                'tb_berkas.created_at',
+                'data_clients.nama_client',
+                'data_clients.jenis_client',
+                'data_clients.no_identitas',
+                DB::raw("'Dokumen Client' as document_category"),
+                DB::raw("'/pencarian-dokumen' as module_path"),
+                DB::raw("'client_document' as file_category"),
+            ])
             ->get()
+            ->filter(fn ($document): bool => $this->documentExists($document))
+            ->values()
             ->toArray();
 
         return [
