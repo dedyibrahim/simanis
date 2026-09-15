@@ -11,9 +11,6 @@ use App\Models\PenghadapWarmerking;
 use App\Models\tb_berkas;
 use App\Support\NumericValue;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class SearchService
@@ -55,18 +52,8 @@ class SearchService
         $documents = $documents->merge($this->letterDocuments('notaris', $query));
         $documents = $documents->merge($this->letterDocuments('ppat', $query));
 
-        $availableKeys = $this->availableDocumentKeys();
-
         return $documents
-            ->filter(static function ($document) use ($availableKeys): bool {
-                $folder = trim((string) ($document->storage_folder ?? $document->nama_folder));
-                $file = trim((string) $document->nama_berkas);
-                $key = ($document->file_category ?? '') === 'client_document'
-                    ? trim('berkasclient/'.$folder.'/'.$file, '/')
-                    : trim($folder.'/'.$file, '/');
-
-                return $folder !== '' && $file !== '' && isset($availableKeys[$key]);
-            })
+            ->filter(static fn ($document): bool => trim((string) $document->nama_berkas) !== '')
             ->sortByDesc('created_at')
             ->take(240)
             ->values()
@@ -134,35 +121,6 @@ class SearchService
                 DB::raw("'$folder' as storage_folder"), DB::raw("'$category' as document_category"),
                 DB::raw("'$module' as module_path"), DB::raw("'$fileCategory' as file_category"),
             ])->orderByDesc("$table.created_at")->limit(500)->get();
-    }
-
-    private function availableDocumentKeys(): array
-    {
-        return Cache::remember('search.available-document-keys.v2', now()->addMinutes(5), static function (): array {
-            $diskName = config('filesystems.documents_disk', 'documents_local');
-            $diskConfig = config('filesystems.disks.'.$diskName);
-            $folders = ['berkasclient', 'berkasnotaris', 'berkaslegalisasis', 'berkaswarmerkings', 'berkasppat', 'suratnotaris', 'suratppats'];
-
-            if (is_array($diskConfig) && !empty($diskConfig['driver'])) {
-                $keys = [];
-                foreach ($folders as $folder) {
-                    $keys += array_fill_keys(Storage::disk($diskName)->allFiles($folder), true);
-                }
-                return $keys;
-            }
-
-            $keys = [];
-            foreach ($folders as $folder) {
-                $root = public_path($folder);
-                if (!is_dir($root)) continue;
-                foreach (File::allFiles($root) as $file) {
-                    $relativePath = str_replace('\\', '/', $file->getRelativePathname());
-                    $keys[$folder.'/'.$relativePath] = true;
-                }
-            }
-
-            return $keys;
-        });
     }
 
     public function searchDataClient(?string $query = null): array
