@@ -156,6 +156,34 @@ const toString = (value: unknown, fallback = '-') => {
   return normalized || fallback
 }
 
+const isBusinessClient = () => props.clientType === 'Badan Hukum'
+
+const sanitizeBusinessText = (value: unknown) =>
+  String(value ?? '')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trimStart()
+    .toUpperCase()
+
+const sanitizeBusinessIdentity = (value: unknown) =>
+  String(value ?? '')
+    .replace(/[^\p{L}\p{N}]+/gu, '')
+    .trim()
+    .toUpperCase()
+
+const normalizeClientIdentityInput = () => {
+  if (isBusinessClient()) {
+    clientForm.no_identitas = sanitizeBusinessIdentity(clientForm.no_identitas)
+  }
+  clearIdentityMatchOnInput()
+}
+
+const normalizeClientNameInput = () => {
+  if (isBusinessClient()) {
+    clientForm.nama_client = sanitizeBusinessText(clientForm.nama_client)
+  }
+}
+
 const toIframePreviewUrl = (url: string) => {
   const raw = String(url || '').trim()
   if (!raw) return ''
@@ -264,11 +292,11 @@ const identityLabel = computed(() =>
 const identityPlaceholder = computed(() =>
   props.clientType === 'Perorangan'
     ? 'Masukkan 16 digit NIK'
-    : 'Masukkan nomor NPWP badan hukum',
+    : 'Masukkan NPWP tanpa titik, strip, atau simbol',
 )
 
 const identityMaxLength = computed(() =>
-  props.clientType === 'Perorangan' ? 16 : 25,
+  props.clientType === 'Perorangan' ? 16 : 30,
 )
 
 const clientNamePlaceholder = computed(() =>
@@ -424,6 +452,9 @@ const clearIdentityMatchOnInput = () => {
 }
 
 const checkClientIdentity = async () => {
+  if (isBusinessClient()) {
+    clientForm.no_identitas = sanitizeBusinessIdentity(clientForm.no_identitas)
+  }
   const identity = toString(clientForm.no_identitas, '').trim()
   clientForm.no_identitas = identity
   clientIdentityMatch.value = null
@@ -464,6 +495,10 @@ const saveClient = async () => {
   clearStatus()
 
   try {
+    if (isBusinessClient()) {
+      clientForm.no_identitas = sanitizeBusinessIdentity(clientForm.no_identitas)
+      clientForm.nama_client = sanitizeBusinessText(clientForm.nama_client).trim()
+    }
     const response = await business.client.SimpanClientBaru({
       id_client: clientForm.id_client || undefined,
       no_identitas: clientForm.no_identitas,
@@ -1388,11 +1423,11 @@ onBeforeUnmount(() => {
                 ref="clientIdentityInputRef"
                 v-model="clientForm.no_identitas"
                 type="text"
-                inputmode="numeric"
+                :inputmode="props.clientType === 'Perorangan' ? 'numeric' : 'text'"
                 :maxlength="identityMaxLength"
                 :placeholder="identityPlaceholder"
                 class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                @input="clearIdentityMatchOnInput"
+                @input="normalizeClientIdentityInput"
                 @change="checkClientIdentity"
                 @blur="checkClientIdentity"
               />
@@ -1406,6 +1441,7 @@ onBeforeUnmount(() => {
                 :placeholder="clientNamePlaceholder"
                 :disabled="clientIdentityBlocked"
                 class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500"
+                @input="normalizeClientNameInput"
               />
             </label>
             <div v-if="clientIdentityMatch" class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

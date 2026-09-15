@@ -13,6 +13,36 @@ use Illuminate\Support\Str;
 
 class ClientController extends ApiController
 {
+    private function isBusinessClient(?string $type): bool
+    {
+        return Str::lower(trim((string) $type)) === 'badan hukum';
+    }
+
+    private function normalizeClientIdentity(?string $value, ?string $type): string
+    {
+        $raw = trim((string) $value);
+
+        if (! $this->isBusinessClient($type)) {
+            return $raw;
+        }
+
+        return trim(preg_replace('/[^\pL\pN]+/u', '', $raw) ?: '');
+    }
+
+    private function normalizeClientName(?string $value, ?string $type): string
+    {
+        $raw = trim(preg_replace('/\s+/', ' ', (string) $value) ?: '');
+
+        if (! $this->isBusinessClient($type)) {
+            return $raw;
+        }
+
+        $clean = preg_replace('/[^\pL\pN\s]+/u', ' ', $raw) ?: '';
+        $clean = trim(preg_replace('/\s+/', ' ', $clean) ?: '');
+
+        return Str::upper($clean);
+    }
+
     private function assertInternalApiKey(Request $request)
     {
         if ($request->header('X-API-Key') !== config('services.internal_api_key')) {
@@ -247,10 +277,11 @@ class ClientController extends ApiController
             'jenis_client' => ['nullable', 'string', 'in:Perorangan,Badan Hukum'],
             'id_client' => ['nullable', 'string', 'max:20'],
         ]);
+        $identity = $this->normalizeClientIdentity($validated['no_identitas'], $validated['jenis_client'] ?? null);
 
         $query = DataClient::query()
             ->leftJoin('users', 'data_clients.pembuat_client', '=', 'users.id_user')
-            ->where('data_clients.no_identitas', $validated['no_identitas']);
+            ->where('data_clients.no_identitas', $identity);
 
         if (!empty($validated['jenis_client'])) {
             $query->where('data_clients.jenis_client', $validated['jenis_client']);
@@ -285,6 +316,12 @@ class ClientController extends ApiController
 
     public function SimpanClientBaru(Request $request)
     {
+        $jenisClient = (string) $request->post('jenis_client');
+        $request->merge([
+            'no_identitas' => $this->normalizeClientIdentity($request->post('no_identitas'), $jenisClient),
+            'nama_client' => $this->normalizeClientName($request->post('nama_client'), $jenisClient),
+        ]);
+
         if ($request->post('id_client')) {
             $request->validate([
                 'no_identitas' => 'required',
