@@ -371,12 +371,18 @@ const filteredDocumentResults = computed(() => {
   return list
 })
 
+const showsBookClientResults = computed(() =>
+  ['Akta Notaris', 'Legalisasi', 'Waarmerking', 'Akta PPAT'].includes(bookFilter.value),
+)
+
 const paginatedDocumentResults = computed(() => {
   const start = (resultPage.value - 1) * resultPerPage.value
   return filteredDocumentResults.value.slice(start, start + resultPerPage.value)
 })
 
-const activeResultCount = computed(() => filteredDocumentResults.value.length)
+const activeResultCount = computed(() =>
+  showsBookClientResults.value ? filteredSearchResults.value.length : filteredDocumentResults.value.length,
+)
 
 const workspaceTitle = computed(() => {
   if (bookFilter.value !== 'all') return bookFilter.value
@@ -1335,7 +1341,7 @@ watch(
 
       <div class="mt-auto border-t px-4 pt-5 text-sm">
         <p class="font-semibold text-slate-700">Hasil tersaring</p>
-        <p class="mt-1 text-xs text-slate-500">{{ activeResultCount }} dokumen ditemukan</p>
+        <p class="mt-1 text-xs text-slate-500">{{ activeResultCount }} {{ showsBookClientResults ? 'client ditemukan' : 'dokumen ditemukan' }}</p>
       </div>
     </aside>
 
@@ -1526,7 +1532,7 @@ watch(
         <div class="drive-toolbar rounded-2xl border border-slate-200 p-4 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ bookFilter !== 'all' ? 'Dokumen kategori' : showingLatest ? 'Data terbaru' : 'Hasil pencarian' }}</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ showsBookClientResults ? 'Client pada kategori' : bookFilter !== 'all' ? 'Dokumen kategori' : showingLatest ? 'Data terbaru' : 'Hasil pencarian' }}</p>
               <p class="mt-1 text-sm text-slate-700">
                 Menampilkan {{ resultStart }} - {{ resultEnd }} dari {{ activeResultCount }} data.
               </p>
@@ -1577,7 +1583,7 @@ watch(
           Tidak ada hasil untuk kombinasi filter saat ini.
         </div>
 
-        <div v-else-if="resultViewMode === 'grid'" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div v-else-if="!showsBookClientResults && resultViewMode === 'grid'" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <article
             v-for="(document, index) in paginatedDocumentResults"
             :key="documentResultKey(document, index)"
@@ -1608,7 +1614,7 @@ watch(
           </article>
         </div>
 
-        <div v-else-if="resultViewMode === 'list'" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div v-else-if="!showsBookClientResults && resultViewMode === 'list'" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <button
             v-for="(document, index) in paginatedDocumentResults"
             :key="documentResultKey(document, index)"
@@ -1623,7 +1629,7 @@ watch(
           </button>
         </div>
 
-        <div v-else-if="false" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div v-else-if="showsBookClientResults && resultViewMode === 'grid'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <article
             v-for="(client, index) in paginatedSearchResults"
             :key="clientCardKey(client, index)"
@@ -1664,7 +1670,7 @@ watch(
               class="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
               @click="openBookDialog(selectedBookType, client)"
             >
-              <FolderIcon class="h-4 w-4" /> Buka {{ selectedBookType }}
+              <FolderIcon class="h-4 w-4" /> Lihat Detail
             </button>
           </article>
         </div>
@@ -1700,7 +1706,7 @@ watch(
                         class="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
                         @click="openBookDialog(selectedBookType, client)"
                       >
-                        <FolderIcon class="h-4 w-4" /> Buka
+                        <FolderIcon class="h-4 w-4" /> Lihat Detail
                       </button>
                     </div>
                   </td>
@@ -1743,15 +1749,16 @@ watch(
       <button v-if="documentContextMenu.open" type="button" class="fixed inset-0 z-[98] cursor-default" aria-label="Tutup menu dokumen" @click="documentContextMenu.open = false" @contextmenu.prevent="documentContextMenu.open = false" />
       <div
         v-if="documentContextMenu.open && documentContextMenu.document"
-        class="fixed z-[99] w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl"
+        class="fixed z-[99] w-56 overflow-hidden rounded-xl border p-1.5 shadow-2xl"
+        :class="isDark ? 'border-slate-600 bg-slate-800 text-slate-100' : 'border-slate-200 bg-white text-slate-900'"
         :style="{ left: `${documentContextMenu.x}px`, top: `${documentContextMenu.y}px` }"
         role="menu"
         @contextmenu.prevent
       >
-        <p class="truncate border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">{{ displayFileName(documentContextMenu.document.nama_dokumen, documentContextMenu.document.nama_berkas) }}</p>
-        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700" @click="openDirectPreview(documentContextMenu.document)"><EyeIcon class="h-5 w-5" /> Pratinjau</button>
-        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700" @click="requestDirectDocumentDownload(documentContextMenu.document)"><ArrowDownTrayIcon class="h-5 w-5" /> Download</button>
-        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700" @click="addDirectDocumentToCart(documentContextMenu.document)"><FolderPlusIcon class="h-5 w-5" /> Tambah ke keranjang</button>
+        <p class="truncate border-b px-3 py-2 text-xs font-semibold" :class="isDark ? 'border-slate-600 text-slate-300' : 'border-slate-100 text-slate-500'">{{ displayFileName(documentContextMenu.document.nama_dokumen, documentContextMenu.document.nama_berkas) }}</p>
+        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition" :class="isDark ? 'text-slate-100 hover:bg-slate-700 hover:text-white' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'" @click="openDirectPreview(documentContextMenu.document)"><EyeIcon class="h-5 w-5" /> Pratinjau</button>
+        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition" :class="isDark ? 'text-slate-100 hover:bg-slate-700 hover:text-white' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'" @click="requestDirectDocumentDownload(documentContextMenu.document)"><ArrowDownTrayIcon class="h-5 w-5" /> Download</button>
+        <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition" :class="isDark ? 'text-slate-100 hover:bg-slate-700 hover:text-white' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'" @click="addDirectDocumentToCart(documentContextMenu.document)"><FolderPlusIcon class="h-5 w-5" /> Tambah ke keranjang</button>
       </div>
     </Teleport>
 
