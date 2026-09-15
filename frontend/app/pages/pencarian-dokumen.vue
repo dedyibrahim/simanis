@@ -1646,7 +1646,6 @@ watch(
             :key="clientCardKey(client, index)"
             class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
           >
-            <div class="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-slate-100/70"></div>
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -1664,9 +1663,9 @@ watch(
                   </span>
                 </div>
               </div>
-              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                <UserCircleIcon v-if="resolveClientType(client) === 'perorangan'" class="h-6 w-6" />
-                <BuildingOffice2Icon v-else class="h-6 w-6" />
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50/80 text-slate-500">
+                <UserCircleIcon v-if="resolveClientType(client) === 'perorangan'" class="h-4 w-4" />
+                <BuildingOffice2Icon v-else class="h-4 w-4" />
               </div>
             </div>
 
