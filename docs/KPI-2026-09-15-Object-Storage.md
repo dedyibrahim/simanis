@@ -14,6 +14,7 @@
 | Data awal kategori buku | Legalisasi, Waarmerking, Akta Notaris, dan Akta PPAT mengambil client berdasarkan keterlibatan buku terbaru pada kategori aktif | Uji API per kategori, build production, dan verifikasi kedua server |
 | Data awal jenis client | Perorangan dan Badan Hukum mengambil 15 client terbaru langsung berdasarkan jenis yang dipilih, bukan memfilter sampel client umum | Uji API jenis client, build production, dan verifikasi kedua server |
 | Deduplikasi data buku pencarian | Hasil detail Notaris, Legalisasi, Waarmerking, dan PPAT hanya menampilkan satu card untuk setiap buku meskipun client memiliki beberapa relasi penghadap | PHP lint, build production, dan verifikasi kedua server |
+| Pembersihan dokumen 404 pencarian | 180 record dokumen yatim dihapus dengan backup, hasil pencarian/detail buku memfilter object yang tidak tersedia, dan dialog dokumen client kembali memakai card thumbnail dengan preview, download, dan keranjang | Audit 59.115 referensi storage, PHP lint, build production, dan verifikasi kedua server |
 
 Total replikasi terverifikasi: 68.857 object dan 168.373.635.769 byte pada
 MinIO `.11` maupun `.10`.

@@ -12,6 +12,7 @@ use App\Models\tb_dokumen_notaris;
 use App\Models\tb_dokumen_ppat;
 use App\Models\tb_dokumen_warmerkings;
 use App\Models\tb_nama_dokumens;
+use App\Services\DocumentStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -53,6 +54,22 @@ class DokumenNotaris extends Controller
         }
 
         return $candidate;
+    }
+
+    private function filterExistingDocuments(array $documents, string $prefix): array
+    {
+        return array_values(array_filter($documents, static function ($document) use ($prefix): bool {
+            $fileName = trim((string) ($document['nama_berkas'] ?? ''));
+            if ($fileName === '') {
+                return false;
+            }
+
+            try {
+                return DocumentStorage::exists($prefix.'/'.$fileName);
+            } catch (\Throwable) {
+                return false;
+            }
+        }));
     }
 
     private function moveWithOriginalName($file, string $directory): string
@@ -270,6 +287,7 @@ class DokumenNotaris extends Controller
         ->orderBy('tb_dokumen_notaris.id_dokumen_notaris', 'desc')
         ->select('id_dokumen_notaris', 'tb_dokumen_notaris.nama_dokumen', 'tb_dokumen_notaris.nama_berkas')
         ->get()->toArray();
+        $data = $this->filterExistingDocuments($data, 'berkasnotaris');
 
         $response = [
             'status' => true,
@@ -287,6 +305,7 @@ class DokumenNotaris extends Controller
         ->orderBy('tb_dokumen_ppat.id_dokumen_ppat', 'desc')
         ->select('id_dokumen_ppat', 'tb_dokumen_ppat.nama_dokumen', 'tb_dokumen_ppat.nama_berkas')
         ->get()->toArray();
+        $data = $this->filterExistingDocuments($data, 'berkasppat');
 
         $response = [
             'status' => true,
@@ -304,6 +323,7 @@ class DokumenNotaris extends Controller
         ->orderBy('tb_dokumen_warmerkings.id_dokumen_warmerking', 'desc')
         ->select('id_dokumen_warmerking', 'tb_dokumen_warmerkings.nama_dokumen', 'tb_dokumen_warmerkings.nama_berkas')
         ->get()->toArray();
+        $data = $this->filterExistingDocuments($data, 'berkaswarmerkings');
 
         $response = [
             'status' => true,
@@ -321,6 +341,7 @@ class DokumenNotaris extends Controller
         ->orderBy('tb_dokumen_legalisasis.id_dokumen_legalisasi', 'desc')
         ->select('id_dokumen_legalisasi', 'tb_dokumen_legalisasis.nama_dokumen', 'tb_dokumen_legalisasis.nama_berkas')
         ->get()->toArray();
+        $data = $this->filterExistingDocuments($data, 'berkaslegalisasis');
 
         $response = [
             'status' => true,

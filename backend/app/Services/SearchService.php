@@ -63,13 +63,37 @@ class SearchService
         $documents = $documents->merge($this->letterDocuments('ppat', $query, $matchingClientIds->all()));
 
         return $documents
-            ->filter(static fn ($document): bool => trim((string) $document->nama_berkas) !== '')
+            ->filter(fn ($document): bool => is_object($document) && $this->documentExists($document))
             ->sortByDesc('created_at')
             ->groupBy('document_category')
             ->flatMap(static fn ($categoryDocuments) => $categoryDocuments->take(80))
             ->sortByDesc('created_at')
             ->values()
             ->toArray();
+    }
+
+    private function documentExists(object $document): bool
+    {
+        $fileName = trim((string) ($document->nama_berkas ?? ''));
+        if ($fileName === '') {
+            return false;
+        }
+
+        $category = (string) ($document->file_category ?? '');
+        $folder = trim((string) ($document->storage_folder ?? $document->nama_folder ?? ''));
+        $path = $category === 'client_document'
+            ? 'berkasclient/'.$folder.'/'.$fileName
+            : $folder.'/'.$fileName;
+
+        if ($folder === '') {
+            return false;
+        }
+
+        try {
+            return DocumentStorage::exists($path);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function standardBookDocuments(string $type, ?string $query, array $matchingClientIds)
