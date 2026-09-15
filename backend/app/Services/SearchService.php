@@ -134,19 +134,41 @@ class SearchService
             ])->orderByDesc("$table.created_at")->limit(500)->get();
     }
 
-    public function searchDataClient(?string $query = null): array
+    public function searchDataClient(?string $query = null, ?string $category = null): array
     {
+        $categoryTables = [
+            'Akta Notaris' => ['penghadap_notaris', 'id_buku_notaris'],
+            'Legalisasi' => ['penghadap_legalisasis', 'id_buku_legalisasi'],
+            'Waarmerking' => ['penghadap_warmerkings', 'id_buku_warmerking'],
+            'Akta PPAT' => ['penghadap_ppats', 'id_buku_ppat'],
+        ];
+
+        $clientQuery = DataClient::query()
+            ->select('nama_client', 'id_client', 'jenis_client', 'no_identitas');
+
         if ($query) {
-            $dataClient = DataClient::where('nama_client', 'LIKE', '%' . $query . '%')
-                ->select('nama_client', 'id_client', 'jenis_client', 'no_identitas')
-                ->limit(15)
-                ->get();
-        } else {
-            $dataClient = DataClient::orderBy('id_client', 'desc')
-                ->limit(15)
-                ->select('nama_client', 'id_client', 'jenis_client', 'no_identitas')
-                ->get();
+            $clientQuery->where(function ($builder) use ($query): void {
+                $builder->where('nama_client', 'LIKE', '%' . $query . '%')
+                    ->orWhere('no_identitas', 'LIKE', '%' . $query . '%');
+            });
         }
+
+        if (isset($categoryTables[$category])) {
+            [$partyTable, $bookId] = $categoryTables[$category];
+            $clientQuery->whereExists(function ($subquery) use ($partyTable): void {
+                $subquery->selectRaw('1')->from($partyTable)
+                    ->whereColumn("$partyTable.id_client", 'data_clients.id_client')
+                    ->orWhereColumn("$partyTable.id_mewakili", 'data_clients.id_client');
+            })->selectSub(function ($subquery) use ($partyTable, $bookId): void {
+                $subquery->from($partyTable)->selectRaw("MAX($partyTable.$bookId)")
+                    ->whereColumn("$partyTable.id_client", 'data_clients.id_client')
+                    ->orWhereColumn("$partyTable.id_mewakili", 'data_clients.id_client');
+            }, 'latest_book_id')->orderByDesc('latest_book_id');
+        } else {
+            $clientQuery->orderByDesc('id_client');
+        }
+
+        $dataClient = $clientQuery->limit(15)->get();
 
         $result = [];
         foreach ($dataClient as $client) {

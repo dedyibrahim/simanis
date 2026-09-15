@@ -554,6 +554,7 @@ const selectAllDocuments = () => {
   clientTypeFilter.value = 'all'
   bookFilter.value = 'all'
   resultPage.value = 1
+  void runSearch(searchQuery.value)
 }
 
 const selectRecentDocuments = () => {
@@ -568,6 +569,7 @@ const selectClientType = (type: Exclude<ClientTypeFilter, 'all'>) => {
   clientTypeFilter.value = type
   bookFilter.value = 'all'
   resultPage.value = 1
+  void runSearch(searchQuery.value)
 }
 
 const selectBookFilter = (type: AktaType) => {
@@ -575,6 +577,7 @@ const selectBookFilter = (type: AktaType) => {
   bookFilter.value = type
   clientTypeFilter.value = 'all'
   resultPage.value = 1
+  void runSearch(searchQuery.value)
 }
 
 const sidebarNavClass = (active: boolean) => [
@@ -1075,7 +1078,10 @@ const runSearch = async (keyword: string) => {
 
   loading.value = true
   try {
-    const response = await business.pencarian.SearchData({ query }) as ApiEnvelope<RowRecord>
+    const response = await business.pencarian.SearchData({
+      query,
+      client_category: showsBookClientResults.value ? bookFilter.value : null,
+    }) as ApiEnvelope<RowRecord>
     const payload = unwrapPayload(response) as RowRecord
     searchResults.value = Array.isArray(payload?.data_client) ? payload.data_client as SearchClient[] : []
     documentResults.value = Array.isArray(payload?.documents) ? payload.documents as ClientDocument[] : []

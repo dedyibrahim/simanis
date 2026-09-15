@@ -17,7 +17,7 @@ class Pencarian extends ApiController
     public function index(Request $request)
     {
         $query = $request->post('query');
-        $result = $this->searchService->searchDataClient($query);
+        $result = $this->searchService->searchDataClient($query, $request->post('client_category'));
 
         $data = [
             'data_client' => $result,
