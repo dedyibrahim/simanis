@@ -1270,12 +1270,12 @@ watch(
 <template>
   <div class="document-search-page drive-workspace min-h-screen" :class="isDark ? 'document-search-dark' : 'document-search-light'">
     <header class="drive-header fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b px-4">
-      <NuxtLink to="/dashboard" class="flex shrink-0 items-center gap-3 md:w-60" aria-label="Kembali ke SIMANIS">
+      <a href="/dashboard" class="flex shrink-0 items-center gap-3 md:w-60" aria-label="Kembali ke SIMANIS">
         <span class="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white shadow-sm">
           <FolderIcon class="h-6 w-6" />
         </span>
         <span class="hidden text-lg font-bold text-slate-800 md:inline">Dokumen SIMANIS</span>
-      </NuxtLink>
+      </a>
 
       <form class="mx-auto w-full max-w-3xl" @submit.prevent="submitSearch">
         <label class="drive-global-search flex h-11 items-center rounded-xl border border-transparent px-4 transition">
@@ -1302,10 +1302,10 @@ watch(
     </header>
 
     <aside class="drive-sidebar fixed bottom-0 left-0 top-16 z-30 hidden w-64 flex-col border-r px-3 py-5 md:flex">
-      <NuxtLink to="/dashboard" class="drive-new-button mb-5 inline-flex w-fit items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-semibold">
+      <a href="/dashboard" class="drive-new-button mb-5 inline-flex w-fit items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-semibold">
         <ArrowLeftIcon class="h-5 w-5" />
         Kembali
-      </NuxtLink>
+      </a>
 
       <nav class="space-y-1 text-sm">
         <button type="button" :class="sidebarNavClass(activeSidebar === 'all')" @click="selectAllDocuments">
