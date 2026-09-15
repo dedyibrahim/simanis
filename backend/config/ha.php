@@ -18,5 +18,6 @@ return [
         'ocr_stop' => env('KTP_OCR_STOP_COMMAND', 'sudo -n /usr/local/sbin/simanis-ktp-ocr-stop'),
         'ocr_restart' => env('KTP_OCR_RESTART_COMMAND', 'sudo -n /usr/local/sbin/simanis-ktp-ocr-restart'),
         'ocr_status' => env('KTP_OCR_STATUS_COMMAND', 'sudo -n /usr/local/sbin/simanis-ktp-ocr-status'),
+        'minio_sync' => env('MINIO_SYNC_COMMAND', 'sudo -n /usr/local/sbin/simanis-minio-sync'),
     ],
 ];

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ArrowPathIcon, ArrowRightIcon } from '@heroicons/vue/24/outline'
+
 type DatabaseStatus = {
   client_count?: number
   latest_client_update?: string | null
@@ -153,11 +155,14 @@ useHead({
 
 const business = useLegacyBusiness()
 const loading = ref(false)
+const storageSyncLoading = ref(false)
 const whatsappLoading = ref(false)
 const ktpOcrLoading = ref(false)
 const whatsappAction = ref<'start' | 'stop' | ''>('')
 const ktpOcrAction = ref<'start' | 'stop' | 'restart' | 'save' | ''>('')
 const errorMessage = ref('')
+const storageMessage = ref('')
+const storageError = ref('')
 const whatsappMessage = ref('')
 const whatsappError = ref('')
 const ktpOcrMessage = ref('')
@@ -180,7 +185,6 @@ const summaryItems = computed(() => {
     { key: 'peer_reachable', label: 'Server Standby', detail: 'Server pasangan dapat dihubungi' },
     { key: 'database_replication_healthy', label: 'Replikasi Database', detail: 'Thread replikasi aktif dan lag rendah' },
     { key: 'database_data_matches', label: 'Kesamaan Database', detail: 'Jumlah dan data client terbaru sama' },
-    { key: 'files_synchronized', label: 'Folder Public', detail: 'Arsip dokumen selesai disinkronkan' },
     { key: 'application_matches', label: 'Versi Aplikasi', detail: 'Release aplikasi pada kedua server sama' },
   ].map(item => ({ ...item, healthy: Boolean(summary[item.key]) }))
 })
@@ -189,6 +193,14 @@ const overallHealthy = computed(() => Boolean(status.value?.summary?.overall_hea
 const peerStatus = computed(() => status.value?.peer?.data)
 const storageReorganization = computed(() => status.value?.storage_reorganization)
 const reorganizationProgress = computed(() => Math.min(100, Math.max(0, Number(storageReorganization.value?.progress_percent || 0))))
+const unsynchronizedPrefixes = computed(() => (storageReorganization.value?.prefixes || []).filter((prefix) =>
+  prefix.status !== 'completed'
+  || Number(prefix.source_objects || 0) !== Number(prefix.destination_objects || 0)
+  || Number(prefix.source_bytes || 0) !== Number(prefix.destination_bytes || 0),
+))
+const objectStorageSynchronized = computed(() => Boolean(
+  storageReorganization.value?.status === 'completed' && unsynchronizedPrefixes.value.length === 0,
+))
 const whatsappContainers = computed(() => whatsapp.value?.containers || {})
 const whatsappReady = computed(() => {
   const statusText = String(whatsapp.value?.waha?.status || '').toLowerCase()
@@ -239,6 +251,26 @@ const loadStatus = async () => {
       || 'Gagal memuat status sinkronisasi.'
   } finally {
     loading.value = false
+  }
+}
+
+const syncObjectStorage = async () => {
+  if (storageSyncLoading.value) return
+  storageSyncLoading.value = true
+  storageMessage.value = ''
+  storageError.value = ''
+  try {
+    const response = await business.settings.syncHaObjectStorage() as ApiEnvelope<{ storage_reorganization?: StorageReorganizationStatus }>
+    storageMessage.value = response.message || 'Sinkronisasi object storage mulai dijalankan.'
+    if (response.data?.storage_reorganization && status.value) {
+      status.value.storage_reorganization = response.data.storage_reorganization
+    }
+    window.setTimeout(() => void loadStatus(), 2500)
+  } catch (error) {
+    storageError.value = (error as { data?: { message?: string } })?.data?.message
+      || 'Gagal menjalankan sinkronisasi object storage.'
+  } finally {
+    storageSyncLoading.value = false
   }
 }
 
@@ -373,7 +405,7 @@ onBeforeUnmount(() => {
         <div>
           <p class="display-kicker">High Availability</p>
           <h2 class="mt-2 text-2xl font-semibold text-slate-900">Status Sinkronisasi Server</h2>
-          <p class="mt-2 text-sm text-slate-500">Pantau server, database, folder public, dan Virtual IP SIMANIS.</p>
+          <p class="mt-2 text-sm text-slate-500">Pantau server, database, object storage, dan Virtual IP SIMANIS.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <label class="inline-flex items-center gap-2 text-sm text-slate-600">
@@ -442,21 +474,24 @@ onBeforeUnmount(() => {
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Object Storage</p>
-          <h3 class="mt-2 text-lg font-semibold text-slate-900">Replikasi Dokumen ke Server Standby</h3>
-          <p class="mt-1 text-sm text-slate-500">
-            Menyalin dokumen dari MinIO server utama ke MinIO server standby.
-          </p>
+          <h3 class="mt-2 text-lg font-semibold text-slate-900">Sinkronisasi Object Storage</h3>
+          <p class="mt-1 text-sm text-slate-500">Menjaga seluruh modul dokumen tetap sama pada kedua MinIO.</p>
         </div>
-        <span
-          class="rounded-full px-3 py-1 text-xs font-semibold"
-          :class="storageReorganization.status === 'completed'
-            ? 'bg-emerald-100 text-emerald-700'
-            : storageReorganization.status === 'failed'
-              ? 'bg-red-100 text-red-700'
-              : 'bg-blue-100 text-blue-700'"
-        >
-          {{ storageReorganization.status === 'completed' ? 'Selesai' : storageReorganization.status === 'failed' ? 'Gagal' : 'Sedang berjalan' }}
-        </span>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="objectStorageSynchronized ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
+            {{ objectStorageSynchronized ? 'Semua Sinkron' : `${unsynchronizedPrefixes.length} Modul Belum Sinkron` }}
+          </span>
+          <button type="button" class="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" :disabled="storageSyncLoading || objectStorageSynchronized" @click="syncObjectStorage">
+            <ArrowPathIcon class="h-4 w-4" :class="storageSyncLoading ? 'animate-spin' : ''" />
+            {{ storageSyncLoading ? 'Menjalankan...' : 'Sinkronkan yang Belum Sama' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-5 grid items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-[1fr_auto_1fr]">
+        <div><p class="text-xs font-semibold uppercase text-slate-500">Main</p><p class="mt-1 font-semibold text-slate-900">MinIO server2</p><p class="text-xs text-slate-500">192.168.0.11</p></div>
+        <ArrowRightIcon class="h-6 w-6 rotate-90 text-blue-600 sm:rotate-0" />
+        <div class="sm:text-right"><p class="text-xs font-semibold uppercase text-slate-500">Standby</p><p class="mt-1 font-semibold text-slate-900">MinIO server1</p><p class="text-xs text-slate-500">192.168.0.10</p></div>
       </div>
 
       <div class="mt-5 h-3 overflow-hidden rounded-full bg-slate-200">
@@ -510,6 +545,8 @@ onBeforeUnmount(() => {
       <p v-if="storageReorganization.error" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         {{ storageReorganization.error }}
       </p>
+      <p v-if="storageMessage" class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ storageMessage }}</p>
+      <p v-if="storageError" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ storageError }}</p>
     </SurfaceCard>
 
     <SurfaceCard class="p-6">
@@ -713,27 +750,6 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="server?.files" class="mt-4 rounded-xl border border-slate-200 p-4">
-          <div class="flex items-center justify-between text-xs text-slate-500">
-            <span>Progress folder public</span>
-            <span>{{ Number(server.files.progress_percent || 0).toFixed(1) }}%</span>
-          </div>
-          <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div class="h-full rounded-full bg-blue-600" :style="{ width: `${Math.min(100, Number(server.files.progress_percent || 0))}%` }" />
-          </div>
-          <div class="mt-3 flex flex-wrap justify-between gap-2 text-xs text-slate-500">
-            <span>{{ formatBytes(server.files.destination_bytes) }} / {{ formatBytes(server.files.source_bytes) }}</span>
-            <span>Sukses terakhir: {{ formatDate(server.files.last_success_at) }}</span>
-          </div>
-          <p v-if="server.files.process_running" class="mt-2 text-xs font-medium text-blue-700">
-            Aktif memproses {{ server.files.current_directory || 'folder public' }}
-            <span v-if="server.files.activity_bytes"> | aktivitas {{ formatBytes(server.files.activity_bytes) }}</span>
-          </p>
-          <p v-if="server.files.updated_at" class="mt-1 text-[11px] text-slate-400">
-            Aktivitas diperbarui {{ formatDate(server.files.updated_at) }}
-          </p>
-          <p v-if="server.files.last_error" class="mt-2 text-xs text-red-600">{{ server.files.last_error }}</p>
-        </div>
       </SurfaceCard>
     </div>
   </div>

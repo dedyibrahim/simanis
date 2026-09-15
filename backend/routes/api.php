@@ -125,6 +125,7 @@ Route::group(['prefix' => 'auth/user', 'middleware' => 'auth:sanctum'], function
 Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::get('/getDashboard', [DashboardController::class, 'getDashboard']);
     Route::get('/ha-status', [HaStatusController::class, 'show']);
+    Route::post('/ha-object-storage/sync', [HaStatusController::class, 'syncObjectStorage']);
     Route::get('/ha-whatsapp', [HaStatusController::class, 'whatsapp']);
     Route::put('/ha-whatsapp/settings', [HaStatusController::class, 'updateWhatsappSettings']);
     Route::post('/ha-whatsapp/webhook/sync', [HaStatusController::class, 'syncWhatsappWebhook']);

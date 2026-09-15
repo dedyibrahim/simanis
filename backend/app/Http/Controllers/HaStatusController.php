@@ -48,6 +48,32 @@ class HaStatusController extends Controller
         ], 200);
     }
 
+    public function syncObjectStorage(Request $request)
+    {
+        if (!$this->isAdminOrSuper($request->user())) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Akses ditolak. Hanya Admin/Super Admin yang boleh menjalankan sinkronisasi object storage.',
+                'data' => [],
+            ], 403);
+        }
+
+        $result = $this->runServerCommand((string) config('ha.commands.minio_sync'), 15);
+
+        return response()->json([
+            'status' => $result['exit_code'] === 0,
+            'message' => $result['exit_code'] === 0
+                ? 'Sinkronisasi modul yang belum sama mulai dijalankan.'
+                : 'Sinkronisasi object storage gagal dijalankan.',
+            'data' => [
+                'storage_reorganization' => $this->jsonStatusFile(
+                    (string) config('ha.minio_flatten_status_file')
+                ),
+                'command' => $result,
+            ],
+        ], $result['exit_code'] === 0 ? 202 : 500);
+    }
+
     public function whatsapp(Request $request, WahaClient $wahaClient)
     {
         if (!$this->isAdminOrSuper($request->user())) {

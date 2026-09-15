@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+prefixes=(berkasclient berkaslegalisasis berkasnotaris berkasppat berkaswarmerkings chat_attachments scanned-documents suratnotaris suratppats tandaterima)
+source /etc/default/minio
+
+mc alias set replication-source http://192.168.0.11:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+mc alias set replication-target http://192.168.0.10:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+
+object_stats() {
+    mc du --json "$1" 2>/dev/null | tail -1 | php -r '$d=json_decode(stream_get_contents(STDIN), true) ?: []; echo (int)($d["objects"] ?? 0).":".(int)($d["size"] ?? 0);'
+}
+
+for prefix in "${prefixes[@]}"; do
+    source_path="replication-source/simanis-documents/$prefix"
+    target_path="replication-target/simanis-documents/$prefix"
+    [ "$(object_stats "$source_path")" = "$(object_stats "$target_path")" ] && continue
+    mc mirror --overwrite --remove "$source_path" "$target_path"
+done
+
+/usr/local/sbin/simanis-minio-replication-status

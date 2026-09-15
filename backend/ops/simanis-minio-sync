@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+unit=simanis-minio-manual-sync.service
+if systemctl is-active --quiet "$unit"; then
+    echo "Sinkronisasi object storage sedang berjalan."
+    exit 0
+fi
+
+systemd-run --quiet --collect --unit="$unit" \
+    --property=Nice=10 \
+    --property=IOSchedulingClass=best-effort \
+    --property=IOSchedulingPriority=7 \
+    /usr/local/sbin/simanis-minio-sync-job
+
+echo "Sinkronisasi object storage dimulai."

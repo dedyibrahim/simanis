@@ -217,6 +217,7 @@ export function useLegacyBusinessService() {
     pruneOldDatabaseBackups: () => del('/auth/database-backups/old'),
     downloadDatabaseBackup: (fileName: string) => downloadBlob(`/auth/database-backups/download/${encodeURIComponent(fileName)}`),
     getHaStatus: () => get('/auth/ha-status'),
+    syncHaObjectStorage: () => post('/auth/ha-object-storage/sync'),
     getHaWhatsapp: () => get('/auth/ha-whatsapp'),
     saveHaWhatsappSettings: (payload: BodyPayload) => put('/auth/ha-whatsapp/settings', payload),
     syncHaWhatsappWebhook: () => post('/auth/ha-whatsapp/webhook/sync'),
