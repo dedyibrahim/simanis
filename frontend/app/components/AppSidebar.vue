@@ -23,7 +23,8 @@ const visibleSections = computed(() =>
   navigationSections
     .map(section => ({
       ...section,
-      items: section.items.filter(item => !item.adminOnly || isAdminRole.value),
+      items: section.items.filter(item => (!item.adminOnly || isAdminRole.value)
+        && (!item.superAdminOnly || ['super admin', 'superadmin'].includes(String(user.value?.level_user || '').trim().toLowerCase()))),
     }))
     .filter(section => section.items.length > 0),
 )

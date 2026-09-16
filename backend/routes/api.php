@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\WhatsAppBroadcastController;
 use App\Http\Controllers\HaStatusController;
 use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\Dashboard;
@@ -64,6 +65,9 @@ Route::prefix('auth')->group(function () {
 
 
 Route::group(['middleware' => ['auth:sanctum']], function () {
+    Route::get('/auth/whatsapp-broadcast/assistants', [WhatsAppBroadcastController::class, 'index']);
+    Route::get('/auth/whatsapp-broadcast/history', [WhatsAppBroadcastController::class, 'history']);
+    Route::post('/auth/whatsapp-broadcast/send', [WhatsAppBroadcastController::class, 'send'])->middleware('throttle:60,1');
 
     // Grup untuk semua yang berhubungan dengan Event
     Route::prefix('events')->group(function () {

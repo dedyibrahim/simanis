@@ -6,6 +6,7 @@ export interface NavigationItem {
   icon: AppIcon
   hint: string
   adminOnly?: boolean
+  superAdminOnly?: boolean
 }
 
 export interface NavigationSection {
@@ -92,6 +93,7 @@ export const navigationSections: NavigationSection[] = [
       { title: 'Google Calendar', path: '/settings-google-calendar', icon: 'calendar', hint: 'Sinkron jadwal SIMANIS ke Google Calendar', adminOnly: true },
       { title: 'Status Sinkronisasi', path: '/settings-sinkronisasi', icon: 'settings', hint: 'Kesehatan server, database, dan arsip', adminOnly: true },
       { title: 'WhatsApp Gateway', path: '/settings-whatsapp-gateway', icon: 'settings', hint: 'Kontrol bothWA, WAHA, dan QR login', adminOnly: true },
+      { title: 'Blast WA', path: '/settings-whatsapp-broadcast', icon: 'users', hint: 'Pengumuman WhatsApp untuk asisten', superAdminOnly: true },
       { title: 'Account Settings', path: '/pages/account-settings', icon: 'settings', hint: 'Profil dan security user' },
     ],
   },

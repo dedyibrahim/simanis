@@ -1229,7 +1229,8 @@ const navigation = computed<NavigationGroup[]>(() =>
       name: section.title,
       icon: sectionIcons[section.title] || iconMap.fallback,
       children: section.items
-        .filter(item => !item.adminOnly || isAdminRole.value)
+        .filter(item => (!item.adminOnly || isAdminRole.value)
+          && (!item.superAdminOnly || ['super admin', 'superadmin'].includes(String(user.value?.level_user || '').trim().toLowerCase())))
         .map(item => ({
           name: item.title,
           href: item.path,
@@ -2017,7 +2018,10 @@ watch(
   (value) => {
     if (!import.meta.client) return
     window.localStorage.setItem(WINDOWS_MODE_STORAGE_KEY, value ? '1' : '0')
-    if (value) openWindowsLauncher()
+    if (value) {
+      if (route.path.replace(/\/$/, '') === '/settings-whatsapp-broadcast') openWindowsModule()
+      else openWindowsLauncher()
+    }
   },
 )
 
