@@ -470,7 +470,7 @@ onBeforeUnmount(() => {
       </div>
     </SurfaceCard>
 
-    <SurfaceCard v-if="storageReorganization?.status" class="p-6">
+    <SurfaceCard class="p-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Object Storage</p>
@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="objectStorageSynchronized ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
-            {{ objectStorageSynchronized ? 'Semua Sinkron' : `${unsynchronizedPrefixes.length} Modul Belum Sinkron` }}
+            {{ !storageReorganization?.status ? 'Status belum tersedia' : objectStorageSynchronized ? 'Semua Sinkron' : `${unsynchronizedPrefixes.length} Modul Belum Sinkron` }}
           </span>
           <button type="button" class="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" :disabled="storageSyncLoading || objectStorageSynchronized" @click="syncObjectStorage">
             <ArrowPathIcon class="h-4 w-4" :class="storageSyncLoading ? 'animate-spin' : ''" />
@@ -497,24 +497,24 @@ onBeforeUnmount(() => {
       <div class="mt-5 h-3 overflow-hidden rounded-full bg-slate-200">
         <div
           class="h-full rounded-full bg-blue-600 transition-[width] duration-700"
-          :class="storageReorganization.status === 'completed' ? 'bg-emerald-600' : storageReorganization.status === 'failed' ? 'bg-red-600' : ''"
+          :class="storageReorganization?.status === 'completed' ? 'bg-emerald-600' : storageReorganization?.status === 'failed' ? 'bg-red-600' : ''"
           :style="{ width: `${reorganizationProgress}%` }"
         />
       </div>
       <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <span class="font-semibold text-slate-800">{{ reorganizationProgress.toFixed(2) }}%</span>
         <span class="text-slate-500">
-          {{ formatBytes(storageReorganization.destination_bytes) }} dari {{ formatBytes(storageReorganization.source_bytes) }}
+          {{ formatBytes(storageReorganization?.destination_bytes) }} dari {{ formatBytes(storageReorganization?.source_bytes) }}
         </span>
       </div>
       <p class="mt-2 text-xs text-slate-500">
-        {{ storageReorganization.current_prefix ? `Folder aktif: ${storageReorganization.current_prefix}` : 'Memeriksa kesamaan objek...' }}
-        · Diperbarui {{ formatDate(storageReorganization.updated_at) }}
+        {{ storageReorganization?.current_prefix ? `Folder aktif: ${storageReorganization.current_prefix}` : 'Memeriksa kesamaan objek...' }}
+        · Diperbarui {{ formatDate(storageReorganization?.updated_at) }}
       </p>
 
       <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div
-          v-for="prefix in storageReorganization.prefixes || []"
+          v-for="prefix in storageReorganization?.prefixes || []"
           :key="prefix.name"
           class="rounded-xl border border-slate-200 bg-slate-50 p-3"
         >
@@ -539,10 +539,10 @@ onBeforeUnmount(() => {
       </div>
 
       <p class="mt-4 text-xs text-slate-500">
-        Folder aktif: <span class="font-semibold text-slate-700">{{ storageReorganization.current_prefix || '-' }}</span>
-        · Update {{ formatDate(storageReorganization.updated_at) }}
+        Folder aktif: <span class="font-semibold text-slate-700">{{ storageReorganization?.current_prefix || '-' }}</span>
+        · Update {{ formatDate(storageReorganization?.updated_at) }}
       </p>
-      <p v-if="storageReorganization.error" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <p v-if="storageReorganization?.error" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         {{ storageReorganization.error }}
       </p>
       <p v-if="storageMessage" class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ storageMessage }}</p>

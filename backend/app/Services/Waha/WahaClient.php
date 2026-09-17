@@ -808,7 +808,7 @@ class WahaClient
                 'recipient_user_id' => $context['recipient_user_id'] ?? null,
                 'source' => $context['source'] ?? 'general',
                 'phone' => $phone,
-                'message' => $message,
+                'message' => !empty($context['sensitive']) ? '[PESAN SENSITIF DISEMBUNYIKAN]' : $message,
                 'status' => $status,
                 'http_status' => $httpStatus,
                 'response_body' => is_null($responseData) ? null : json_encode($responseData),

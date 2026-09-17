@@ -32,7 +32,7 @@
           </NuxtLink>
 
           <form class="space-y-6" @submit.prevent="handleLogin">
-            <div class="space-y-2">
+            <div v-if="!otpStep" class="space-y-2">
               <label for="email" class="block text-sm font-semibold text-slate-700"> Email </label>
               <div class="group relative">
                 <input
@@ -52,7 +52,7 @@
               </div>
             </div>
 
-            <div class="space-y-2">
+            <div v-if="!otpStep" class="space-y-2">
               <label for="password" class="block text-sm font-semibold text-slate-700"> Password </label>
               <div class="group relative">
                 <input
@@ -85,7 +85,7 @@
               </div>
             </div>
 
-            <div class="flex items-center justify-between text-sm">
+            <div v-if="!otpStep" class="flex items-center justify-between text-sm">
               <label class="flex items-center">
                 <input
                   v-model="form.remember"
@@ -95,6 +95,33 @@
                 <span class="ml-2 font-medium text-slate-700">Remember me</span>
               </label>
               <span class="font-semibold text-blue-600">SIMANIS</span>
+            </div>
+
+            <div v-if="otpStep" class="space-y-4">
+              <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                Kode OTP telah dikirim ke WhatsApp <strong>{{ otpState.maskedPhone }}</strong>. Kode berlaku selama 5 menit.
+              </div>
+              <label for="otp" class="block text-sm font-semibold text-slate-700">Kode OTP</label>
+              <input
+                id="otp"
+                v-model="otpState.code"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                required
+                autofocus
+                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center text-2xl font-bold tracking-[0.4em] text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                placeholder="000000"
+                @input="otpState.code = otpState.code.replace(/\D/g, '').slice(0, 6)"
+              />
+              <div class="flex items-center justify-between gap-3 text-sm">
+                <button type="button" class="font-semibold text-slate-600 hover:text-slate-900" @click="cancelOtp">Kembali ke login</button>
+                <button type="button" class="font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50" :disabled="pending || resendCooldown > 0" @click="resendOtp">
+                  {{ resendCooldown > 0 ? `Kirim ulang (${resendCooldown}s)` : 'Kirim ulang OTP' }}
+                </button>
+              </div>
             </div>
 
             <div v-if="errorMessage" class="rounded-2xl border border-red-200/60 bg-red-50/80 p-4 backdrop-blur-sm">
@@ -117,14 +144,14 @@
                   <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m0 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                   </svg>
-                  <span>Sign In</span>
+                  <span>{{ otpStep ? 'Verifikasi OTP' : 'Sign In' }}</span>
                 </div>
                 <div v-else class="flex items-center justify-center space-x-3">
                   <svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                   </svg>
-                  <span>Signing in...</span>
+                  <span>{{ otpStep ? 'Memverifikasi...' : 'Signing in...' }}</span>
                 </div>
               </div>
             </button>
@@ -215,7 +242,11 @@ useHead({
 type LoginResponse = {
   status: boolean
   message: string
-  data: import('~/composables/useSession').SessionUser
+  data: import('~/composables/useSession').SessionUser & {
+    otp_required?: boolean
+    challenge_id?: string
+    masked_phone?: string
+  }
 }
 
 const business = useLegacyBusiness()
@@ -225,12 +256,32 @@ const route = useRoute()
 const pending = ref(false)
 const errorMessage = ref('')
 const showPassword = ref(false)
+const otpStep = ref(false)
+const resendCooldown = ref(0)
+let resendTimer: ReturnType<typeof setInterval> | undefined
 
 const form = reactive({
   email: '',
   password: '',
   remember: false,
 })
+const otpState = reactive({ challengeId: '', maskedPhone: '', code: '' })
+
+const startResendCooldown = () => {
+  resendCooldown.value = 60
+  if (resendTimer) clearInterval(resendTimer)
+  resendTimer = setInterval(() => {
+    resendCooldown.value -= 1
+    if (resendCooldown.value <= 0 && resendTimer) clearInterval(resendTimer)
+  }, 1000)
+}
+
+const finishLogin = async (session: import('~/composables/useSession').SessionUser) => {
+  setSession(session)
+  if (import.meta.client) window.localStorage.setItem('simanis.windows-mode', '1')
+  await nextTick()
+  await navigateTo(redirectTarget.value, { replace: true })
+}
 
 const redirectTarget = computed(() => {
   const redirect = route.query.redirect
@@ -250,21 +301,62 @@ const handleLogin = async () => {
   errorMessage.value = ''
 
   try {
+    if (otpStep.value) {
+      if (otpState.code.length !== 6) {
+        errorMessage.value = 'Masukkan 6 digit kode OTP.'
+        return
+      }
+      const response = await business.auth.VerifyLoginOtp({ challenge_id: otpState.challengeId, otp: otpState.code }) as LoginResponse
+      await finishLogin(response.data)
+      return
+    }
+
     const response = await business.auth.login({
       email: form.email,
       password: form.password,
     }) as LoginResponse
 
-    setSession(response.data)
-    if (import.meta.client) {
-      window.localStorage.setItem('simanis.windows-mode', '1')
+    if (response.data.otp_required && response.data.challenge_id) {
+      otpState.challengeId = response.data.challenge_id
+      otpState.maskedPhone = response.data.masked_phone || ''
+      otpState.code = ''
+      otpStep.value = true
+      startResendCooldown()
+      return
     }
-    await nextTick()
-    await navigateTo(redirectTarget.value, { replace: true })
+    await finishLogin(response.data)
   } catch (error) {
     errorMessage.value = (error as { data?: { message?: string } })?.data?.message || 'Login gagal. Periksa email dan password.'
   } finally {
     pending.value = false
   }
 }
+
+const cancelOtp = () => {
+  otpStep.value = false
+  otpState.challengeId = ''
+  otpState.code = ''
+  errorMessage.value = ''
+}
+
+const resendOtp = async () => {
+  if (pending.value || resendCooldown.value > 0) return
+  pending.value = true
+  errorMessage.value = ''
+  try {
+    const response = await business.auth.ResendLoginOtp({ challenge_id: otpState.challengeId }) as LoginResponse
+    otpState.challengeId = response.data.challenge_id || otpState.challengeId
+    otpState.maskedPhone = response.data.masked_phone || otpState.maskedPhone
+    otpState.code = ''
+    startResendCooldown()
+  } catch (error) {
+    errorMessage.value = (error as { data?: { message?: string } })?.data?.message || 'Gagal mengirim ulang OTP.'
+  } finally {
+    pending.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  if (resendTimer) clearInterval(resendTimer)
+})
 </script>

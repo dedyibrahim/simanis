@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   ArrowDownTrayIcon,
+  ArrowLeftIcon,
   ArrowPathIcon,
   DocumentTextIcon,
   EyeIcon,
@@ -609,10 +610,21 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="previewDialog.open" class="fixed inset-0 z-[80] flex flex-col bg-slate-950">
-      <header class="flex flex-shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-slate-900 px-5 py-4 text-white">
-        <div class="min-w-0">
-          <p class="text-xs font-bold uppercase tracking-[0.3em] text-blue-200">Preview Dokumen Scan</p>
-          <h2 class="mt-1 truncate text-lg font-bold">{{ previewDialog.title }}</h2>
+      <header class="flex flex-shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-slate-900 px-4 py-3 text-white sm:px-5">
+        <div class="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            class="inline-flex h-10 flex-none items-center gap-2 rounded-lg border border-white/15 px-3 text-sm font-bold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            title="Kembali ke daftar dokumen scan"
+            @click="closePreview"
+          >
+            <ArrowLeftIcon class="h-5 w-5" />
+            <span class="hidden sm:inline">Kembali</span>
+          </button>
+          <div class="min-w-0">
+            <p class="text-xs font-bold uppercase tracking-[0.3em] text-blue-200">Preview Dokumen Scan</p>
+            <h2 class="mt-1 truncate text-lg font-bold">{{ previewDialog.title }}</h2>
+          </div>
         </div>
         <div class="flex items-center gap-2">
           <button

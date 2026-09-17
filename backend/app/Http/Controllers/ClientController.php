@@ -194,6 +194,7 @@ class ClientController extends ApiController
             ->select(
                 'data_clients.id_client',
                 'data_clients.no_identitas',
+                'data_clients.has_npwp',
                 'data_clients.nama_client',
                 'data_clients.jenis_client',
                 'data_clients.alamat_client',
@@ -289,6 +290,7 @@ class ClientController extends ApiController
             return [
                 'id_client' => $row->id_client,
                 'no_identitas' => $row->no_identitas,
+                'has_npwp' => (bool) $row->has_npwp,
                 'nama_client' => $row->nama_client,
                 'jenis_client' => $row->jenis_client,
                 'alamat_client' => $row->alamat_client,
@@ -305,11 +307,16 @@ class ClientController extends ApiController
     {
         $validated = $request->validate([
             'no_identitas' => ['nullable', 'string', 'max:100'],
+            'has_npwp' => ['nullable', 'boolean'],
             'nama_client' => ['nullable', 'string', 'max:255'],
             'jenis_client' => ['nullable', 'string', 'in:Perorangan,Badan Hukum'],
             'id_client' => ['nullable', 'string', 'max:20'],
         ]);
-        $identity = $this->normalizeClientIdentity($validated['no_identitas'] ?? null, $validated['jenis_client'] ?? null);
+        $hasNpwp = ! $this->isBusinessClient($validated['jenis_client'] ?? null)
+            || ($validated['has_npwp'] ?? true);
+        $identity = $hasNpwp
+            ? $this->normalizeClientIdentity($validated['no_identitas'] ?? null, $validated['jenis_client'] ?? null)
+            : '';
         $name = $this->normalizeClientName($validated['nama_client'] ?? null, $validated['jenis_client'] ?? null);
 
         if ($identity === '' && $name === '') {
@@ -330,6 +337,7 @@ class ClientController extends ApiController
             ->select(
                 'data_clients.id_client',
                 'data_clients.no_identitas',
+                'data_clients.has_npwp',
                 'data_clients.nama_client',
                 'data_clients.jenis_client',
                 'data_clients.alamat_client',
@@ -352,16 +360,24 @@ class ClientController extends ApiController
     public function SimpanClientBaru(Request $request)
     {
         $jenisClient = (string) $request->post('jenis_client');
+        $hasNpwp = ! $this->isBusinessClient($jenisClient) || $request->boolean('has_npwp', true);
         $request->merge([
-            'no_identitas' => $this->normalizeClientIdentity($request->post('no_identitas'), $jenisClient),
+            'no_identitas' => $hasNpwp
+                ? $this->normalizeClientIdentity($request->post('no_identitas'), $jenisClient)
+                : null,
+            'has_npwp' => $hasNpwp,
             'nama_client' => $this->normalizeClientName($request->post('nama_client'), $jenisClient),
         ]);
-        $identity = (string) $request->post('no_identitas');
+        $identity = (string) ($request->post('no_identitas') ?? '');
         $name = (string) $request->post('nama_client');
+        $identityRules = $hasNpwp && $this->isBusinessClient($jenisClient)
+            ? ['required', 'regex:/^\d{15,16}$/', 'not_regex:/^9{5}/']
+            : ($hasNpwp ? ['required'] : ['nullable']);
 
         if ($request->post('id_client')) {
             $request->validate([
-                'no_identitas' => 'required',
+                'no_identitas' => $identityRules,
+                'has_npwp' => 'required|boolean',
                 'nama_client' => 'required|',
             ]);
 
@@ -384,6 +400,7 @@ class ClientController extends ApiController
             $data = [
             'nama_client' => $request->post('nama_client'),
             'no_identitas' => $request->post('no_identitas'),
+            'has_npwp' => $request->boolean('has_npwp'),
             'jenis_client' => $request->post('jenis_client'),
             'alamat_client' => $request->post('alamat_client'),
             'pembuat_client' => auth()->user()->id_user,
@@ -402,7 +419,8 @@ class ClientController extends ApiController
             return response($response, 200);
         } else {
             $request->validate([
-                'no_identitas' => 'required',
+                'no_identitas' => $identityRules,
+                'has_npwp' => 'required|boolean',
                 'nama_client' => 'required|',
             ]);
 
@@ -430,6 +448,7 @@ class ClientController extends ApiController
                 'id_client' => $id_client,
                 'nama_client' => $request->post('nama_client'),
                 'no_identitas' => $request->post('no_identitas'),
+                'has_npwp' => $request->boolean('has_npwp'),
                 'jenis_client' => $request->post('jenis_client'),
                 'alamat_client' => $request->post('alamat_client'),
                 'pembuat_client' => auth()->user()->id_user,

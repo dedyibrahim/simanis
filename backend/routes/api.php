@@ -41,6 +41,8 @@ Route::middleware('auth:sanctum')->get('/auth/user', function (Request $request)
 Route::prefix('auth')->group(function () {
     // Email/Password Login
     Route::post('/login', [Login::class, 'SignIn']);
+    Route::post('/login/verify-otp', [Login::class, 'VerifyLoginOtp'])->middleware('throttle:10,1');
+    Route::post('/login/resend-otp', [Login::class, 'ResendLoginOtp'])->middleware('throttle:3,1');
 
     // WhatsApp Login Endpoints
     Route::prefix('/whatsapp')->group(function () {

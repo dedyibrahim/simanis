@@ -3,29 +3,76 @@
 namespace App\Services;
 
 use App\Helpers\WhatsappHelper;
+use App\Models\LoginOtpChallenge;
 use App\Models\User;
+use App\Services\Waha\WahaClient;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class AuthService
 {
+    public function __construct(private WahaClient $wahaClient)
+    {
+    }
+
     public function signIn(string $email, string $password): ?array
     {
-        if (!Auth::attempt(['email' => $email, 'password' => $password])) {
+        $user = User::where('email', $email)->first();
+        if (!$user || !Hash::check($password, $user->password)) {
             return null;
         }
 
-        $user = User::where('email', $email)->first();
-        if (!$user || !Hash::check($password, $user->password, [])) {
-            throw new \RuntimeException('Error in Login');
+        if ($user->login_otp_enabled) {
+            return $this->createLoginOtpChallenge($user);
         }
 
-        $token = $user->createToken('token-auth')->plainTextToken;
-        return $this->buildPayload($user, [
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-        ]);
+        return $this->issueLoginToken($user);
+    }
+
+    public function verifyLoginOtp(string $challengeId, string $code): array
+    {
+        $challenge = LoginOtpChallenge::query()
+            ->where('challenge_id', $challengeId)
+            ->whereNull('consumed_at')
+            ->first();
+
+        if (!$challenge || $challenge->expires_at->isPast()) {
+            return ['success' => false, 'message' => 'Kode OTP sudah kedaluwarsa. Silakan kirim ulang.', 'code' => 422];
+        }
+
+        if ($challenge->attempts >= 5) {
+            return ['success' => false, 'message' => 'Batas percobaan OTP telah tercapai. Silakan kirim ulang.', 'code' => 429];
+        }
+
+        if (!Hash::check($code, $challenge->code_hash)) {
+            $challenge->increment('attempts');
+            return ['success' => false, 'message' => 'Kode OTP tidak sesuai.', 'code' => 422];
+        }
+
+        $challenge->forceFill(['consumed_at' => now()])->save();
+        $user = User::find($challenge->user_id);
+        if (!$user) {
+            return ['success' => false, 'message' => 'Akun tidak ditemukan.', 'code' => 404];
+        }
+
+        return ['success' => true, 'message' => 'Verifikasi OTP berhasil.', 'code' => 200, 'data' => $this->issueLoginToken($user)];
+    }
+
+    public function resendLoginOtp(string $challengeId): array
+    {
+        $challenge = LoginOtpChallenge::query()->where('challenge_id', $challengeId)->first();
+        $user = $challenge ? User::find($challenge->user_id) : null;
+        if (!$user || !$user->login_otp_enabled) {
+            return ['success' => false, 'message' => 'Permintaan OTP tidak valid.', 'code' => 404];
+        }
+
+        if ($challenge->created_at && $challenge->created_at->gt(now()->subMinute())) {
+            return ['success' => false, 'message' => 'Tunggu 60 detik sebelum mengirim ulang OTP.', 'code' => 429];
+        }
+
+        return array_merge(['success' => true, 'code' => 200], $this->createLoginOtpChallenge($user));
     }
 
     public function signOut($user): void
@@ -169,5 +216,57 @@ class AuthService
             'status_code' => 200,
             'foto' => $user->foto,
         ], $extra);
+    }
+
+    private function issueLoginToken(User $user): array
+    {
+        $token = $user->createToken('token-auth')->plainTextToken;
+        return $this->buildPayload($user, ['access_token' => $token, 'token_type' => 'Bearer']);
+    }
+
+    private function createLoginOtpChallenge(User $user): array
+    {
+        $phone = trim((string) $user->phone);
+        if ($phone === '') {
+            throw new \RuntimeException('OTP aktif tetapi nomor WhatsApp akun belum tersedia.');
+        }
+
+        LoginOtpChallenge::query()
+            ->where('user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->update(['consumed_at' => now()]);
+
+        $code = (string) random_int(100000, 999999);
+        $challenge = LoginOtpChallenge::create([
+            'challenge_id' => (string) Str::uuid(),
+            'user_id' => $user->id,
+            'code_hash' => Hash::make($code),
+            'expires_at' => now()->addMinutes(5),
+        ]);
+
+        $result = $this->wahaClient->sendMessage($phone, "*KODE OTP LOGIN SIMANIS*\n\nKode Anda: *{$code}*\nBerlaku selama 5 menit. Jangan berikan kode ini kepada siapa pun.", [
+            'source' => 'auth.login_otp',
+            'recipient_user_id' => $user->id,
+            'sensitive' => true,
+        ]);
+
+        if (!($result['success'] ?? false)) {
+            $challenge->delete();
+            throw new \RuntimeException('OTP gagal dikirim ke WhatsApp. Silakan coba kembali.');
+        }
+
+        return [
+            'otp_required' => true,
+            'challenge_id' => $challenge->challenge_id,
+            'masked_phone' => $this->maskPhone($phone),
+            'expires_in' => 300,
+        ];
+    }
+
+    private function maskPhone(string $phone): string
+    {
+        $length = strlen($phone);
+        if ($length <= 6) return str_repeat('*', $length);
+        return substr($phone, 0, 4).str_repeat('*', $length - 7).substr($phone, -3);
     }
 }

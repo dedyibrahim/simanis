@@ -22,7 +22,11 @@ class Login extends ApiController
             'password' => 'required|min:8',
         ]);
 
-        $data = $this->authService->signIn($request->post('email'), $request->post('password'));
+        try {
+            $data = $this->authService->signIn($request->post('email'), $request->post('password'));
+        } catch (\RuntimeException $error) {
+            return $this->errorResponse(null, $error->getMessage(), 503);
+        }
         if (!$data) {
             $data = [
                 'status' => 'error',
@@ -33,7 +37,39 @@ class Login extends ApiController
             return $this->errorResponse($data, 'Username atau password salah', 422);
         }
 
-        return $this->successResponse($data, 'Login Berhasil');
+        return $this->successResponse($data, !empty($data['otp_required']) ? 'Kode OTP telah dikirim ke WhatsApp.' : 'Login Berhasil');
+    }
+
+    public function VerifyLoginOtp(Request $request)
+    {
+        $validated = $request->validate([
+            'challenge_id' => ['required', 'uuid'],
+            'otp' => ['required', 'digits:6'],
+        ]);
+
+        $result = $this->authService->verifyLoginOtp($validated['challenge_id'], $validated['otp']);
+        if (!$result['success']) {
+            return $this->errorResponse(null, $result['message'], $result['code']);
+        }
+
+        return $this->successResponse($result['data'], $result['message']);
+    }
+
+    public function ResendLoginOtp(Request $request)
+    {
+        $validated = $request->validate(['challenge_id' => ['required', 'uuid']]);
+
+        try {
+            $result = $this->authService->resendLoginOtp($validated['challenge_id']);
+        } catch (\RuntimeException $error) {
+            return $this->errorResponse(null, $error->getMessage(), 503);
+        }
+
+        if (!$result['success']) {
+            return $this->errorResponse(null, $result['message'], $result['code']);
+        }
+
+        return $this->successResponse($result, 'Kode OTP baru telah dikirim ke WhatsApp.');
     }
 
     public function SignOut(Request $request)

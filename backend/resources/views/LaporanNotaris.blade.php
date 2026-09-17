@@ -37,13 +37,18 @@
     </thead>
     <tbody>
         @forelse ($data as $r)
-            <tr class="row-primary">
+            <tr class="row-primary{{ empty($r['has_document']) ? ' missing-document' : '' }}">
                 <td>{{ $r['nama_akta'] }}</td>
                 <td>{{ $r['judul_pekerjaan'] }}</td>
                 <td class="nowrap">{{ $r['tgl_akta'] }}</td>
                 <td class="nowrap">{{ $r['no_akta'] }}</td>
                 <td>{{ $r['pengambil'] }}</td>
             </tr>
+            @if (empty($r['has_document']))
+                <tr class="missing-document-note">
+                    <td colspan="5">Dokumen pekerjaan belum diupload.</td>
+                </tr>
+            @endif
             @if (count($r['daftarpenghadap']) > 0)
                 <tr class="detail-heading">
                     <td colspan="2">Nama Penghadap</td>

@@ -31,6 +31,11 @@ class HaStatusController extends Controller
 
         $local = $this->localStatus();
         $peer = $this->peerStatus();
+        $storageReorganization = $local['storage_reorganization'] ?? [];
+
+        if (empty($storageReorganization)) {
+            $storageReorganization = $peer['data']['storage_reorganization'] ?? [];
+        }
 
         return response()->json([
             'status' => true,
@@ -41,9 +46,7 @@ class HaStatusController extends Controller
                 'local' => $local,
                 'peer' => $peer,
                 'summary' => $this->buildSummary($local, $peer),
-                'storage_reorganization' => $this->jsonStatusFile(
-                    (string) config('ha.minio_flatten_status_file')
-                ),
+                'storage_reorganization' => $storageReorganization,
             ],
         ], 200);
     }
@@ -366,6 +369,9 @@ class HaStatusController extends Controller
                 'last_sql_error' => $slave->Last_SQL_Error ?? '',
             ],
             'files' => $fileStatus,
+            'storage_reorganization' => $this->jsonStatusFile(
+                (string) config('ha.minio_flatten_status_file')
+            ),
         ];
     }
 

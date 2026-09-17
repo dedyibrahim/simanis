@@ -26,6 +26,7 @@ type ClientRow = Record<string, unknown> & {
   id_client?: string | number
   nama_client?: string
   no_identitas?: string
+  has_npwp?: boolean | number
   jenis_client?: string
   alamat_client?: string
   contact_number?: string | number
@@ -89,6 +90,7 @@ const checkingClientIdentity = ref(false)
 const clientIdentityMatch = ref<ClientRow | null>(null)
 const clientForm = reactive<ClientRow>({
   no_identitas: '',
+  has_npwp: props.clientType !== 'Badan Hukum',
   nama_client: '',
   jenis_client: props.clientType,
   alamat_client: '',
@@ -167,7 +169,7 @@ const sanitizeBusinessText = (value: unknown) =>
 
 const sanitizeBusinessIdentity = (value: unknown) =>
   String(value ?? '')
-    .replace(/[^\p{L}\p{N}]+/gu, '')
+    .replace(/\D+/g, '')
     .trim()
     .toUpperCase()
 
@@ -208,6 +210,9 @@ const setFormFromClient = (client?: ClientRow) => {
   const source = client || {}
   clientForm.id_client = source.id_client || ''
   clientForm.no_identitas = toString(source.no_identitas, '')
+  clientForm.has_npwp = props.clientType === 'Badan Hukum'
+    ? (source.id_client ? Boolean(source.has_npwp) : true)
+    : true
   clientForm.nama_client = toString(source.nama_client, '')
   clientForm.jenis_client = props.clientType
   clientForm.alamat_client = toString(source.alamat_client, '')
@@ -297,7 +302,7 @@ const identityPlaceholder = computed(() =>
 )
 
 const identityMaxLength = computed(() =>
-  props.clientType === 'Perorangan' ? 16 : 30,
+  16,
 )
 
 const clientNamePlaceholder = computed(() =>
@@ -325,6 +330,18 @@ const clientFormTitle = computed(() =>
 )
 
 const clientIdentityBlocked = computed(() => Boolean(clientIdentityMatch.value))
+const businessHasNpwp = computed(() => !isBusinessClient() || Boolean(clientForm.has_npwp))
+
+const changeNpwpStatus = () => {
+  if (!businessHasNpwp.value) {
+    clientForm.no_identitas = ''
+    clientIdentityMatch.value = null
+    clearClientDialogError()
+  }
+  nextTick(() => {
+    if (businessHasNpwp.value) clientIdentityInputRef.value?.focus()
+  })
+}
 
 const clearStatus = () => {
   message.value = ''
@@ -463,7 +480,7 @@ const checkClientIdentity = async () => {
   clientForm.nama_client = clientName
   clientIdentityMatch.value = null
 
-  if ((!identity && (!isBusinessClient() || !clientName)) || checkingClientIdentity.value) return
+  if (((businessHasNpwp.value && !identity) && (!isBusinessClient() || !clientName)) || checkingClientIdentity.value) return
 
   checkingClientIdentity.value = true
   clearClientDialogError()
@@ -471,6 +488,7 @@ const checkClientIdentity = async () => {
   try {
     const response = await business.client.checkClientIdentity({
       no_identitas: identity,
+      has_npwp: businessHasNpwp.value,
       nama_client: clientName,
       jenis_client: props.clientType,
       id_client: clientForm.id_client || undefined,
@@ -500,6 +518,10 @@ const saveClient = async () => {
     }
     return
   }
+  if (isBusinessClient() && businessHasNpwp.value && (!/^\d{15,16}$/.test(toString(clientForm.no_identitas, '')) || /^9{5}/.test(toString(clientForm.no_identitas, '')))) {
+    showClientDialogError('NPWP harus terdiri dari 15 atau 16 digit angka dan bukan nomor placeholder.')
+    return
+  }
   savingClient.value = true
   clearStatus()
 
@@ -511,6 +533,7 @@ const saveClient = async () => {
     const response = await business.client.SimpanClientBaru({
       id_client: clientForm.id_client || undefined,
       no_identitas: clientForm.no_identitas,
+      has_npwp: businessHasNpwp.value,
       nama_client: clientForm.nama_client,
       jenis_client: props.clientType,
       alamat_client: clientForm.alamat_client,
@@ -1158,7 +1181,10 @@ onBeforeUnmount(() => {
                 <tr v-for="(client, index) in paginatedClients" :key="toString(client.id_client, String(index))" class="align-top transition hover:bg-sky-50/40">
                   <td class="px-4 py-3 text-sm text-slate-600">{{ clientStartItem + index }}</td>
                   <td class="px-4 py-3 text-sm font-medium text-slate-700">{{ toString(client.nama_client) }}</td>
-                  <td class="px-4 py-3 text-sm text-slate-700">{{ toString(client.no_identitas) }}</td>
+                  <td class="px-4 py-3 text-sm text-slate-700">
+                    <span v-if="props.clientType === 'Badan Hukum' && !client.has_npwp" class="font-medium text-slate-500">Tidak memiliki NPWP</span>
+                    <span v-else>{{ toString(client.no_identitas) }}</span>
+                  </td>
                   <td class="px-4 py-3 text-sm text-slate-700">{{ toString(client.pembuat_client) }}</td>
                   <td class="px-4 py-3">
                     <div class="flex flex-wrap items-center gap-2">
@@ -1426,13 +1452,24 @@ onBeforeUnmount(() => {
             </div>
           </Transition>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
-            <label class="flex flex-col gap-2">
+            <label v-if="isBusinessClient()" class="flex flex-col gap-2">
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Status NPWP</span>
+              <select
+                v-model="clientForm.has_npwp"
+                class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                @change="changeNpwpStatus"
+              >
+                <option :value="true">Memiliki NPWP</option>
+                <option :value="false">Tidak memiliki NPWP</option>
+              </select>
+            </label>
+            <label v-if="businessHasNpwp" class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ identityLabel }}</span>
               <input
                 ref="clientIdentityInputRef"
                 v-model="clientForm.no_identitas"
                 type="text"
-                :inputmode="props.clientType === 'Perorangan' ? 'numeric' : 'text'"
+                inputmode="numeric"
                 :maxlength="identityMaxLength"
                 :placeholder="identityPlaceholder"
                 class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
@@ -1441,7 +1478,11 @@ onBeforeUnmount(() => {
                 @blur="checkClientIdentity"
               />
               <span v-if="checkingClientIdentity" class="text-xs font-semibold text-blue-600">Mengecek {{ identityLabel }}...</span>
+              <span v-else-if="isBusinessClient()" class="text-xs text-slate-500">Wajib 15 atau 16 digit angka.</span>
             </label>
+            <div v-else class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              NPWP akan disimpan sebagai tidak tersedia. Client tetap dibedakan berdasarkan nama badan hukum.
+            </div>
             <label class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Client</span>
               <input

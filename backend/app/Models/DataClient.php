@@ -22,6 +22,7 @@ class DataClient extends Model
         'id_client',
         'nama_client',
         'no_identitas',
+        'has_npwp',
         'jenis_client',
         'alamat_client',
         'nama_folder',
@@ -30,5 +31,9 @@ class DataClient extends Model
         'contact_number',
         'created_at',
         'updated_at',
+    ];
+
+    protected $casts = [
+        'has_npwp' => 'boolean',
     ];
 }

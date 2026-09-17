@@ -25,6 +25,7 @@ class User extends Authenticatable
         'nama_lengkap',
         'level_user',
         'phone',
+        'login_otp_enabled',
         'email',
         'password',
     ];
@@ -46,6 +47,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'login_otp_enabled' => 'boolean',
     ];
 
       public function events(): BelongsToMany

@@ -27,6 +27,11 @@ class SendEventReminders extends Command
 
     public function handle(): int
     {
+        if (!$this->isPrimaryServer()) {
+            $this->info('Dilewati karena server ini tidak memegang Virtual IP.');
+            return self::SUCCESS;
+        }
+
         $now = now();
         $reminderLimit = $now->copy()->addHour();
 
@@ -97,6 +102,18 @@ class SendEventReminders extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function isPrimaryServer(): bool
+    {
+        $virtualIp = trim((string) config('ha.virtual_ip', '192.168.0.12'));
+        $output = [];
+        $exitCode = 1;
+        exec('ip -4 addr show 2>/dev/null', $output, $exitCode);
+
+        return $exitCode === 0
+            && $virtualIp !== ''
+            && str_contains(implode("\n", $output), $virtualIp.'/');
     }
 
     private function globalRecipients(): Collection

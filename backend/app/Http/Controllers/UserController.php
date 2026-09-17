@@ -91,6 +91,7 @@ class UserController extends Controller
                 'nama_lengkap' => ['required', 'string'],
                 'phone' => ['required', 'string'],
                 'password' => ['required', 'string', 'confirmed', 'min:8'],
+                'login_otp_enabled' => ['sometimes', 'boolean'],
             ]);
 
             $data = [
@@ -101,6 +102,7 @@ class UserController extends Controller
                 'nama_lengkap' => (string) $validated['nama_lengkap'],
                 'phone' => (string) $validated['phone'],
                 'password' => Hash::make((string) $validated['password']),
+                'login_otp_enabled' => (bool) ($validated['login_otp_enabled'] ?? false),
             ];
 
             User::create($data);
@@ -134,6 +136,7 @@ class UserController extends Controller
             'level_user' => ['required', 'string'],
             'nama_lengkap' => ['required', 'string'],
             'phone' => ['required', 'string'],
+            'login_otp_enabled' => ['sometimes', 'boolean'],
         ]);
 
         $data = [
@@ -144,6 +147,9 @@ class UserController extends Controller
                 : (string) $targetUser->level_user,
             'nama_lengkap' => (string) $validated['nama_lengkap'],
             'phone' => (string) $validated['phone'],
+            'login_otp_enabled' => $this->isAdminOrSuper($authUser)
+                ? (bool) ($validated['login_otp_enabled'] ?? $targetUser->login_otp_enabled)
+                : (bool) $targetUser->login_otp_enabled,
         ];
 
         $targetUser->update($data);
@@ -248,10 +254,15 @@ class UserController extends Controller
             $query->where('id', $authUser->id);
         }
 
-        $data = $query
+        $users = $query
             ->orderBy('nama_lengkap')
-            ->get()
-            ->toArray();
+            ->get();
+
+        if (!$this->isAdminOrSuper($authUser)) {
+            $users->each->makeHidden('login_otp_enabled');
+        }
+
+        $data = $users->toArray();
 
         $response = [
             'status' => true,

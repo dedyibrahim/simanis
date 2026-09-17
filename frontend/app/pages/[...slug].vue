@@ -112,6 +112,7 @@ type UserRow = RowRecord & {
   email?: string
   email_verified_at?: string
   phone?: string
+  login_otp_enabled?: boolean | number
   foto?: string
   created_at?: string
   updated_at?: string
@@ -141,6 +142,7 @@ type UserForm = {
   phone: string
   password: string
   password_confirmation: string
+  login_otp_enabled: boolean
 }
 
 type LayananForm = {
@@ -401,6 +403,7 @@ const userForm = reactive<UserForm>({
   phone: '',
   password: '',
   password_confirmation: '',
+  login_otp_enabled: false,
 })
 
 const passwordDialog = reactive({
@@ -778,6 +781,7 @@ const resetUserForm = () => {
   userForm.phone = ''
   userForm.password = ''
   userForm.password_confirmation = ''
+  userForm.login_otp_enabled = false
 }
 
 const closeUserFormDialog = () => {
@@ -814,6 +818,7 @@ const openEditUserDialog = (row: UserRow) => {
   userForm.phone = String(row.phone || '')
   userForm.password = ''
   userForm.password_confirmation = ''
+  userForm.login_otp_enabled = Boolean(row.login_otp_enabled)
   userFormDialog.open = true
 }
 
@@ -861,6 +866,7 @@ const saveUserForm = async () => {
       phone: userForm.phone,
       password: userForm.password || undefined,
       password_confirmation: userForm.password_confirmation || undefined,
+      login_otp_enabled: canManageUserCrud.value ? userForm.login_otp_enabled : undefined,
     }
 
     payload.level_user = canManageUserCrud.value ? userForm.level_user : currentUserRole.value
@@ -1571,11 +1577,7 @@ const clearExpandedRows = () => {
 
 const rowIdentity = (row: RowRecord, index: number) =>
   String(
-    row.id
-    || row.id_user
-    || row.id_order
-    || row.id_client
-    || row.id_buku_notaris
+    row.id_buku_notaris
     || row.id_buku_legalisasi
     || row.id_buku_warmerking
     || row.id_buku_ppat
@@ -1583,12 +1585,16 @@ const rowIdentity = (row: RowRecord, index: number) =>
     || row.id_surat_ppat
     || row.id_buku_surat_notaris
     || row.id_buku_surat_ppat
+    || row.id_order
+    || row.id_client
+    || row.id
     || row.no_akta
     || row.no_order
     || index,
   )
 
-const reportoriumRowKey = (row: RowRecord, index: number) => `rp-${rowIdentity(row, index)}`
+const reportoriumRowKey = (row: RowRecord, index: number) =>
+  `rp-${moduleEntry.value?.path || 'unknown'}-${rowIdentity(row, index)}-${index}`
 
 const highlightedReportoriumRecordId = computed(() => String(route.query.record_id || '').trim())
 
@@ -1771,13 +1777,13 @@ const reportoriumRowClass = computed(() =>
 
 const reportoriumActionHeaderClass = computed(() =>
   isStickyActionReportoriumModule.value
-    ? 'sticky right-0 z-10 w-[240px] bg-slate-100/95 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 shadow-[-10px_0_18px_-18px_rgba(15,23,42,0.7)]'
+    ? 'sticky right-0 z-10 w-[240px] bg-inherit px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 shadow-[-10px_0_18px_-18px_rgba(15,23,42,0.7)]'
     : 'w-[220px] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600',
 )
 
 const reportoriumActionCellClass = computed(() =>
   isStickyActionReportoriumModule.value
-    ? 'sticky right-0 z-10 w-[240px] bg-white px-3 py-3 text-sm shadow-[-10px_0_18px_-18px_rgba(15,23,42,0.7)]'
+    ? 'sticky right-0 z-10 w-[240px] bg-inherit px-3 py-3 text-sm shadow-[-10px_0_18px_-18px_rgba(15,23,42,0.7)]'
     : 'px-3 py-3 text-sm',
 )
 
@@ -3810,6 +3816,7 @@ watch(
                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Email</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Role</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Phone</th>
+                    <th v-if="canManageUserCrud" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">OTP Login</th>
                     <th class="w-[220px] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Aksi</th>
                   </tr>
                 </thead>
@@ -3820,6 +3827,11 @@ watch(
                     <td class="px-4 py-3 text-sm text-slate-700">{{ formatCell(row.email) }}</td>
                     <td class="px-4 py-3 text-sm text-slate-700">{{ formatCell(row.level_user) }}</td>
                     <td class="px-4 py-3 text-sm text-slate-700">{{ formatCell(row.phone) }}</td>
+                    <td v-if="canManageUserCrud" class="px-4 py-3 text-sm">
+                      <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="row.login_otp_enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'">
+                        {{ row.login_otp_enabled ? 'Aktif' : 'Nonaktif' }}
+                      </span>
+                    </td>
                     <td class="px-4 py-3 text-sm">
                       <div class="flex flex-wrap gap-2">
                         <button type="button" :class="masterActionButtonClass('detail')" @click="openMasterDetailDialog(row, `Detail User ${userDisplayName(row)}`)">
@@ -5250,6 +5262,13 @@ watch(
             <label v-if="userFormDialog.mode === 'create'" class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Konfirmasi Password</span>
               <input v-model="userForm.password_confirmation" type="password" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+            </label>
+            <label v-if="canManageUserCrud" class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 sm:col-span-2">
+              <input v-model="userForm.login_otp_enabled" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              <span>
+                <span class="block text-sm font-semibold text-slate-800">Aktifkan OTP saat login</span>
+                <span class="mt-0.5 block text-xs text-slate-500">Kode verifikasi akan dikirim ke nomor WhatsApp user setelah password benar.</span>
+              </span>
             </label>
           </div>
 

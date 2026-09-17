@@ -163,6 +163,8 @@ export function useLegacyBusinessService() {
 
   const auth = {
     login: (payload: BodyPayload) => post('/auth/login', payload, false),
+    VerifyLoginOtp: (payload: BodyPayload) => post('/auth/login/verify-otp', payload, false),
+    ResendLoginOtp: (payload: BodyPayload) => post('/auth/login/resend-otp', payload, false),
     SignIn: (payload: BodyPayload) => post('/auth/login', payload, false),
     async SignInGoogle(payload: BodyPayload) {
       try {

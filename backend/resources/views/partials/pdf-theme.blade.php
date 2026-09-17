@@ -249,4 +249,17 @@ p {
     font-size: 9px;
     color: #64748b;
 }
+
+.missing-document td {
+    color: #b91c1c !important;
+}
+
+.missing-document-note td {
+    padding: 5px 8px;
+    color: #b91c1c;
+    background: #fff1f2;
+    font-size: 9px;
+    font-weight: bold;
+    font-style: italic;
+}
 </style>

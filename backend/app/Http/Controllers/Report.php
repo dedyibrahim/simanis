@@ -77,6 +77,13 @@ class Report extends Controller
             ->leftJoin('daftar_aktas', 'buku_notaris.id_akta', '=', 'daftar_aktas.id_akta')
             ->join('users', 'buku_notaris.id_user', '=', 'users.id_user')
             ->select('buku_notaris.id_buku_notaris', 'buku_notaris.nama_client', 'buku_notaris.judul_pekerjaan', 'buku_notaris.status_akta', 'users.nama_lengkap', 'users.id_user', 'daftar_aktas.nama_akta', 'buku_notaris.tgl_akta', 'buku_notaris.no_akta')
+            ->selectSub(function ($documents) {
+                $documents->from('tb_dokumen_notaris')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('tb_dokumen_notaris.id_buku_notaris', 'buku_notaris.id_buku_notaris')
+                    ->whereNotNull('tb_dokumen_notaris.nama_berkas')
+                    ->where('tb_dokumen_notaris.nama_berkas', '!=', '');
+            }, 'document_count')
             ->orderBy('buku_notaris.id_buku_notaris', 'Asc')
             ->get();
 
@@ -97,6 +104,7 @@ class Report extends Controller
                 'status_akta' => $r->status_akta,
                 'pengambil' => $r->nama_lengkap,
                 'daftarpenghadap' => $daftar,
+                'has_document' => (int) $r->document_count > 0,
             ];
         }
 
@@ -140,6 +148,13 @@ class Report extends Controller
             ->whereYear('buku_legalisasis.tgl_surat', $tgl[0])
             ->whereMonth('buku_legalisasis.tgl_surat', $tgl[1])
             ->select('buku_legalisasis.id_buku_legalisasi', 'buku_legalisasis.status_legalisasi', 'buku_legalisasis.keterangan_surat', 'buku_legalisasis.no_legalisasi', 'users.nama_lengkap', 'users.id_user', 'buku_legalisasis.tgl_surat', 'buku_legalisasis.judul_surat')
+            ->selectSub(function ($documents) {
+                $documents->from('tb_dokumen_legalisasis')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('tb_dokumen_legalisasis.id_buku_legalisasi', 'buku_legalisasis.id_buku_legalisasi')
+                    ->whereNotNull('tb_dokumen_legalisasis.nama_berkas')
+                    ->where('tb_dokumen_legalisasis.nama_berkas', '!=', '');
+            }, 'document_count')
             ->orderByDesc('buku_legalisasis.id_buku_legalisasi')
             ->get();
 
@@ -165,6 +180,7 @@ class Report extends Controller
                 'status_legalisasi' => $r->status_legalisasi,
                 'pengambil' => $r->nama_lengkap,
                 'daftarpenghadap' => $daftar,
+                'has_document' => (int) $r->document_count > 0,
             ];
         }
 
@@ -212,6 +228,13 @@ class Report extends Controller
             ->whereYear('buku_warmerkings.tgl_didaftarkan', $tgl[0])
             ->whereMonth('buku_warmerkings.tgl_didaftarkan', $tgl[1])
             ->select('buku_warmerkings.id_buku_warmerking', 'buku_warmerkings.status_warmerking', 'buku_warmerkings.keterangan_surat', 'buku_warmerkings.no_warmerking', 'users.nama_lengkap', 'users.id_user', 'buku_warmerkings.tgl_didaftarkan', 'buku_warmerkings.judul_surat')
+            ->selectSub(function ($documents) {
+                $documents->from('tb_dokumen_warmerkings')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('tb_dokumen_warmerkings.id_buku_warmerking', 'buku_warmerkings.id_buku_warmerking')
+                    ->whereNotNull('tb_dokumen_warmerkings.nama_berkas')
+                    ->where('tb_dokumen_warmerkings.nama_berkas', '!=', '');
+            }, 'document_count')
             ->orderByDesc('buku_warmerkings.id_buku_warmerking')
             ->get();
 
@@ -236,6 +259,7 @@ class Report extends Controller
                 'status_warmerking' => $r->status_warmerking,
                 'pengambil' => $r->nama_lengkap,
                 'daftarpenghadap' => $daftar,
+                'has_document' => (int) $r->document_count > 0,
             ];
         }
 
@@ -305,6 +329,13 @@ class Report extends Controller
                 'buku_ppats.harga_pph',
                 'buku_ppats.keterangan',
             )
+            ->selectSub(function ($documents) {
+                $documents->from('tb_dokumen_ppat')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('tb_dokumen_ppat.id_buku_ppat', 'buku_ppats.id_buku_ppat')
+                    ->whereNotNull('tb_dokumen_ppat.nama_berkas')
+                    ->where('tb_dokumen_ppat.nama_berkas', '!=', '');
+            }, 'document_count')
             ->orderByDesc('buku_ppats.id_buku_ppat')
             ->get();
 
@@ -333,6 +364,7 @@ class Report extends Controller
              'tgl_pph' => $r->tgl_pph,
              'harga_pph' => 'Rp. '.number_format(NumericValue::fromMixed($r->harga_pph)),
              'keterangan' => $r->keterangan,
+             'has_document' => (int) $r->document_count > 0,
             ];
         }
 
