@@ -1189,7 +1189,6 @@ const currentAuthUserId = ref<number | null>(null)
 const presenceConnected = ref(false)
 const onlineChatIdUsers = ref<Set<string>>(new Set())
 let chatPollingTimer: ReturnType<typeof setInterval> | null = null
-let downloadPollingTimer: ReturnType<typeof setInterval> | null = null
 let presenceSocket: WebSocket | null = null
 let presenceReconnectTimer: ReturnType<typeof setTimeout> | null = null
 let presenceHeartbeatTimer: ReturnType<typeof setInterval> | null = null
@@ -1660,20 +1659,6 @@ const startChatPolling = () => {
     }
     void loadChatMessages(true)
   }, 5000)
-}
-
-const stopDownloadPolling = () => {
-  if (downloadPollingTimer) {
-    clearInterval(downloadPollingTimer)
-    downloadPollingTimer = null
-  }
-}
-
-const startDownloadPolling = () => {
-  stopDownloadPolling()
-  downloadPollingTimer = setInterval(() => {
-    void loadDownloadRequests(true)
-  }, 9000)
 }
 
 const presenceWsUrl = () => {
@@ -2162,8 +2147,6 @@ onMounted(() => {
     window.addEventListener('simanis:download-request-created', onDownloadRequestCreated as EventListener)
     connectPresenceSocket()
   }
-  void loadAllNotifications()
-  startDownloadPolling()
 })
 
 onBeforeUnmount(() => {
@@ -2172,7 +2155,6 @@ onBeforeUnmount(() => {
     window.removeEventListener('simanis:download-request-created', onDownloadRequestCreated as EventListener)
   }
   stopChatPolling()
-  stopDownloadPolling()
   stopPresenceSocket()
 })
 </script>
