@@ -146,6 +146,8 @@ const loadingSuratClient = ref(false)
 const submitting = ref(false)
 const showDialog = ref(false)
 const mode = ref<'create' | 'edit'>('create')
+const canEditPpatAssignee = computed(() => isPpat.value && mode.value === 'edit' && ['ADMIN', 'SUPER ADMIN', 'SUPERADMIN'].includes(String(user.value?.level_user || '').trim().toUpperCase()))
+const canEditPpatDate = canEditPpatAssignee
 const notarisMinDate = ref(today())
 
 const message = ref('')
@@ -178,7 +180,9 @@ const waarmerkingForm = reactive({
 const ppatForm = reactive({
   id_buku_ppat: '',
   no_akta: '',
+  tanggal_akta: '',
   jenis_akta: '',
+  pengambil_nomor: '',
   sudah_tanda_tangan: false,
   apht: '',
   no_hak_milik: '',
@@ -458,7 +462,9 @@ const resetAll = () => {
 
   ppatForm.id_buku_ppat = ''
   ppatForm.no_akta = ''
+  ppatForm.tanggal_akta = ''
   ppatForm.jenis_akta = ''
+  ppatForm.pengambil_nomor = ''
   ppatForm.sudah_tanda_tangan = false
   ppatForm.apht = ''
   ppatForm.no_hak_milik = ''
@@ -515,6 +521,9 @@ const ensureDependencies = async () => {
 
   if (isPpatLike.value) {
     await loadAkta('PPAT')
+    if (canEditPpatAssignee.value) {
+      await loadAsisten()
+    }
   }
 
   if (isSurat.value) {
@@ -571,7 +580,9 @@ const hydrateFromEdit = async (row: RowRecord) => {
     const data = toData<RowRecord>(await business.bukuPpat.EditAktaPPAT({ id_buku_ppat: id }))
     ppatForm.id_buku_ppat = String(data.id_buku_ppat || '')
     ppatForm.no_akta = String(data.no_akta || '')
+    ppatForm.tanggal_akta = normalizeDateInput(data.tanggal_akta)
     ppatForm.jenis_akta = String(data.id_akta || data.jenis_akta || '')
+    ppatForm.pengambil_nomor = String(data.pengambil_nomor || row.id_user || '')
     ppatForm.apht = String(data.apht || '')
     ppatForm.no_hak_milik = String(data.no_hak_milik || '')
     ppatForm.luas_tanah = String(data.luas_tanah || '')
@@ -747,6 +758,8 @@ const validate = () => {
 
   if (isPpatLike.value) {
     if (!ppatForm.jenis_akta || !String(ppatForm.no_hak_milik || '').trim()) return 'Jenis akta dan no hak milik wajib diisi.'
+    if (canEditPpatAssignee.value && !ppatForm.pengambil_nomor) return 'Pengambil nomor wajib dipilih.'
+    if (canEditPpatDate.value && !/^\d{4}-\d{2}-\d{2}$/.test(ppatForm.tanggal_akta)) return 'Tanggal akta wajib diisi.'
     if (mode.value === 'create' && !ppatForm.sudah_tanda_tangan) return 'Dokumen wajib tanda tangan terlebih dahulu sebelum ambil nomor.'
     if (!isNumeric(ppatForm.luas_tanah) || !isNumeric(ppatForm.luas_bangunan) || !isNumeric(ppatForm.harga_transaksi)) return 'Luas tanah, luas bangunan, dan harga transaksi harus angka.'
     if (!aphtMode.value) {
@@ -825,7 +838,9 @@ const submit = async () => {
       response = await business.bukuPpat.SimpanNomorPPAT({
         id_buku_ppat: ppatForm.id_buku_ppat || undefined,
         no_akta: ppatForm.no_akta || undefined,
+        tanggal_akta: canEditPpatDate.value ? ppatForm.tanggal_akta : undefined,
         jenis_akta: ppatForm.jenis_akta,
+        pengambil_nomor: canEditPpatAssignee.value ? ppatForm.pengambil_nomor : undefined,
         sudah_tanda_tangan: ppatForm.sudah_tanda_tangan,
         apht: ppatForm.apht || 'FALSE',
         no_hak_milik: ppatForm.no_hak_milik,
@@ -968,6 +983,8 @@ watch(
             <p v-if="error" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</p>
 
             <ReportoriumModuleFields
+              :can-edit-ppat-assignee='canEditPpatAssignee'
+              :can-edit-ppat-date='canEditPpatDate'
               :path="props.path"
               :input-class="inputClass"
               :text-area-class="textAreaClass"

@@ -18,6 +18,43 @@ use Illuminate\Support\Facades\DB;
 
 class DokumenNotaris extends Controller
 {
+    private function denyUploadUnlessOwnerOrSuperAdmin(
+        Request $request,
+        string $table,
+        string $idColumn,
+        string $requestField,
+        string $ownerColumn = 'id_user'
+    ) {
+        $user = $request->user();
+        $level = strtoupper(trim((string) optional($user)->level_user));
+        if (in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true)) {
+            return null;
+        }
+
+        $record = DB::table($table)
+            ->where($idColumn, $request->input($requestField))
+            ->select($ownerColumn)
+            ->first();
+
+        if (!$record) {
+            return response([
+                'status' => false,
+                'message' => 'Data pekerjaan tidak ditemukan.',
+                'data' => [],
+            ], 404);
+        }
+
+        if ((string) $record->{$ownerColumn} !== (string) optional($user)->id_user) {
+            return response([
+                'status' => false,
+                'message' => 'Upload hanya dapat dilakukan oleh pengambil nomor atau Super Admin.',
+                'data' => [],
+            ], 403);
+        }
+
+        return null;
+    }
+
     private function denyMasterUnlessAdmin(Request $request)
     {
         $level = strtoupper(trim((string) optional($request->user())->level_user));
@@ -82,6 +119,10 @@ class DokumenNotaris extends Controller
 
     public function UploadDokumenNotaris(Request $request)
     {
+        if ($denied = $this->denyUploadUnlessOwnerOrSuperAdmin($request, 'buku_notaris', 'id_buku_notaris', 'id_buku_notaris')) {
+            return $denied;
+        }
+
         foreach ($request->file('dokumens') as $key => $file) {
             $dokumen = DB::table('tb_dokumen_notaris')
                 ->orderBy('id_dokumen_notaris', 'desc')
@@ -117,6 +158,10 @@ class DokumenNotaris extends Controller
 
     public function UploadDokumenPPAT(Request $request)
     {
+        if ($denied = $this->denyUploadUnlessOwnerOrSuperAdmin($request, 'buku_ppats', 'id_buku_ppat', 'id_buku_ppat')) {
+            return $denied;
+        }
+
         foreach ($request->file('dokumens') as $key => $file) {
             $dokumen = DB::table('tb_dokumen_ppat')
                 ->orderBy('id_dokumen_ppat', 'desc')
@@ -152,6 +197,10 @@ class DokumenNotaris extends Controller
 
     public function UploadDokumenWarmerking(Request $request)
     {
+        if ($denied = $this->denyUploadUnlessOwnerOrSuperAdmin($request, 'buku_warmerkings', 'id_buku_warmerking', 'id_buku_warmerking')) {
+            return $denied;
+        }
+
         foreach ($request->file('dokumens') as $key => $file) {
             $dokumen = DB::table('tb_dokumen_warmerkings')
                 ->orderBy('id_dokumen_warmerking', 'desc')
@@ -187,6 +236,10 @@ class DokumenNotaris extends Controller
 
     public function UploadSuratNotaris(Request $request)
     {
+        if ($denied = $this->denyUploadUnlessOwnerOrSuperAdmin($request, 'buku_surat_notaris', 'id_surat_notaris', 'id_surat_notaris', 'pengirim')) {
+            return $denied;
+        }
+
         $file = $request->file('dokumen');
 
         $filenameSimpan = $this->moveWithOriginalName($file, 'suratnotaris');
@@ -207,6 +260,10 @@ class DokumenNotaris extends Controller
 
     public function UploadTandaTerima(Request $request)
     {
+        if ($denied = $this->denyUploadUnlessOwnerOrSuperAdmin($request, 'tanda_terima', 'id', 'id', 'pembuat')) {
+            return $denied;
+        }
+
         $file = $request->file('dokumen');
 
         $filenameSimpan = $this->moveWithOriginalName($file, 'tandaterima');
@@ -227,6 +284,10 @@ class DokumenNotaris extends Controller
 
     public function UploadSuratPPAT(Request $request)
     {
+        if ($denied = $this->denyUploadUnlessOwnerOrSuperAdmin($request, 'buku_surat_ppats', 'id_surat_ppat', 'id_surat_ppat', 'pengirim')) {
+            return $denied;
+        }
+
         $file = $request->file('dokumen');
 
         $filenameSimpan = $this->moveWithOriginalName($file, 'suratppats');
@@ -247,6 +308,10 @@ class DokumenNotaris extends Controller
 
     public function UploadDokumenLegalisasi(Request $request)
     {
+        if ($denied = $this->denyUploadUnlessOwnerOrSuperAdmin($request, 'buku_legalisasis', 'id_buku_legalisasi', 'id_buku_legalisasi')) {
+            return $denied;
+        }
+
         foreach ($request->file('dokumens') as $key => $file) {
             $dokumen = DB::table('tb_dokumen_legalisasis')
                 ->orderBy('id_dokumen_legalisasi', 'desc')

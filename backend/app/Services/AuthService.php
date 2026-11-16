@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 class AuthService
 {
@@ -231,6 +232,14 @@ class AuthService
             throw new \RuntimeException('OTP aktif tetapi nomor WhatsApp akun belum tersedia.');
         }
 
+        $recentChallenge = LoginOtpChallenge::query()
+            ->where('user_id', $user->id)
+            ->where('created_at', '>=', now()->subSeconds(60))
+            ->exists();
+        if ($recentChallenge) {
+            throw new TooManyRequestsHttpException(60, 'Kode baru saja dikirim. Tunggu 60 detik sebelum meminta kode lagi.');
+        }
+
         LoginOtpChallenge::query()
             ->where('user_id', $user->id)
             ->whereNull('consumed_at')
@@ -244,7 +253,8 @@ class AuthService
             'expires_at' => now()->addMinutes(5),
         ]);
 
-        $result = $this->wahaClient->sendMessage($phone, "*KODE OTP LOGIN SIMANIS*\n\nKode Anda: *{$code}*\nBerlaku selama 5 menit. Jangan berikan kode ini kepada siapa pun.", [
+        $name = trim((string) $user->nama_lengkap) ?: 'Pengguna SIMANIS';
+        $result = $this->wahaClient->sendMessage($phone, "Halo {$name}, kode verifikasi untuk masuk ke akun SIMANIS Anda adalah {$code}. Kode berlaku selama 5 menit. Jangan bagikan kode ini kepada siapa pun. Jika Anda tidak meminta kode ini, abaikan pesan ini.", [
             'source' => 'auth.login_otp',
             'recipient_user_id' => $user->id,
             'sensitive' => true,

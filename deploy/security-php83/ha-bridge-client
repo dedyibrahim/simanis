@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+  bothwa-start|bothwa-stop|bothwa-status|ocr-start|ocr-stop|ocr-restart|ocr-status|minio-sync|ocr-config|system-info) ;;
+  *) echo 'Unknown HA action' >&2; exit 2 ;;
+esac
+response=$(mktemp)
+trap 'rm -f "$response"' EXIT HUP INT TERM
+if [ "$1" = ocr-config ]; then
+  { printf '%s\n' "$1"; cat; } | socat -t 125 - UNIX-CONNECT:/var/lib/simanis-ha-bridge/bridge.sock > "$response"
+else
+  printf '%s\n' "$1" | socat -t 125 - UNIX-CONNECT:/var/lib/simanis-ha-bridge/bridge.sock > "$response"
+fi
+read -r status < "$response"
+case "$status" in
+  SIMANIS_EXIT:*) code=${status#SIMANIS_EXIT:} ;;
+  *) echo 'Invalid HA bridge response' >&2; exit 1 ;;
+esac
+sed '1d' "$response"
+exit "$code"

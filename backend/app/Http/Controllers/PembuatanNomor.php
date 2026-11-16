@@ -26,6 +26,7 @@ use App\Services\Waha\WahaClient;
 use App\Support\NumericValue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Concerns\ToArray;
 use Maatwebsite\Excel\Facades\Excel;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -1116,10 +1117,19 @@ class PembuatanNomor extends ApiController
     public function EditAktaPPAT(Request $request)
     {
         $buku = DB::table('buku_ppats')
-            ->join('daftar_aktas', 'buku_ppats.id_akta', '=', 'daftar_aktas.id_akta')
+            ->leftJoin('daftar_aktas', 'buku_ppats.id_akta', '=', 'daftar_aktas.id_akta')
+            ->select('buku_ppats.*', 'daftar_aktas.nama_akta', 'daftar_aktas.apht')
             ->orderBy('id_buku_ppat', 'desc')
             ->where('buku_ppats.id_buku_ppat', $request->post('id_buku_ppat'))
             ->first();
+
+        if (!$buku) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data akta PPAT tidak ditemukan.',
+                'data' => [],
+            ], 404);
+        }
 
         $data = [
             'apht'         =>$buku->apht,
@@ -1129,6 +1139,7 @@ class PembuatanNomor extends ApiController
             'id_akta' => $buku->id_akta,
             'jenis_akta' => $buku->id_akta,
             'nama_akta' => $buku->nama_akta,
+            'pengambil_nomor' => $buku->id_user,
             'status_akta' => $buku->status_akta,
             'no_hak_milik' => $buku->no_hak_milik,
             'luas_tanah' => $buku->luas_tanah,
@@ -1298,11 +1309,17 @@ class PembuatanNomor extends ApiController
         } else {
             // METODE UPDATE
 
+            $request->validate([
+                'jenis_akta' => ['required', 'exists:daftar_aktas,id_akta'],
+                'no_hak_milik' => ['required'],
+                'luas_tanah' => ['required', 'numeric'],
+                'luas_bangunan' => ['required', 'numeric'],
+                'harga_transaksi' => ['required', 'numeric'],
+                'penghadap' => ['required', 'array', 'min:1'],
+            ]);
+
             $data_buku = [
-                'id_buku_ppat' => $request->post('id_buku_ppat'),
-                'id_akta' => $request->post('id_akta'),
-                'id_user' => auth()->user()->id_user,
-                'status_akta' => 'Proses',
+                'id_akta' => $request->post('jenis_akta'),
                 'no_hak_milik' => $request->post('no_hak_milik'),
                 'luas_tanah' => $request->post('luas_tanah'),
                 'luas_bangunan' => $request->post('luas_bangunan'),
@@ -1314,40 +1331,61 @@ class PembuatanNomor extends ApiController
                 'tgl_pph' => $request->post('tgl_pph'),
                 'harga_pph' => $request->post('harga_pph'),
                 'keterangan' => $request->post('keterangan'),
-                'created_at' => now(),
                 'updated_at' => now(),
             ];
 
-            BukuPPATS::where('id_buku_ppat', $request->post('id_buku_ppat'))->update($data_buku);
+            if ($this->isAdminLevel(optional($request->user())->level_user) && $request->exists('pengambil_nomor')) {
+                $request->validate(['pengambil_nomor' => ['required', 'exists:users,id_user']]);
+                $data_buku['id_user'] = $request->post('pengambil_nomor');
+            }
 
-            PenghadapPPATS::where('id_buku_ppat', $request->post('id_buku_ppat'))->delete();
+            if ($this->isAdminLevel(optional($request->user())->level_user) && $request->exists('tanggal_akta')) {
+                $request->validate(['tanggal_akta' => ['required', 'date_format:Y-m-d']]);
+                $data_buku['tanggal_akta'] = $request->post('tanggal_akta');
+            }
 
-            foreach ($request->input('penghadap') as $a) {
-                $daftarpenghadap = DB::table('penghadap_ppats')
-                    ->orderBy('id_penghadap_ppat', 'desc')
-                    ->limit(1)
-                    ->first();
+            DB::transaction(function () use ($request, $data_buku) {
+                $buku = BukuPPATS::query()
+                    ->where('id_buku_ppat', $request->post('id_buku_ppat'))
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-                if (isset($daftarpenghadap->id_penghadap_ppat)) {
-                    $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 6) + 1;
-                } else {
-                    $urutan = 1;
+                if (isset($data_buku['tanggal_akta']) && substr($data_buku['tanggal_akta'], 0, 4) !== substr((string) $buku->tanggal_akta, 0, 4)) {
+                    throw ValidationException::withMessages(['tanggal_akta' => 'Tahun akta tidak dapat diubah karena nomor PPAT dihitung per tahun.']);
                 }
 
-                $id_penghadap = 'PHP'.str_pad($urutan, 7, '0', STR_PAD_LEFT);
+                BukuPPATS::where('id_buku_ppat', $request->post('id_buku_ppat'))
+                    ->update($data_buku);
 
-                $penghadap = [
-                    'id_penghadap_ppat' => $id_penghadap,
-                    'id_buku_ppat' => $request->post('id_buku_ppat'),
-                    'id_client' => $a['id_client'],
-                    'status_kedudukan' => $a['status_kedudukan'],
-                    'id_mewakili' => $a['id_mewakili'],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
+                PenghadapPPATS::where('id_buku_ppat', $request->post('id_buku_ppat'))->delete();
 
-                PenghadapPPATS::create($penghadap);
-            }
+                foreach ($request->input('penghadap') as $a) {
+                    $daftarpenghadap = DB::table('penghadap_ppats')
+                        ->orderBy('id_penghadap_ppat', 'desc')
+                        ->limit(1)
+                        ->first();
+
+                    if (isset($daftarpenghadap->id_penghadap_ppat)) {
+                        $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 6) + 1;
+                    } else {
+                        $urutan = 1;
+                    }
+
+                    $id_penghadap = 'PHP'.str_pad($urutan, 7, '0', STR_PAD_LEFT);
+
+                    $penghadap = [
+                        'id_penghadap_ppat' => $id_penghadap,
+                        'id_buku_ppat' => $request->post('id_buku_ppat'),
+                        'id_client' => $a['id_client'],
+                        'status_kedudukan' => $a['status_kedudukan'],
+                        'id_mewakili' => $a['id_mewakili'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+
+                    PenghadapPPATS::create($penghadap);
+                }
+            });
 
             return $this->successResponse(null, 'Berhasil Mengupdate Data');
         }

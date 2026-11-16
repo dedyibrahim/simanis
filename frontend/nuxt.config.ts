@@ -1,5 +1,16 @@
 import tailwindcss from '@tailwindcss/vite'
 
+const loopbackUrl = /^https?:\/\/(?:localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::|\/|$)/i
+
+if (process.argv.includes('generate')) {
+  for (const name of ['NUXT_PUBLIC_API_BASE', 'NUXT_PUBLIC_ASSET_BASE']) {
+    const value = process.env[name]
+    if (value && loopbackUrl.test(value)) {
+      throw new Error(`${name} points to localhost; set a reachable production URL before generating static assets.`)
+    }
+  }
+}
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',

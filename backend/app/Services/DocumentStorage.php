@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class DocumentStorage
 {
@@ -26,6 +27,28 @@ class DocumentStorage
         return Storage::disk(config('filesystems.documents_disk', 'documents_local'));
     }
 
+    private static function peerDisk()
+    {
+        $name = config('filesystems.documents_peer_disk');
+        return $name ? Storage::disk($name) : null;
+    }
+
+    private static function replicate(callable $operation, string $action, string $key): void
+    {
+        $peer = self::peerDisk();
+        if (!$peer) return;
+
+        try {
+            $operation($peer);
+        } catch (\Throwable $exception) {
+            Log::warning('Replikasi dokumen ke MinIO pasangan gagal.', [
+                'action' => $action,
+                'key' => $key,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
     public static function exists(string $path): bool
     {
         return self::disk()->exists(self::key($path));
@@ -42,18 +65,40 @@ class DocumentStorage
         } finally {
             if (is_resource($stream)) fclose($stream);
         }
+
+        self::replicate(function ($peer) use ($file, $key) {
+            $stream = fopen($file->getRealPath(), 'rb');
+            try {
+                if (!$peer->put($key, $stream)) throw new \RuntimeException('Gagal menyimpan dokumen pada MinIO pasangan.');
+            } finally {
+                if (is_resource($stream)) fclose($stream);
+            }
+        }, 'upload', $key);
     }
 
     public static function delete(string $path): void
     {
-        if (!self::disk()->delete(self::key($path))) {
+        $key = self::key($path);
+        if (!self::disk()->delete($key)) {
             throw new \RuntimeException('Gagal menghapus dokumen.');
         }
+        self::replicate(fn ($peer) => $peer->delete($key), 'delete', $key);
     }
 
     public static function copy(string $source, string $target): bool
     {
-        self::disk()->getDriver()->copy(self::key($source), self::key($target), ['visibility' => 'private']);
+        $sourceKey = self::key($source);
+        $targetKey = self::key($target);
+        self::disk()->getDriver()->copy($sourceKey, $targetKey, ['visibility' => 'private']);
+        self::replicate(function ($peer) use ($sourceKey, $targetKey) {
+            $stream = self::disk()->readStream($sourceKey);
+            if (!is_resource($stream)) throw new \RuntimeException('Gagal membaca sumber dokumen untuk replikasi.');
+            try {
+                if (!$peer->put($targetKey, $stream)) throw new \RuntimeException('Gagal menyalin dokumen pada MinIO pasangan.');
+            } finally {
+                fclose($stream);
+            }
+        }, 'copy', $targetKey);
         return true;
     }
 

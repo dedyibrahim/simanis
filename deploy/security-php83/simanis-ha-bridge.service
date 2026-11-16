@@ -1,0 +1,21 @@
+[Unit]
+Description=Restricted Simanis HA command bridge
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+StateDirectory=simanis-ha-bridge
+StateDirectoryMode=0770
+ExecStart=/usr/bin/python3 /usr/local/libexec/simanis-ha-bridge-server.py
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=no
+ProtectSystem=strict
+ReadWritePaths=/var/www/bothWA
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

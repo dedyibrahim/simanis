@@ -6,9 +6,11 @@ use App\Models\User;
 use App\Models\WahaConfig;
 use App\Services\Waha\WahaClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Symfony\Component\Process\Process;
 
 class HaStatusController extends Controller
 {
@@ -336,6 +338,7 @@ class HaStatusController extends Controller
         $database = DB::selectOne(
             'SELECT COUNT(*) AS client_count, MAX(updated_at) AS latest_client_update FROM data_clients'
         );
+        $databaseVersion = DB::selectOne('SELECT VERSION() AS version');
         $slave = $slaveRows[0] ?? null;
         $master = $masterRows[0] ?? null;
         $fileStatusPath = config('ha.status_file', '/var/lib/simanis-ha/file-sync-status.json');
@@ -353,6 +356,13 @@ class HaStatusController extends Controller
             'vip_active' => $this->isVirtualIpActive(),
             'application_release' => $this->releaseVersion(),
             'resources' => $this->resourceStatus(),
+            'runtime' => array_merge([
+                'php_web' => PHP_VERSION,
+                'php_sapi' => PHP_SAPI,
+                'laravel' => app()->version(),
+                'database_driver' => config('database.default'),
+                'database' => $databaseVersion->version ?? null,
+            ], $this->hostRuntimeStatus()),
             'database' => [
                 'client_count' => (int) ($database->client_count ?? 0),
                 'latest_client_update' => $database->latest_client_update ?? null,
@@ -533,6 +543,18 @@ class HaStatusController extends Controller
     private function writeBothwaEnv(array $values): array
     {
         $path = config('ha.bothwa_env_file');
+        if (is_executable('/usr/local/bin/simanis-ha-bridge')) {
+            $process = new Process(['/usr/local/bin/simanis-ha-bridge', 'ocr-config']);
+            $process->setInput(json_encode($values, JSON_THROW_ON_ERROR)."\n");
+            $process->setTimeout(10);
+            $process->run();
+
+            return [
+                'ok' => $process->isSuccessful(),
+                'path' => $path,
+                'error' => $process->isSuccessful() ? null : trim($process->getErrorOutput() ?: $process->getOutput()),
+            ];
+        }
         $directory = dirname($path);
         if (!is_dir($directory) || !is_writable($directory)) {
             return ['ok' => false, 'error' => 'Folder env bothWA tidak dapat ditulis.'];
@@ -778,6 +800,30 @@ class HaStatusController extends Controller
         $path = config('ha.release_file', '/var/lib/simanis-ha/release');
 
         return is_file($path) ? trim((string) file_get_contents($path)) : '';
+    }
+
+    private function hostRuntimeStatus(): array
+    {
+        $bridge = '/usr/local/bin/simanis-ha-bridge';
+        if (!is_executable($bridge)) {
+            return [];
+        }
+
+        return Cache::remember('ha-host-runtime-'.(config('ha.server_ip') ?: gethostname()), 600, static function () use ($bridge) {
+            try {
+                $process = new Process([$bridge, 'system-info']);
+                $process->setTimeout(8);
+                $process->run();
+                if (!$process->isSuccessful()) {
+                    return [];
+                }
+
+                $data = json_decode($process->getOutput(), true);
+                return is_array($data) ? $data : [];
+            } catch (\Throwable) {
+                return [];
+            }
+        });
     }
 
     private function isVirtualIpActive(): bool

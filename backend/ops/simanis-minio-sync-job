@@ -4,18 +4,31 @@ set -Eeuo pipefail
 prefixes=(berkasclient berkaslegalisasis berkasnotaris berkasppat berkaswarmerkings chat_attachments scanned-documents suratnotaris suratppats tandaterima)
 source /etc/default/minio
 
-mc alias set replication-source http://192.168.0.11:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
-mc alias set replication-target http://192.168.0.10:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+exec 9>/run/lock/simanis-minio-sync.lock
+flock -n 9 || exit 0
+
+mc alias set node10 http://192.168.0.10:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+mc alias set node11 http://192.168.0.11:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+
+if ip -4 addr show | grep -q '192\.168\.0\.12/'; then
+    local_ip=$(hostname -I | tr ' ' '\n' | grep -E '^192\.168\.0\.(10|11)$' | head -1)
+else
+    local_ip=""
+fi
+
+if [[ "$local_ip" == "192.168.0.11" ]]; then source_alias=node11; target_alias=node10; else source_alias=node10; target_alias=node11; fi
 
 object_stats() {
     mc du --json "$1" 2>/dev/null | tail -1 | php -r '$d=json_decode(stream_get_contents(STDIN), true) ?: []; echo (int)($d["objects"] ?? 0).":".(int)($d["size"] ?? 0);'
 }
 
 for prefix in "${prefixes[@]}"; do
-    source_path="replication-source/simanis-documents/$prefix"
-    target_path="replication-target/simanis-documents/$prefix"
+    source_path="$source_alias/simanis-documents/$prefix"
+    target_path="$target_alias/simanis-documents/$prefix"
     [ "$(object_stats "$source_path")" = "$(object_stats "$target_path")" ] && continue
-    mc mirror --overwrite --remove "$source_path" "$target_path"
+    # Recover target-only objects first, then make both nodes contain the active node's current objects.
+    mc mirror "$target_path" "$source_path"
+    mc mirror --overwrite "$source_path" "$target_path"
 done
 
 /usr/local/sbin/simanis-minio-replication-status

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\AuthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 class Login extends ApiController
 {
@@ -24,6 +25,8 @@ class Login extends ApiController
 
         try {
             $data = $this->authService->signIn($request->post('email'), $request->post('password'));
+        } catch (TooManyRequestsHttpException $error) {
+            return $this->errorResponse(null, $error->getMessage(), 429);
         } catch (\RuntimeException $error) {
             return $this->errorResponse(null, $error->getMessage(), 503);
         }
@@ -61,6 +64,8 @@ class Login extends ApiController
 
         try {
             $result = $this->authService->resendLoginOtp($validated['challenge_id']);
+        } catch (TooManyRequestsHttpException $error) {
+            return $this->errorResponse(null, $error->getMessage(), 429);
         } catch (\RuntimeException $error) {
             return $this->errorResponse(null, $error->getMessage(), 503);
         }

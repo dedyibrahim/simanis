@@ -99,8 +99,8 @@ class DatabaseBackupService
             '--result-file='.$absolutePath,
         ];
 
-        if ($dbPassword !== '') {
-            $arguments[] = '--password='.$dbPassword;
+        if ($dbSocket !== '' || in_array($dbHost, ['127.0.0.1', 'localhost', '::1'], true)) {
+            $arguments[] = '--skip-ssl';
         }
 
         if ($dbSocket !== '') {
@@ -109,7 +109,13 @@ class DatabaseBackupService
 
         $arguments[] = $dbName;
 
-        $process = new Process($arguments, base_path(), null, null, 300);
+        $process = new Process(
+            $arguments,
+            base_path(),
+            $dbPassword !== '' ? ['MYSQL_PWD' => $dbPassword] : null,
+            null,
+            300
+        );
         $process->run();
 
         if (!$process->isSuccessful() || !is_file($absolutePath)) {

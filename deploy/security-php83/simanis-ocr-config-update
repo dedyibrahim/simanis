@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""Apply only validated OCR settings to the host bothWA environment file."""
+import datetime
+import json
+import os
+import re
+import shutil
+import sys
+
+PATH = "/var/www/bothWA/bothwa.env"
+KEYS = {
+    "KTP_OCR_BASE_URL",
+    "KTP_OCR_CONFIG",
+    "KTP_OCR_ENGINE",
+    "KTP_OCR_TIMEOUT_MS",
+}
+
+
+def main():
+    values = json.loads(sys.stdin.readline(2049))
+    if not isinstance(values, dict) or set(values) != KEYS:
+        raise ValueError("Invalid OCR settings")
+    if not all(isinstance(value, str) and "\n" not in value and "\r" not in value for value in values.values()):
+        raise ValueError("Invalid OCR setting value")
+    if not re.fullmatch(r"https?://[A-Za-z0-9.:-]+(?:/[A-Za-z0-9/_-]*)?", values["KTP_OCR_BASE_URL"]):
+        raise ValueError("Invalid OCR URL")
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}\.json", values["KTP_OCR_CONFIG"]):
+        raise ValueError("Invalid OCR config name")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,50}", values["KTP_OCR_ENGINE"]):
+        raise ValueError("Invalid OCR engine")
+    if not values["KTP_OCR_TIMEOUT_MS"].isdigit() or not 5000 <= int(values["KTP_OCR_TIMEOUT_MS"]) <= 300000:
+        raise ValueError("Invalid OCR timeout")
+
+    with open(PATH, encoding="utf-8") as handle:
+        lines = handle.read().splitlines()
+    backup = PATH + ".bak." + datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+    shutil.copy2(PATH, backup)
+    found = set()
+    for index, line in enumerate(lines):
+        key = line.split("=", 1)[0].strip()
+        if key in values:
+            lines[index] = key + "=" + values[key]
+            found.add(key)
+    lines.extend(key + "=" + values[key] for key in sorted(KEYS - found))
+    with open(PATH, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+    os.chown(PATH, 0, 33)
+    os.chmod(PATH, 0o640)
+    print("OCR settings updated")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, OSError, json.JSONDecodeError) as error:
+        print(error, file=sys.stderr)
+        sys.exit(1)

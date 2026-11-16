@@ -1741,6 +1741,9 @@ const canDeleteRow = (row: RowRecord) => {
     && rowOwnerId(row) === String(user.value?.id_user || '')
 }
 
+const canUploadRow = (row: RowRecord) =>
+  isSuperAdmin.value || rowOwnerId(row) === currentUserId.value
+
 const hasAction = (action: ReportoriumAction) => reportoriumActions.value.includes(action)
 
 const suratBookPaths = ['/buku_surat_notaris', '/buku_surat_ppat']
@@ -2836,6 +2839,11 @@ const openUploadDocumentFile = (document: StandardDocument) => {
 }
 
 const openUploadDialog = async (row: RowRecord) => {
+  if (!canUploadRow(row)) {
+    errorMessage.value = 'Upload hanya dapat dilakukan oleh pengambil nomor atau Super Admin.'
+    return
+  }
+
   const config = getUploadConfig()
   if (!config) {
     return
@@ -4458,6 +4466,7 @@ watch(
                       </button>
                       <template v-if="isSuratBookPath(moduleEntry.path)">
                         <button
+                          v-if="canUploadRow(row)"
                           type="button"
                           :class="reportoriumActionButtonClass('upload')"
                           :disabled="isArsipUser"
@@ -4490,7 +4499,7 @@ watch(
                         </span>
                       </template>
                       <button
-                        v-if="hasAction('upload')"
+                        v-if="hasAction('upload') && canUploadRow(row)"
                         type="button"
                         :class="reportoriumActionButtonClass('upload')"
                         :disabled="isArsipUser"
@@ -4596,6 +4605,7 @@ watch(
                       <div v-if="moduleEntry.path === '/tanda_terima' || moduleEntry.path === '/tanda_terima_masuk'" class="space-y-3">
                         <div class="flex flex-wrap gap-2">
                           <button
+                            v-if="canUploadRow(row)"
                             type="button"
                             :class="reportoriumActionButtonClass('upload')"
                             :disabled="isArsipUser"

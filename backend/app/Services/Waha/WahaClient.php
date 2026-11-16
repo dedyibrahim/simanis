@@ -384,7 +384,10 @@ class WahaClient
         $status = 'failed';
         $errorMessage = null;
 
-        $chatId = $formattedPhone . '@c.us';
+        $phoneChatId = $formattedPhone . '@c.us';
+        $numberStatus = $this->checkNumber($formattedPhone);
+        $resolvedChatId = (string) ($numberStatus['chatId'] ?? '');
+        $chatId = $resolvedChatId !== '' ? $resolvedChatId : $phoneChatId;
         $payload = [
             'session' => $config['session'],
             'chatId' => $chatId,
@@ -402,9 +405,8 @@ class WahaClient
             if ($response->successful()) {
                 $status = 'sent';
             } else {
-                // Fallback: cek chatId resmi lalu kirim ulang sekali.
-                $exists = $this->checkNumber($formattedPhone);
-                $fallbackChatId = (string) ($exists['chatId'] ?? '');
+                // Beberapa engine menerima LID, sementara lainnya masih membutuhkan phone JID.
+                $fallbackChatId = $chatId === $phoneChatId ? $resolvedChatId : $phoneChatId;
                 if (!empty($fallbackChatId) && $fallbackChatId !== $chatId) {
                     $retryPayload = $payload;
                     $retryPayload['chatId'] = $fallbackChatId;
@@ -811,7 +813,9 @@ class WahaClient
                 'message' => !empty($context['sensitive']) ? '[PESAN SENSITIF DISEMBUNYIKAN]' : $message,
                 'status' => $status,
                 'http_status' => $httpStatus,
-                'response_body' => is_null($responseData) ? null : json_encode($responseData),
+                'response_body' => !empty($context['sensitive']) || is_null($responseData)
+                    ? null
+                    : json_encode($responseData),
                 'error_message' => $errorMessage,
                 'sent_at' => in_array($status, ['sent', 'failed'], true) ? now() : null,
             ]);

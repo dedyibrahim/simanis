@@ -16,6 +16,7 @@ yarn-error.log*
 .git-backups/
 
 # Generated deployment/test artifacts
+/.deploy/
 *.tar.gz
 tmp-*.js
 production-numbers-*.json

@@ -43,6 +43,19 @@ type ResourceStatus = {
   uptime_seconds?: number
 }
 
+type RuntimeStatus = {
+  host_os?: string | null
+  apache?: string | null
+  php_web?: string | null
+  php_sapi?: string | null
+  php_cli_host?: string | null
+  laravel?: string | null
+  database_driver?: string | null
+  database?: string | null
+  minio?: string | null
+  docker?: string | null
+}
+
 type ServerStatus = {
   hostname?: string
   server_ip?: string
@@ -50,6 +63,7 @@ type ServerStatus = {
   vip_active?: boolean
   application_release?: string
   resources?: ResourceStatus
+  runtime?: RuntimeStatus
   database?: DatabaseStatus
   files?: FileStatus
 }
@@ -88,6 +102,10 @@ type StorageReorganizationStatus = {
   updated_at?: string
   prefixes?: StoragePrefixStatus[]
   error?: string
+  source_server?: string
+  source_ip?: string
+  destination_server?: string
+  destination_ip?: string
 }
 
 type WhatsappContainer = {
@@ -154,6 +172,7 @@ useHead({
 })
 
 const business = useLegacyBusiness()
+const frontendVersions = useNuxtApp().versions
 const loading = ref(false)
 const storageSyncLoading = ref(false)
 const whatsappLoading = ref(false)
@@ -489,9 +508,9 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="mt-5 grid items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-[1fr_auto_1fr]">
-        <div><p class="text-xs font-semibold uppercase text-slate-500">Main</p><p class="mt-1 font-semibold text-slate-900">MinIO server2</p><p class="text-xs text-slate-500">192.168.0.11</p></div>
+        <div><p class="text-xs font-semibold uppercase text-slate-500">Main</p><p class="mt-1 font-semibold text-slate-900">{{ storageReorganization?.source_server || 'MinIO aktif' }}</p><p class="text-xs text-slate-500">{{ storageReorganization?.source_ip || '-' }}</p></div>
         <ArrowRightIcon class="h-6 w-6 rotate-90 text-blue-600 sm:rotate-0" />
-        <div class="sm:text-right"><p class="text-xs font-semibold uppercase text-slate-500">Standby</p><p class="mt-1 font-semibold text-slate-900">MinIO server1</p><p class="text-xs text-slate-500">192.168.0.10</p></div>
+        <div class="sm:text-right"><p class="text-xs font-semibold uppercase text-slate-500">Standby</p><p class="mt-1 font-semibold text-slate-900">{{ storageReorganization?.destination_server || 'MinIO standby' }}</p><p class="text-xs text-slate-500">{{ storageReorganization?.destination_ip || '-' }}</p></div>
       </div>
 
       <div class="mt-5 h-3 overflow-hidden rounded-full bg-slate-200">
@@ -748,6 +767,30 @@ onBeforeUnmount(() => {
               <p class="mt-2 truncate text-[11px] text-slate-500" :title="resource.detail">{{ resource.detail }}</p>
             </div>
           </div>
+        </div>
+
+        <div v-if="server?.runtime" class="mt-5 border-t border-slate-200 pt-4">
+          <h4 class="text-sm font-semibold text-slate-800">Spesifikasi Engine</h4>
+          <dl class="mt-3 divide-y divide-slate-100">
+            <div
+              v-for="item in [
+                { label: 'OS Host', value: server.runtime.host_os },
+                { label: 'Web Server', value: server.runtime.apache ? `Apache ${server.runtime.apache}` : null },
+                { label: 'PHP Web', value: server.runtime.php_web ? `${server.runtime.php_web} (${server.runtime.php_sapi || 'FPM'})` : null },
+                { label: 'PHP CLI Host', value: server.runtime.php_cli_host },
+                { label: 'Laravel', value: server.runtime.laravel },
+                { label: 'Database', value: server.runtime.database ? `${(server.runtime.database_driver || 'DB').toUpperCase()} ${server.runtime.database}` : null },
+                { label: 'MinIO', value: server.runtime.minio },
+                { label: 'Docker', value: server.runtime.docker },
+                { label: 'Frontend', value: `Nuxt ${frontendVersions.nuxt} / Vue ${frontendVersions.vue}` },
+              ]"
+              :key="item.label"
+              class="flex items-start justify-between gap-4 py-2 text-xs"
+            >
+              <dt class="shrink-0 text-slate-500">{{ item.label }}</dt>
+              <dd class="min-w-0 break-words text-right font-semibold text-slate-800">{{ item.value || '-' }}</dd>
+            </div>
+          </dl>
         </div>
 
       </SurfaceCard>

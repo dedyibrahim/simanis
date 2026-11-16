@@ -35,6 +35,8 @@ type WaarmerkingForm = {
 
 type PpatForm = {
   jenis_akta: string
+  tanggal_akta: string
+  pengambil_nomor: string
   sudah_tanda_tangan: boolean
   no_hak_milik: string
   harga_transaksi: string
@@ -76,6 +78,8 @@ const props = defineProps<{
   asistenOptions: AsistenOption[]
   suratClientOptions: ClientOption[]
   requireAsisten: boolean
+  canEditPpatAssignee: boolean
+  canEditPpatDate: boolean
   isEdit: boolean
   aphtMode: boolean
   tandaTerimaStatus: string
@@ -143,6 +147,14 @@ const onSuratClientInput = (event: Event) => {
       <select v-model="ppatForm.jenis_akta" :class="inputClass" class="sm:col-span-2">
         <option value="">{{ loadingAkta ? 'Memuat jenis akta...' : 'Pilih jenis akta' }}</option>
         <option v-for="item in aktaOptions" :key="String(item.id_akta)" :value="String(item.id_akta)">{{ item.nama_akta || item.id_akta }}</option>
+      </select>
+      <label v-if="canEditPpatDate" class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+        Tanggal akta
+        <input v-model="ppatForm.tanggal_akta" type="date" :class="inputClass" required />
+      </label>
+      <select v-if="canEditPpatAssignee" v-model="ppatForm.pengambil_nomor" :class="inputClass" class="sm:col-span-2" aria-label="Pengambil nomor">
+        <option value="">{{ loadingAsisten ? 'Memuat pengambil nomor...' : 'Pilih pengambil nomor' }}</option>
+        <option v-for="item in asistenOptions" :key="String(item.id_user)" :value="String(item.id_user)">{{ item.nama_lengkap || item.id_user }}</option>
       </select>
       <label v-if="!isEdit" class="sm:col-span-2 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
         <input v-model="ppatForm.sudah_tanda_tangan" type="checkbox" class="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-400" />
