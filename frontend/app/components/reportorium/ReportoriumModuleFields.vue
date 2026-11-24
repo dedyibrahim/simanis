@@ -24,11 +24,14 @@ type NotarisForm = {
 }
 
 type LegalisasiForm = {
+  tgl_surat: string
   judul_surat: string
   keterangan_surat: string
 }
 
 type WaarmerkingForm = {
+  tgl_surat: string
+  tgl_didaftarkan: string
   judul_surat: string
   keterangan_surat: string
 }
@@ -78,6 +81,7 @@ const props = defineProps<{
   asistenOptions: AsistenOption[]
   suratClientOptions: ClientOption[]
   requireAsisten: boolean
+  canEditBookDates: boolean
   canEditPpatAssignee: boolean
   canEditPpatDate: boolean
   isEdit: boolean
@@ -135,11 +139,23 @@ const onSuratClientInput = (event: Event) => {
 
     <template v-if="isLegalisasi">
       <input v-model="legalisasiForm.judul_surat" type="text" :class="inputClass" class="sm:col-span-2" placeholder="Judul legalisasi" />
+      <label v-if="canEditBookDates" class="sm:col-span-2 flex flex-col gap-1 text-sm font-medium text-slate-700">
+        Tanggal surat
+        <input v-model="legalisasiForm.tgl_surat" type="date" :class="inputClass" required />
+      </label>
       <textarea v-model="legalisasiForm.keterangan_surat" rows="3" :class="textAreaClass" class="sm:col-span-2" placeholder="Keterangan surat (opsional)" />
     </template>
 
     <template v-if="isWaarmerking">
       <input v-model="waarmerkingForm.judul_surat" type="text" :class="inputClass" class="sm:col-span-2" placeholder="Judul waarmerking" />
+      <label v-if="canEditBookDates" class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+        Tanggal surat
+        <input v-model="waarmerkingForm.tgl_surat" type="date" :class="inputClass" required />
+      </label>
+      <label v-if="canEditBookDates" class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+        Tanggal didaftarkan
+        <input v-model="waarmerkingForm.tgl_didaftarkan" type="date" :class="inputClass" required />
+      </label>
       <textarea v-model="waarmerkingForm.keterangan_surat" rows="3" :class="textAreaClass" class="sm:col-span-2" placeholder="Keterangan surat (opsional)" />
     </template>
 

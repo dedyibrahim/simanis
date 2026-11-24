@@ -146,8 +146,10 @@ const loadingSuratClient = ref(false)
 const submitting = ref(false)
 const showDialog = ref(false)
 const mode = ref<'create' | 'edit'>('create')
-const canEditPpatAssignee = computed(() => isPpat.value && mode.value === 'edit' && ['ADMIN', 'SUPER ADMIN', 'SUPERADMIN'].includes(String(user.value?.level_user || '').trim().toUpperCase()))
+const isAdmin = computed(() => ['ADMIN', 'SUPER ADMIN', 'SUPERADMIN'].includes(String(user.value?.level_user || '').trim().toUpperCase()))
+const canEditPpatAssignee = computed(() => isPpat.value && mode.value === 'edit' && isAdmin.value)
 const canEditPpatDate = canEditPpatAssignee
+const canEditBookDates = computed(() => (isLegalisasi.value || isWaarmerking.value) && mode.value === 'edit' && isAdmin.value)
 const notarisMinDate = ref(today())
 
 const message = ref('')
@@ -166,6 +168,7 @@ const notarisForm = reactive({
 const legalisasiForm = reactive({
   id_buku_legalisasi: '',
   no_legalisasi: '',
+  tgl_surat: '',
   judul_surat: '',
   keterangan_surat: '',
 })
@@ -173,6 +176,8 @@ const legalisasiForm = reactive({
 const waarmerkingForm = reactive({
   id_buku_warmerking: '',
   no_warmerking: '',
+  tgl_surat: '',
+  tgl_didaftarkan: '',
   judul_surat: '',
   keterangan_surat: '',
 })
@@ -452,11 +457,14 @@ const resetAll = () => {
 
   legalisasiForm.id_buku_legalisasi = ''
   legalisasiForm.no_legalisasi = ''
+  legalisasiForm.tgl_surat = ''
   legalisasiForm.judul_surat = ''
   legalisasiForm.keterangan_surat = ''
 
   waarmerkingForm.id_buku_warmerking = ''
   waarmerkingForm.no_warmerking = ''
+  waarmerkingForm.tgl_surat = ''
+  waarmerkingForm.tgl_didaftarkan = ''
   waarmerkingForm.judul_surat = ''
   waarmerkingForm.keterangan_surat = ''
 
@@ -559,6 +567,7 @@ const hydrateFromEdit = async (row: RowRecord) => {
     const data = toData<RowRecord>(await business.bukuLegalisasi.EditLegalisasi({ id_buku_legalisasi: row.id_buku_legalisasi }))
     legalisasiForm.id_buku_legalisasi = String(data.id_buku_legalisasi || '')
     legalisasiForm.no_legalisasi = String(data.no_legalisasi || '')
+    legalisasiForm.tgl_surat = normalizeDateInput(data.tgl_surat)
     legalisasiForm.judul_surat = String(data.judul_surat || '')
     legalisasiForm.keterangan_surat = String(data.keterangan_surat || '')
     penghadapRows.value = mapPenghadapRows(data.penghadap_legalisasi || data.daftarpenghadap)
@@ -569,6 +578,8 @@ const hydrateFromEdit = async (row: RowRecord) => {
     const data = toData<RowRecord>(await business.bukuWarmerking.EditWarmerking({ id_buku_warmerking: row.id_buku_warmerking }))
     waarmerkingForm.id_buku_warmerking = String(data.id_buku_warmerking || '')
     waarmerkingForm.no_warmerking = String(data.no_warmerking || '')
+    waarmerkingForm.tgl_surat = normalizeDateInput(data.tgl_surat)
+    waarmerkingForm.tgl_didaftarkan = normalizeDateInput(data.tgl_didaftarkan)
     waarmerkingForm.judul_surat = String(data.judul_surat || '')
     waarmerkingForm.keterangan_surat = String(data.keterangan_surat || '')
     penghadapRows.value = mapPenghadapRows(data.penghadap_warmerking || data.daftarpenghadap)
@@ -748,11 +759,13 @@ const validate = () => {
 
   if (isLegalisasi.value) {
     if (!legalisasiForm.judul_surat.trim()) return 'Judul legalisasi wajib diisi.'
+    if (canEditBookDates.value && !/^\d{4}-\d{2}-\d{2}$/.test(legalisasiForm.tgl_surat)) return 'Tanggal surat wajib diisi.'
     if (!penghadapRows.value.length) return 'Minimal 1 penghadap wajib diisi.'
   }
 
   if (isWaarmerking.value) {
     if (!waarmerkingForm.judul_surat.trim()) return 'Judul waarmerking wajib diisi.'
+    if (canEditBookDates.value && (!/^\d{4}-\d{2}-\d{2}$/.test(waarmerkingForm.tgl_surat) || !/^\d{4}-\d{2}-\d{2}$/.test(waarmerkingForm.tgl_didaftarkan))) return 'Tanggal surat dan tanggal didaftarkan wajib diisi.'
     if (!penghadapRows.value.length) return 'Minimal 1 penghadap wajib diisi.'
   }
 
@@ -819,6 +832,7 @@ const submit = async () => {
         data_buku: {
           id_buku_legalisasi: legalisasiForm.id_buku_legalisasi || undefined,
           no_legalisasi: legalisasiForm.no_legalisasi || undefined,
+          tgl_surat: canEditBookDates.value ? legalisasiForm.tgl_surat : undefined,
           judul_surat: legalisasiForm.judul_surat,
           keterangan_surat: legalisasiForm.keterangan_surat,
         },
@@ -829,6 +843,8 @@ const submit = async () => {
         data_buku: {
           id_buku_warmerking: waarmerkingForm.id_buku_warmerking || undefined,
           no_warmerking: waarmerkingForm.no_warmerking || undefined,
+          tgl_surat: canEditBookDates.value ? waarmerkingForm.tgl_surat : undefined,
+          tgl_didaftarkan: canEditBookDates.value ? waarmerkingForm.tgl_didaftarkan : undefined,
           judul_surat: waarmerkingForm.judul_surat,
           keterangan_surat: waarmerkingForm.keterangan_surat,
         },
@@ -983,6 +999,7 @@ watch(
             <p v-if="error" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</p>
 
             <ReportoriumModuleFields
+              :can-edit-book-dates='canEditBookDates'
               :can-edit-ppat-assignee='canEditPpatAssignee'
               :can-edit-ppat-date='canEditPpatDate'
               :path="props.path"

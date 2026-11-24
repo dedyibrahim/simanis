@@ -1165,8 +1165,13 @@ class PembuatanNomor extends ApiController
             ->where('buku_legalisasis.id_buku_legalisasi', $request->post('id_buku_legalisasi'))
             ->first();
 
+        if (!$buku) {
+            return response()->json(['status' => false, 'message' => 'Data legalisasi tidak ditemukan.', 'data' => []], 404);
+        }
+
         $data = [
             'id_buku_legalisasi' => $request->post('id_buku_legalisasi'),
+            'tgl_surat' => $buku->tgl_surat,
             'judul_surat' => $buku->judul_surat,
             'nama_client' => $buku->nama_client,
             'keterangan_surat' => $buku->keterangan_surat,
@@ -1183,8 +1188,14 @@ class PembuatanNomor extends ApiController
             ->where('buku_warmerkings.id_buku_warmerking', $request->post('id_buku_warmerking'))
             ->first();
 
+        if (!$buku) {
+            return response()->json(['status' => false, 'message' => 'Data waarmerking tidak ditemukan.', 'data' => []], 404);
+        }
+
         $data = [
             'id_buku_warmerking' => $request->post('id_buku_warmerking'),
+            'tgl_surat' => $buku->tgl_surat,
+            'tgl_didaftarkan' => $buku->tgl_didaftarkan,
             'judul_surat' => $buku->judul_surat,
             'nama_client' => $buku->nama_client,
             'keterangan_surat' => $buku->keterangan_surat,
@@ -1611,10 +1622,13 @@ class PembuatanNomor extends ApiController
             $data_buku = [
                 'judul_surat' => $b['judul_surat'],
                 'keterangan_surat' => $b['keterangan_surat'],
-                'id_user' => auth()->user()->id_user,
-                'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            if ($this->isAdminLevel(optional($request->user())->level_user) && array_key_exists('tgl_surat', $b)) {
+                $request->validate(['data_buku.tgl_surat' => ['required', 'date_format:Y-m-d']]);
+                $data_buku['tgl_surat'] = $b['tgl_surat'];
+            }
 
             BukuLegalisasi::where('id_buku_legalisasi', $b['id_buku_legalisasi'])->update($data_buku);
             PenghadapLegalisasi::where('id_buku_legalisasi', $b['id_buku_legalisasi'])->delete();
@@ -1784,10 +1798,18 @@ class PembuatanNomor extends ApiController
             $data_buku = [
                 'judul_surat' => $b['judul_surat'],
                 'keterangan_surat' => $b['keterangan_surat'],
-                'id_user' => auth()->user()->id_user,
-                'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            if ($this->isAdminLevel(optional($request->user())->level_user)) {
+                foreach (['tgl_surat', 'tgl_didaftarkan'] as $field) {
+                    if (!array_key_exists($field, $b)) {
+                        continue;
+                    }
+                    $request->validate(['data_buku.'.$field => ['required', 'date_format:Y-m-d']]);
+                    $data_buku[$field] = $b[$field];
+                }
+            }
 
             BukuWarmerking::where('id_buku_warmerking', $b['id_buku_warmerking'])->update($data_buku);
             PenghadapWarmerking::where('id_buku_warmerking', $b['id_buku_warmerking'])->delete();
