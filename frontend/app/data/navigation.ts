@@ -28,7 +28,6 @@ export const navigationSections: NavigationSection[] = [
   {
     title: 'Informasi Pekerjaan',
     items: [
-      { title: 'Workflow Pekerjaan', path: '/pekerjaan', icon: 'briefcase', hint: 'Alur pekerjaan dari draft sampai invoice' },
       { title: 'Pesanan Masuk', path: '/order_masuk', icon: 'queue', hint: 'Order aktif yang sedang diproses' },
       { title: 'Pesanan Selesai', path: '/order_selesai', icon: 'done', hint: 'Riwayat order yang selesai' },
       { title: 'Invoice Tax', path: '/invoice_tax', icon: 'invoice', hint: 'Billing dengan komponen pajak' },
