@@ -25,6 +25,7 @@ class DataClient extends Model
         'has_npwp',
         'jenis_client',
         'alamat_client',
+        'ktp_data',
         'nama_folder',
         'pembuat_client',
         'email',
@@ -35,5 +36,6 @@ class DataClient extends Model
 
     protected $casts = [
         'has_npwp' => 'boolean',
+        'ktp_data' => 'array',
     ];
 }

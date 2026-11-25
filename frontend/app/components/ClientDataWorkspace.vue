@@ -17,6 +17,56 @@ type ClientPageData = {
 }
 
 type ClientType = 'Perorangan' | 'Badan Hukum'
+type KtpDetails = {
+  provinsi: string
+  kabupaten_kota: string
+  tempat_tgl_lahir: string
+  jenis_kelamin: string
+  gol_darah: string
+  alamat: string
+  rt_rw: string
+  kel_desa: string
+  kecamatan: string
+  agama: string
+  status_perkawinan: string
+  pekerjaan: string
+  kewarganegaraan: string
+  berlaku_hingga: string
+}
+
+const emptyKtpDetails = (): KtpDetails => ({
+  provinsi: '',
+  kabupaten_kota: '',
+  tempat_tgl_lahir: '',
+  jenis_kelamin: '',
+  gol_darah: '',
+  alamat: '',
+  rt_rw: '',
+  kel_desa: '',
+  kecamatan: '',
+  agama: '',
+  status_perkawinan: '',
+  pekerjaan: '',
+  kewarganegaraan: '',
+  berlaku_hingga: '',
+})
+
+const ktpFields: Array<{ key: keyof KtpDetails; label: string; wide?: boolean; optional?: boolean }> = [
+  { key: 'provinsi', label: 'Provinsi' },
+  { key: 'kabupaten_kota', label: 'Kabupaten/Kota' },
+  { key: 'tempat_tgl_lahir', label: 'Tempat/Tanggal Lahir' },
+  { key: 'jenis_kelamin', label: 'Jenis Kelamin' },
+  { key: 'gol_darah', label: 'Golongan Darah', optional: true },
+  { key: 'alamat', label: 'Alamat', wide: true },
+  { key: 'rt_rw', label: 'RT/RW' },
+  { key: 'kel_desa', label: 'Kelurahan/Desa' },
+  { key: 'kecamatan', label: 'Kecamatan' },
+  { key: 'agama', label: 'Agama' },
+  { key: 'status_perkawinan', label: 'Status Perkawinan' },
+  { key: 'pekerjaan', label: 'Pekerjaan' },
+  { key: 'kewarganegaraan', label: 'Kewarganegaraan' },
+  { key: 'berlaku_hingga', label: 'Berlaku Hingga' },
+]
 type ClientSearchField = 'all' | 'name' | 'identity' | 'creator' | 'contact'
 type ClientSortKey = 'id_client' | 'nama_client' | 'no_identitas' | 'pembuat_client'
 type SortDirection = 'asc' | 'desc'
@@ -29,6 +79,7 @@ type ClientRow = Record<string, unknown> & {
   has_npwp?: boolean | number
   jenis_client?: string
   alamat_client?: string
+  ktp_data?: Partial<KtpDetails> | null
   contact_number?: string | number
   email?: string
   pembuat_client?: string
@@ -82,6 +133,7 @@ const clientOptionRows = ref<ClientRow[]>([])
 const banteks = ref<BantekRow[]>([])
 
 const clientDialogOpen = ref(false)
+const clientDialogRef = ref<HTMLDivElement | null>(null)
 const savingClient = ref(false)
 const editingClientIndex = ref(-1)
 const clientDialogError = ref('')
@@ -97,6 +149,7 @@ const clientForm = reactive<ClientRow>({
   contact_number: '',
   email: '',
 })
+const ktpForm = reactive<KtpDetails>(emptyKtpDetails())
 
 const documentViewerOpen = ref(false)
 const loadingDocumentViewer = ref(false)
@@ -176,6 +229,8 @@ const sanitizeBusinessIdentity = (value: unknown) =>
 const normalizeClientIdentityInput = () => {
   if (isBusinessClient()) {
     clientForm.no_identitas = sanitizeBusinessIdentity(clientForm.no_identitas)
+  } else {
+    clientForm.no_identitas = String(clientForm.no_identitas ?? '').replace(/\D/g, '').slice(0, 16)
   }
   clearIdentityMatchOnInput()
 }
@@ -216,6 +271,8 @@ const setFormFromClient = (client?: ClientRow) => {
   clientForm.nama_client = toString(source.nama_client, '')
   clientForm.jenis_client = props.clientType
   clientForm.alamat_client = toString(source.alamat_client, '')
+  Object.assign(ktpForm, emptyKtpDetails(), source.ktp_data || {})
+  if (!source.ktp_data) ktpForm.alamat = toString(source.alamat_client, '')
   clientForm.contact_number = toString(source.contact_number, '')
   clientForm.email = toString(source.email, '')
 }
@@ -307,7 +364,7 @@ const identityMaxLength = computed(() =>
 
 const clientNamePlaceholder = computed(() =>
   props.clientType === 'Perorangan'
-    ? 'Masukkan nama lengkap client'
+    ? 'Masukkan nama lengkap sesuai KTP'
     : 'Masukkan nama badan hukum',
 )
 
@@ -354,6 +411,7 @@ const clearClientDialogError = () => {
 
 const showClientDialogError = (value: string) => {
   clientDialogError.value = value
+  nextTick(() => clientDialogRef.value?.scrollTo({ top: 0, behavior: 'smooth' }))
 }
 
 const applyIdentityMatchPreview = (client: ClientRow) => {
@@ -480,6 +538,7 @@ const checkClientIdentity = async () => {
   clientForm.nama_client = clientName
   clientIdentityMatch.value = null
 
+  if (!isBusinessClient() && identity.length !== 16) return
   if (((businessHasNpwp.value && !identity) && (!isBusinessClient() || !clientName)) || checkingClientIdentity.value) return
 
   checkingClientIdentity.value = true
@@ -522,6 +581,21 @@ const saveClient = async () => {
     showClientDialogError('NPWP harus terdiri dari 15 atau 16 digit angka dan bukan nomor placeholder.')
     return
   }
+  if (!isBusinessClient()) {
+    if (!/^\d{16}$/.test(toString(clientForm.no_identitas, ''))) {
+      showClientDialogError('NIK harus tepat 16 digit angka sesuai KTP.')
+      return
+    }
+    if (!toString(clientForm.nama_client, '')) {
+      showClientDialogError('Nama sesuai KTP wajib diisi.')
+      return
+    }
+    const missingField = ktpFields.find(field => !field.optional && !ktpForm[field.key].trim())
+    if (missingField) {
+      showClientDialogError(`${missingField.label} sesuai KTP wajib diisi.`)
+      return
+    }
+  }
   savingClient.value = true
   clearStatus()
 
@@ -536,7 +610,8 @@ const saveClient = async () => {
       has_npwp: businessHasNpwp.value,
       nama_client: clientForm.nama_client,
       jenis_client: props.clientType,
-      alamat_client: clientForm.alamat_client,
+      alamat_client: isBusinessClient() ? clientForm.alamat_client : ktpForm.alamat,
+      ktp_data: isBusinessClient() ? undefined : { ...ktpForm },
       contact_number: clientForm.contact_number,
       email: clientForm.email,
     }) as ApiEnvelope
@@ -852,6 +927,7 @@ const printBantekLabel = (noBantek: unknown) => {
     return
   }
   const url = business.bantek.CetakLabelBantek(value)
+  if (!url) return
   openPreviewDialog(url, `Label Bantek ${value}`)
 }
 
@@ -1431,7 +1507,7 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <div v-if="clientDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <button type="button" class="absolute inset-0 bg-slate-900/60" @click="closeClientDialog" />
-        <div class="relative z-10 w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-5">
+        <div ref="clientDialogRef" class="relative z-10 max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5">
           <div class="flex items-start justify-between gap-3">
             <h3 class="text-lg font-semibold text-slate-900">{{ clientFormTitle }}</h3>
             <button type="button" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="closeClientDialog">Tutup</button>
@@ -1464,13 +1540,14 @@ onBeforeUnmount(() => {
               </select>
             </label>
             <label v-if="businessHasNpwp" class="flex flex-col gap-2">
-              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ identityLabel }}</span>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ isBusinessClient() ? identityLabel : 'NIK sesuai KTP *' }}</span>
               <input
                 ref="clientIdentityInputRef"
                 v-model="clientForm.no_identitas"
                 type="text"
                 inputmode="numeric"
                 :maxlength="identityMaxLength"
+                :required="!isBusinessClient()"
                 :placeholder="identityPlaceholder"
                 class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 @input="normalizeClientIdentityInput"
@@ -1479,17 +1556,19 @@ onBeforeUnmount(() => {
               />
               <span v-if="checkingClientIdentity" class="text-xs font-semibold text-blue-600">Mengecek {{ identityLabel }}...</span>
               <span v-else-if="isBusinessClient()" class="text-xs text-slate-500">Wajib 15 atau 16 digit angka.</span>
+              <span v-else class="text-xs text-slate-500">Wajib tepat 16 digit angka.</span>
             </label>
             <div v-else class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               NPWP akan disimpan sebagai tidak tersedia. Client tetap dibedakan berdasarkan nama badan hukum.
             </div>
             <label class="flex flex-col gap-2">
-              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Nama Client</span>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ isBusinessClient() ? 'Nama Client' : 'Nama sesuai KTP *' }}</span>
               <input
                 v-model="clientForm.nama_client"
                 type="text"
                 :placeholder="clientNamePlaceholder"
                 :disabled="clientIdentityBlocked"
+                required
                 class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500"
                 @input="normalizeClientNameInput"
                 @change="checkClientIdentity"
@@ -1504,6 +1583,28 @@ onBeforeUnmount(() => {
                 <span v-if="clientIdentityMatch.pembuat_client">, dibuat oleh {{ clientIdentityMatch.pembuat_client }}</span>
               </p>
             </div>
+            <template v-if="!isBusinessClient()">
+              <div class="md:col-span-2 border-t border-slate-200 pt-3 text-xs font-semibold uppercase text-slate-500">Data KTP</div>
+              <label v-for="field in ktpFields" :key="field.key" class="flex flex-col gap-2" :class="field.wide ? 'md:col-span-2' : ''">
+                <span class="text-xs font-semibold uppercase text-slate-500">{{ field.label }}{{ field.optional ? '' : ' *' }}</span>
+                <textarea
+                  v-if="field.key === 'alamat'"
+                  v-model="ktpForm[field.key]"
+                  rows="2"
+                  :disabled="clientIdentityBlocked"
+                  required
+                  class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                />
+                <input
+                  v-else
+                  v-model="ktpForm[field.key]"
+                  type="text"
+                  :required="!field.optional"
+                  :disabled="clientIdentityBlocked"
+                  class="h-10 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                />
+              </label>
+            </template>
             <label class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Contact Number</span>
               <input v-model="clientForm.contact_number" type="text" :disabled="clientIdentityBlocked" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" />
@@ -1512,7 +1613,7 @@ onBeforeUnmount(() => {
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Email</span>
               <input v-model="clientForm.email" type="email" :disabled="clientIdentityBlocked" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" />
             </label>
-            <label class="md:col-span-2 flex flex-col gap-2">
+            <label v-if="isBusinessClient()" class="md:col-span-2 flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Alamat Client</span>
               <textarea v-model="clientForm.alamat_client" rows="4" :disabled="clientIdentityBlocked" class="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500"></textarea>
             </label>

@@ -33,6 +33,8 @@ const clientType = ref<'Perorangan' | 'Badan Hukum'>('Perorangan')
 const fields = reactive({
   nik: '',
   nama: '',
+  provinsi: '',
+  kabupaten_kota: '',
   tempat_tgl_lahir: '',
   jenis_kelamin: '',
   gol_darah: '',
@@ -50,9 +52,11 @@ const fields = reactive({
 })
 
 const confidence = reactive<Record<string, number | null>>({})
-const fieldDefinitions = [
+const fieldDefinitions: Array<{ key: keyof typeof fields; label: string; span?: boolean }> = [
   { key: 'nik', label: 'NIK', span: true },
   { key: 'nama', label: 'Nama Client', span: true },
+  { key: 'provinsi', label: 'Provinsi' },
+  { key: 'kabupaten_kota', label: 'Kabupaten/Kota' },
   { key: 'tempat_tgl_lahir', label: 'Tempat/Tanggal Lahir' },
   { key: 'jenis_kelamin', label: 'Jenis Kelamin' },
   { key: 'gol_darah', label: 'Golongan Darah' },
@@ -129,7 +133,8 @@ const readField = (source: Record<string, OcrField>, ...keys: string[]) => {
 const applyOcrResult = (payload: OcrPayload) => {
   const source = payload.fields || {}
   const aliases: Record<string, string[]> = {
-    nik: ['nik'], nama: ['nama'], tempat_tgl_lahir: ['tempat_tgl_lahir', 'tempat_tgl_lahir'],
+    nik: ['nik'], nama: ['nama'], provinsi: ['provinsi'], kabupaten_kota: ['kabupaten_kota', 'kabupaten', 'kota'],
+    tempat_tgl_lahir: ['tempat_tgl_lahir'],
     jenis_kelamin: ['jenis_kelamin'], gol_darah: ['gol_darah'], alamat: ['alamat'], rt_rw: ['rt_rw'],
     kel_desa: ['kel_desa'], kecamatan: ['kecamatan'], agama: ['agama'], status_perkawinan: ['status_perkawinan'],
     pekerjaan: ['pekerjaan'], kewarganegaraan: ['kewarganegaraan'], berlaku_hingga: ['berlaku_hingga'],
@@ -169,6 +174,8 @@ const buildAddress = () => [
   fields.rt_rw ? `RT/RW ${fields.rt_rw}` : '',
   fields.kel_desa,
   fields.kecamatan,
+  fields.kabupaten_kota,
+  fields.provinsi,
 ].filter(Boolean).join(', ')
 
 const confidencePercent = (value: number | null | undefined) => {
@@ -182,6 +189,12 @@ const saveClient = async () => {
   if (!imageFile.value) return void (errorMessage.value = 'Ambil atau unggah foto KTP terlebih dahulu.')
   if (!/^\d{16}$/.test(fields.nik)) return void (errorMessage.value = 'NIK harus tepat 16 digit.')
   if (!fields.nama.trim()) return void (errorMessage.value = 'Nama client wajib diisi.')
+  if (clientType.value === 'Perorangan') {
+    const missingField = fieldDefinitions.find(definition =>
+      definition.key !== 'nik' && definition.key !== 'nama' && definition.key !== 'gol_darah'
+      && !fields[definition.key].trim())
+    if (missingField) return void (errorMessage.value = `${missingField.label} sesuai KTP wajib diisi.`)
+  }
   saving.value = true
   try {
     const form = new FormData()
@@ -190,6 +203,12 @@ const saveClient = async () => {
     form.append('nama_client', fields.nama.trim())
     form.append('jenis_client', clientType.value)
     form.append('alamat_client', buildAddress())
+    if (clientType.value === 'Perorangan') {
+      for (const definition of fieldDefinitions) {
+        if (definition.key === 'nik' || definition.key === 'nama') continue
+        form.append(`ktp_data[${definition.key}]`, fields[definition.key].trim())
+      }
+    }
     form.append('contact_number', fields.contact_number)
     form.append('email', fields.email)
     const response = await business.client.saveKtpOcrClient(form) as ApiResponse
@@ -287,7 +306,7 @@ onBeforeUnmount(() => {
           <div class="grid gap-3 sm:grid-cols-2">
             <label v-for="definition in fieldDefinitions" :key="definition.key" class="block" :class="definition.span ? 'sm:col-span-2' : ''">
               <span class="mb-1.5 flex items-center justify-between text-[11px] font-extrabold uppercase text-slate-500">
-                {{ definition.label }}
+                {{ definition.label }}{{ clientType === 'Perorangan' && definition.key !== 'gol_darah' ? ' *' : '' }}
                 <span v-if="confidencePercent(confidence[definition.key]) != null" class="text-[10px] text-blue-600">{{ confidencePercent(confidence[definition.key]) }}%</span>
               </span>
               <textarea v-if="definition.key === 'alamat'" v-model="fields[definition.key]" rows="2" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500" />

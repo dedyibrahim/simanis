@@ -13,6 +13,59 @@ use Illuminate\Support\Str;
 
 class ClientController extends ApiController
 {
+    private const KTP_FIELDS = [
+        'provinsi',
+        'kabupaten_kota',
+        'tempat_tgl_lahir',
+        'jenis_kelamin',
+        'gol_darah',
+        'alamat',
+        'rt_rw',
+        'kel_desa',
+        'kecamatan',
+        'agama',
+        'status_perkawinan',
+        'pekerjaan',
+        'kewarganegaraan',
+        'berlaku_hingga',
+    ];
+
+    private function ktpValidationRules(): array
+    {
+        $rules = ['ktp_data' => ['required', 'array']];
+        foreach (self::KTP_FIELDS as $field) {
+            $rules['ktp_data.'.$field] = [
+                $field === 'gol_darah' ? 'nullable' : 'required',
+                'string',
+                'max:255',
+            ];
+        }
+
+        return $rules;
+    }
+
+    private function normalizedKtpData(array $data): array
+    {
+        $result = [];
+        foreach (self::KTP_FIELDS as $field) {
+            $result[$field] = trim((string) ($data[$field] ?? ''));
+        }
+
+        return $result;
+    }
+
+    private function formatKtpAddress(array $data): string
+    {
+        return implode(', ', array_filter([
+            $data['alamat'],
+            'RT/RW '.$data['rt_rw'],
+            $data['kel_desa'],
+            $data['kecamatan'],
+            $data['kabupaten_kota'],
+            $data['provinsi'],
+        ]));
+    }
+
     private function isBusinessClient(?string $type): bool
     {
         return Str::lower(trim((string) $type)) === 'badan hukum';
@@ -198,6 +251,7 @@ class ClientController extends ApiController
                 'data_clients.nama_client',
                 'data_clients.jenis_client',
                 'data_clients.alamat_client',
+                'data_clients.ktp_data',
                 'users.nama_lengkap as pembuat_client',
                 'data_clients.nama_folder',
                 'data_clients.contact_number',
@@ -294,6 +348,7 @@ class ClientController extends ApiController
                 'nama_client' => $row->nama_client,
                 'jenis_client' => $row->jenis_client,
                 'alamat_client' => $row->alamat_client,
+                'ktp_data' => $row->ktp_data,
                 'pembuat_client' => $row->pembuat_client,
                 'nama_folder' => $row->nama_folder,
                 'contact_number' => $row->contact_number,
@@ -341,6 +396,7 @@ class ClientController extends ApiController
                 'data_clients.nama_client',
                 'data_clients.jenis_client',
                 'data_clients.alamat_client',
+                'data_clients.ktp_data',
                 'data_clients.contact_number',
                 'data_clients.email',
                 'users.nama_lengkap as pembuat_client'
@@ -370,17 +426,28 @@ class ClientController extends ApiController
         ]);
         $identity = (string) ($request->post('no_identitas') ?? '');
         $name = (string) $request->post('nama_client');
-        $identityRules = $hasNpwp && $this->isBusinessClient($jenisClient)
-            ? ['required', 'regex:/^\d{15,16}$/', 'not_regex:/^9{5}/']
-            : ($hasNpwp ? ['required'] : ['nullable']);
+        $isPersonal = $jenisClient === 'Perorangan';
+        if ($isPersonal) {
+            $identityRules = ['required', 'digits:16'];
+        } elseif ($hasNpwp && $this->isBusinessClient($jenisClient)) {
+            $identityRules = ['required', 'regex:/^\d{15,16}$/', 'not_regex:/^9{5}/'];
+        } else {
+            $identityRules = $hasNpwp ? ['required'] : ['nullable'];
+        }
+
+        $validated = $request->validate(array_merge([
+            'jenis_client' => ['required', 'in:Perorangan,Badan Hukum'],
+            'no_identitas' => $identityRules,
+            'has_npwp' => ['required', 'boolean'],
+            'nama_client' => ['required', 'string', 'max:255'],
+            'alamat_client' => ['nullable', 'string'],
+            'contact_number' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+        ], $isPersonal ? $this->ktpValidationRules() : []));
+        $ktpData = $isPersonal ? $this->normalizedKtpData($validated['ktp_data']) : null;
+        $address = $isPersonal ? $this->formatKtpAddress($ktpData) : $request->post('alamat_client');
 
         if ($request->post('id_client')) {
-            $request->validate([
-                'no_identitas' => $identityRules,
-                'has_npwp' => 'required|boolean',
-                'nama_client' => 'required|',
-            ]);
-
             $duplicateClient = $this->duplicateClientQuery($identity, $name, $jenisClient, (string) $request->post('id_client'))
                 ->first(['id_client', 'nama_client']);
 
@@ -398,17 +465,20 @@ class ClientController extends ApiController
             }
 
             $data = [
-            'nama_client' => $request->post('nama_client'),
-            'no_identitas' => $request->post('no_identitas'),
-            'has_npwp' => $request->boolean('has_npwp'),
-            'jenis_client' => $request->post('jenis_client'),
-            'alamat_client' => $request->post('alamat_client'),
-            'pembuat_client' => auth()->user()->id_user,
-            'email' => $request->post('email'),
-            'contact_number' => $request->post('contact_number'),
+                'nama_client' => $request->post('nama_client'),
+                'no_identitas' => $request->post('no_identitas'),
+                'has_npwp' => $request->boolean('has_npwp'),
+                'jenis_client' => $request->post('jenis_client'),
+                'alamat_client' => $address,
+                'pembuat_client' => auth()->user()->id_user,
+                'email' => $request->post('email'),
+                'contact_number' => $request->post('contact_number'),
             ];
+            if ($isPersonal) {
+                $data['ktp_data'] = $ktpData;
+            }
 
-            DataClient::where('id_client', $request->post('id_client'))->update($data);
+            DataClient::where('id_client', $request->post('id_client'))->firstOrFail()->update($data);
 
             $response = [
                 'status' => true,
@@ -418,12 +488,6 @@ class ClientController extends ApiController
 
             return response($response, 200);
         } else {
-            $request->validate([
-                'no_identitas' => $identityRules,
-                'has_npwp' => 'required|boolean',
-                'nama_client' => 'required|',
-            ]);
-
             $duplicateClient = $this->duplicateClientQuery($identity, $name, $jenisClient)
                 ->first(['id_client', 'nama_client']);
 
@@ -440,22 +504,25 @@ class ClientController extends ApiController
                 );
             }
 
-            DB::transaction(function () use ($request) {
+            DB::transaction(function () use ($request, $address, $isPersonal, $ktpData) {
                 $id_client = $this->nextClientId();
 
 
                 $data = [
-                'id_client' => $id_client,
-                'nama_client' => $request->post('nama_client'),
-                'no_identitas' => $request->post('no_identitas'),
-                'has_npwp' => $request->boolean('has_npwp'),
-                'jenis_client' => $request->post('jenis_client'),
-                'alamat_client' => $request->post('alamat_client'),
-                'pembuat_client' => auth()->user()->id_user,
-                'email' => $request->post('email'),
-                'nama_folder' => 'Dok'.$id_client,
-                'contact_number' => $request->post('contact_number'),
+                    'id_client' => $id_client,
+                    'nama_client' => $request->post('nama_client'),
+                    'no_identitas' => $request->post('no_identitas'),
+                    'has_npwp' => $request->boolean('has_npwp'),
+                    'jenis_client' => $request->post('jenis_client'),
+                    'alamat_client' => $address,
+                    'pembuat_client' => auth()->user()->id_user,
+                    'email' => $request->post('email'),
+                    'nama_folder' => 'Dok'.$id_client,
+                    'contact_number' => $request->post('contact_number'),
                 ];
+                if ($isPersonal) {
+                    $data['ktp_data'] = $ktpData;
+                }
 
                 DataClient::create($data);
             });
@@ -606,7 +673,8 @@ class ClientController extends ApiController
 
     public function saveKtpOcrClient(Request $request)
     {
-        $validated = $request->validate([
+        $isPersonal = $request->post('jenis_client') === 'Perorangan';
+        $validated = $request->validate(array_merge([
             'ktp_image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,bmp,tif,tiff', 'max:10240'],
             'no_identitas' => ['required', 'digits:16'],
             'nama_client' => ['required', 'string', 'max:255'],
@@ -614,28 +682,36 @@ class ClientController extends ApiController
             'alamat_client' => ['nullable', 'string'],
             'contact_number' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
-        ]);
+        ], $isPersonal ? $this->ktpValidationRules() : []));
 
         $file = $validated['ktp_image'];
         $userId = (string) auth()->user()->id_user;
+        $ktpData = $isPersonal ? $this->normalizedKtpData($validated['ktp_data']) : null;
+        $address = $isPersonal
+            ? $this->formatKtpAddress($ktpData)
+            : trim((string) ($validated['alamat_client'] ?? ''));
 
-        $result = DB::transaction(function () use ($validated, $file, $userId) {
+        $result = DB::transaction(function () use ($validated, $file, $userId, $isPersonal, $ktpData, $address) {
             $client = DataClient::query()->where('no_identitas', $validated['no_identitas'])->lockForUpdate()->first();
             $created = false;
 
             if (!$client) {
                 $idClient = $this->nextClientId();
-                $client = DataClient::create([
+                $data = [
                     'id_client' => $idClient,
                     'nama_client' => trim($validated['nama_client']),
                     'no_identitas' => $validated['no_identitas'],
                     'jenis_client' => $validated['jenis_client'],
-                    'alamat_client' => trim((string) ($validated['alamat_client'] ?? '')),
+                    'alamat_client' => $address,
                     'pembuat_client' => $userId,
                     'email' => $validated['email'] ?? null,
                     'nama_folder' => 'Dok'.$idClient,
                     'contact_number' => $validated['contact_number'] ?? null,
-                ]);
+                ];
+                if ($isPersonal) {
+                    $data['ktp_data'] = $ktpData;
+                }
+                $client = DataClient::create($data);
                 $created = true;
             }
 
