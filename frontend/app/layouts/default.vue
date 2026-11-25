@@ -1147,7 +1147,7 @@ const WINDOWS_MODE_STORAGE_KEY = 'simanis.windows-mode'
 const MOUSE_EFFECT_STORAGE_KEY = 'simanis.mouse-effect'
 const sidebarOpen = ref(false)
 const desktopSidebarOpen = ref(true)
-const windowsMode = ref(false)
+const windowsMode = ref(import.meta.client && window.localStorage.getItem(WINDOWS_MODE_STORAGE_KEY) === '1')
 const windowsLauncherVisible = ref(true)
 const selectedWindowsGroup = ref<NavigationGroup | null>(null)
 const windowsLauncherDirection = ref<WindowsLauncherDirection>('forward')
@@ -2136,8 +2136,6 @@ onMounted(() => {
     } else if (savedSidebarState === '1') {
       desktopSidebarOpen.value = true
     }
-    const savedWindowsMode = window.localStorage.getItem(WINDOWS_MODE_STORAGE_KEY)
-    windowsMode.value = savedWindowsMode === null || savedWindowsMode === '1'
     const savedMouseEffect = window.localStorage.getItem(MOUSE_EFFECT_STORAGE_KEY)
     if (savedMouseEffect === 'off' || savedMouseEffect === 'sparkle' || savedMouseEffect === 'trail') {
       mouseEffect.value = savedMouseEffect

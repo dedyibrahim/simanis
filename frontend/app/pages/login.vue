@@ -278,7 +278,7 @@ const startResendCooldown = () => {
 
 const finishLogin = async (session: import('~/composables/useSession').SessionUser) => {
   setSession(session)
-  if (import.meta.client) window.localStorage.setItem('simanis.windows-mode', '1')
+  if (import.meta.client) window.localStorage.setItem('simanis.windows-mode', '0')
   await nextTick()
   await navigateTo(redirectTarget.value, { replace: true })
 }
