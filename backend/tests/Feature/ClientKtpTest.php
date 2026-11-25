@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -43,6 +44,15 @@ class ClientKtpTest extends TestCase
         Schema::create('number_counters', function (Blueprint $table) {
             $table->string('key_name')->primary();
             $table->unsignedInteger('last_number');
+            $table->timestamps();
+        });
+        Schema::create('tb_berkas', function (Blueprint $table) {
+            $table->string('id_berkas')->primary();
+            $table->string('id_client');
+            $table->string('id_dokumen')->nullable();
+            $table->string('id_user');
+            $table->string('nama_berkas');
+            $table->string('nama_dokumen');
             $table->timestamps();
         });
 
@@ -160,6 +170,53 @@ class ClientKtpTest extends TestCase
             $this->fail('Expected validation error for missing kabupaten/kota');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('ktp_data.kabupaten_kota', $exception->errors());
+        }
+
+        $this->assertDatabaseCount('data_clients', 0);
+    }
+
+    public function test_one_form_saves_client_and_ktp_image_on_create_and_edit(): void
+    {
+        config()->set('filesystems.documents_disk', 'documents_local');
+        config()->set('filesystems.documents_peer_disk', null);
+        Storage::fake('documents_local');
+
+        $payload = $this->personalPayload();
+        $payload['has_npwp'] = '1';
+        $request = Request::create('/api/auth/SimpanClientBaru', 'POST', $payload, [], [
+            'ktp_image' => UploadedFile::fake()->image('ktp.jpg'),
+        ]);
+        $this->assertSame(200, (new ClientController())->SimpanClientBaru($request)->getStatusCode());
+        $client = DB::table('data_clients')->first();
+        $this->assertSame('C000001', $client->id_client);
+        $this->assertDatabaseCount('tb_berkas', 1);
+        $firstFile = DB::table('tb_berkas')->value('nama_berkas');
+        Storage::disk('documents_local')->assertExists('berkasclient/DokC000001/'.$firstFile);
+
+        $updated = $this->personalPayload();
+        $updated['has_npwp'] = '1';
+        $updated['id_client'] = $client->id_client;
+        $updated['ktp_data']['pekerjaan'] = 'Pegawai Swasta';
+        $request = Request::create('/api/auth/SimpanClientBaru', 'POST', $updated, [], [
+            'ktp_image' => UploadedFile::fake()->image('ktp-baru.jpg'),
+        ]);
+        $this->assertSame(200, (new ClientController())->SimpanClientBaru($request)->getStatusCode());
+        $this->assertDatabaseCount('data_clients', 1);
+        $this->assertDatabaseCount('tb_berkas', 2);
+        $this->assertSame('Pegawai Swasta', json_decode(DB::table('data_clients')->value('ktp_data'), true)['pekerjaan']);
+    }
+
+    public function test_one_form_rejects_non_image_ktp_upload(): void
+    {
+        $request = Request::create('/api/auth/SimpanClientBaru', 'POST', $this->personalPayload(), [], [
+            'ktp_image' => UploadedFile::fake()->create('catatan.txt', 1, 'text/plain'),
+        ]);
+
+        try {
+            (new ClientController())->SimpanClientBaru($request);
+            $this->fail('Expected validation error for non-image upload');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('ktp_image', $exception->errors());
         }
 
         $this->assertDatabaseCount('data_clients', 0);

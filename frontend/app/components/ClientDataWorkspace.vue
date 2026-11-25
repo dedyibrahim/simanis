@@ -33,6 +33,7 @@ type KtpDetails = {
   kewarganegaraan: string
   berlaku_hingga: string
 }
+type KtpOcrPayload = { fields?: Record<string, { value?: string }> }
 
 const emptyKtpDetails = (): KtpDetails => ({
   provinsi: '',
@@ -109,6 +110,7 @@ const props = defineProps<{
 }>()
 
 const business = useLegacyBusiness()
+const route = useRoute()
 
 const activeTab = ref<'client' | 'bantek'>('client')
 
@@ -140,6 +142,7 @@ const clientDialogError = ref('')
 const clientIdentityInputRef = ref<HTMLInputElement | null>(null)
 const checkingClientIdentity = ref(false)
 const clientIdentityMatch = ref<ClientRow | null>(null)
+const checkedClientIdentityKey = ref('')
 const clientForm = reactive<ClientRow>({
   no_identitas: '',
   has_npwp: props.clientType !== 'Badan Hukum',
@@ -150,6 +153,8 @@ const clientForm = reactive<ClientRow>({
   email: '',
 })
 const ktpForm = reactive<KtpDetails>(emptyKtpDetails())
+const ktpImageFile = ref<File | null>(null)
+const ocrProcessing = ref(false)
 
 const documentViewerOpen = ref(false)
 const loadingDocumentViewer = ref(false)
@@ -279,6 +284,9 @@ const setFormFromClient = (client?: ClientRow) => {
 
 const resetClientForm = () => {
   editingClientIndex.value = -1
+  checkedClientIdentityKey.value = ''
+  ktpImageFile.value = null
+  ocrProcessing.value = false
   setFormFromClient()
 }
 
@@ -435,6 +443,9 @@ const closeClientDialog = () => {
   clearClientDialogError()
   clientIdentityMatch.value = null
   resetClientForm()
+  if (route.query.scan === '1') {
+    void navigateTo({ path: route.path, query: { ...route.query, scan: undefined } }, { replace: true })
+  }
 }
 
 const loadClients = async () => {
@@ -516,6 +527,7 @@ const openEditClientDialog = (client: ClientRow, index: number) => {
   clearStatus()
   clearClientDialogError()
   clientIdentityMatch.value = null
+  checkedClientIdentityKey.value = ''
   editingClientIndex.value = index
   setFormFromClient(client)
   clientDialogOpen.value = true
@@ -523,8 +535,27 @@ const openEditClientDialog = (client: ClientRow, index: number) => {
 }
 
 const clearIdentityMatchOnInput = () => {
-  if (!clientIdentityMatch.value) return
+  checkedClientIdentityKey.value = ''
   clientIdentityMatch.value = null
+}
+
+const applyKtpOcr = (payload: KtpOcrPayload) => {
+  const fields = payload.fields || {}
+  const read = (...keys: string[]) => keys.map(key => String(fields[key]?.value || '').trim()).find(Boolean) || ''
+  const nik = read('nik').replace(/\D/g, '').slice(0, 16)
+  const nama = read('nama')
+  if (nik) clientForm.no_identitas = nik
+  if (nama) clientForm.nama_client = nama
+
+  const aliases: Partial<Record<keyof KtpDetails, string[]>> = {
+    kabupaten_kota: ['kabupaten_kota', 'kabupaten', 'kota'],
+  }
+  for (const field of ktpFields) {
+    const value = read(...(aliases[field.key] || [field.key]))
+    if (value) ktpForm[field.key] = value
+  }
+  clearIdentityMatchOnInput()
+  if (nik) void checkClientIdentity()
 }
 
 const checkClientIdentity = async () => {
@@ -536,11 +567,12 @@ const checkClientIdentity = async () => {
   const clientName = toString(clientForm.nama_client, '').trim()
   clientForm.no_identitas = identity
   clientForm.nama_client = clientName
-  clientIdentityMatch.value = null
 
   if (!isBusinessClient() && identity.length !== 16) return
-  if (((businessHasNpwp.value && !identity) && (!isBusinessClient() || !clientName)) || checkingClientIdentity.value) return
+  const checkKey = `${props.clientType}|${identity}|${clientName}|${businessHasNpwp.value}|${clientForm.id_client || ''}`
+  if (checkKey === checkedClientIdentityKey.value || ((businessHasNpwp.value && !identity) && (!isBusinessClient() || !clientName)) || checkingClientIdentity.value) return
 
+  clientIdentityMatch.value = null
   checkingClientIdentity.value = true
   clearClientDialogError()
 
@@ -553,6 +585,7 @@ const checkClientIdentity = async () => {
       id_client: clientForm.id_client || undefined,
     }) as ApiEnvelope<ClientIdentityCheck>
 
+    checkedClientIdentityKey.value = checkKey
     const matchedClient = response.data?.exists ? response.data?.client : null
     if (matchedClient) {
       clientIdentityMatch.value = matchedClient
@@ -571,7 +604,7 @@ const checkClientIdentity = async () => {
 }
 
 const saveClient = async () => {
-  if (savingClient.value || clientIdentityBlocked.value) {
+  if (savingClient.value || ocrProcessing.value || clientIdentityBlocked.value) {
     if (clientIdentityBlocked.value) {
       showClientDialogError(isBusinessClient() ? 'NPWP atau nama client sudah terdaftar. Data tidak perlu disimpan ulang.' : `${identityLabel.value} sudah terdaftar. Data tidak perlu disimpan ulang.`)
     }
@@ -604,7 +637,7 @@ const saveClient = async () => {
       clientForm.no_identitas = sanitizeBusinessIdentity(clientForm.no_identitas)
       clientForm.nama_client = sanitizeBusinessText(clientForm.nama_client).trim()
     }
-    const response = await business.client.SimpanClientBaru({
+    const payload = {
       id_client: clientForm.id_client || undefined,
       no_identitas: clientForm.no_identitas,
       has_npwp: businessHasNpwp.value,
@@ -614,7 +647,24 @@ const saveClient = async () => {
       ktp_data: isBusinessClient() ? undefined : { ...ktpForm },
       contact_number: clientForm.contact_number,
       email: clientForm.email,
-    }) as ApiEnvelope
+    }
+    let response: ApiEnvelope
+    if (ktpImageFile.value && !isBusinessClient()) {
+      const form = new FormData()
+      if (payload.id_client) form.append('id_client', String(payload.id_client))
+      form.append('no_identitas', String(payload.no_identitas || ''))
+      form.append('has_npwp', '1')
+      form.append('nama_client', String(payload.nama_client || ''))
+      form.append('jenis_client', props.clientType)
+      form.append('alamat_client', ktpForm.alamat.trim())
+      form.append('contact_number', String(payload.contact_number || ''))
+      form.append('email', String(payload.email || ''))
+      for (const field of ktpFields) form.append(`ktp_data[${field.key}]`, ktpForm[field.key].trim())
+      form.append('ktp_image', ktpImageFile.value)
+      response = await business.client.SimpanClientBaru(form) as ApiEnvelope
+    } else {
+      response = await business.client.SimpanClientBaru(payload) as ApiEnvelope
+    }
 
     message.value = response.message || 'Data client berhasil disimpan.'
     closeClientDialog()
@@ -1109,9 +1159,17 @@ watch(clientDialogError, (value) => {
   }, 3500)
 })
 
+const openScanDialogFromRoute = () => {
+  if (isBusinessClient() || route.query.scan !== '1') return
+  openCreateClientDialog()
+}
+
+watch(() => route.query.scan, openScanDialogFromRoute)
+
 onMounted(() => {
   setFormFromClient()
   void initialize()
+  openScanDialogFromRoute()
 })
 
 onBeforeUnmount(() => {
@@ -1528,6 +1586,13 @@ onBeforeUnmount(() => {
             </div>
           </Transition>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <ClientKtpScanner
+              v-if="!isBusinessClient()"
+              :disabled="savingClient"
+              @image-change="ktpImageFile = $event"
+              @processing-change="ocrProcessing = $event"
+              @recognized="applyKtpOcr"
+            />
             <label v-if="isBusinessClient()" class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Status NPWP</span>
               <select
@@ -1620,7 +1685,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="mt-5 flex justify-end gap-2">
             <button type="button" class="h-10 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="closeClientDialog">Batal</button>
-            <button type="button" class="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50" :disabled="savingClient || checkingClientIdentity || clientIdentityBlocked" @click="saveClient">
+            <button type="button" class="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50" :disabled="savingClient || ocrProcessing || checkingClientIdentity || clientIdentityBlocked" @click="saveClient">
               {{ savingClient ? 'Menyimpan...' : 'Simpan Client' }}
             </button>
           </div>

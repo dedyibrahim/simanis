@@ -443,9 +443,14 @@ class ClientController extends ApiController
             'alamat_client' => ['nullable', 'string'],
             'contact_number' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
+            'ktp_image' => $isPersonal
+                ? ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,bmp,tif,tiff', 'max:10240']
+                : ['prohibited'],
         ], $isPersonal ? $this->ktpValidationRules() : []));
         $ktpData = $isPersonal ? $this->normalizedKtpData($validated['ktp_data']) : null;
         $address = $isPersonal ? $this->formatKtpAddress($ktpData) : $request->post('alamat_client');
+        $ktpFile = $validated['ktp_image'] ?? null;
+        $userId = (string) auth()->user()->id_user;
 
         if ($request->post('id_client')) {
             $duplicateClient = $this->duplicateClientQuery($identity, $name, $jenisClient, (string) $request->post('id_client'))
@@ -478,7 +483,13 @@ class ClientController extends ApiController
                 $data['ktp_data'] = $ktpData;
             }
 
-            DataClient::where('id_client', $request->post('id_client'))->firstOrFail()->update($data);
+            DB::transaction(function () use ($request, $data, $ktpFile, $userId) {
+                $client = DataClient::where('id_client', $request->post('id_client'))->firstOrFail();
+                $client->update($data);
+                if ($ktpFile) {
+                    $this->attachKtpFileToClient($client, $ktpFile, $userId);
+                }
+            });
 
             $response = [
                 'status' => true,
@@ -504,7 +515,7 @@ class ClientController extends ApiController
                 );
             }
 
-            DB::transaction(function () use ($request, $address, $isPersonal, $ktpData) {
+            DB::transaction(function () use ($request, $address, $isPersonal, $ktpData, $ktpFile, $userId) {
                 $id_client = $this->nextClientId();
 
 
@@ -524,7 +535,10 @@ class ClientController extends ApiController
                     $data['ktp_data'] = $ktpData;
                 }
 
-                DataClient::create($data);
+                $client = DataClient::create($data);
+                if ($ktpFile) {
+                    $this->attachKtpFileToClient($client, $ktpFile, $userId);
+                }
             });
             $response = [
                'status' => true,

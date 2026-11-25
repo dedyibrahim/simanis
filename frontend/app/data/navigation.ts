@@ -69,7 +69,6 @@ export const navigationSections: NavigationSection[] = [
   {
     title: 'Data Klien',
     items: [
-      { title: 'OCR KTP', path: '/ocr-ktp', icon: 'document', hint: 'Scan KTP dan koreksi data client' },
       { title: 'Data Client Perorangan', path: '/perorangan', icon: 'users', hint: 'Master client individu' },
       { title: 'Data Client Badan Hukum', path: '/badan_hukum', icon: 'office', hint: 'Master client entitas' },
     ],
