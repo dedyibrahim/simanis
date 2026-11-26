@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmAction } = useAppDialog()
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -240,7 +241,7 @@ const saveForm = async () => {
   if (!import.meta.client) return
 
   const actionLabel = editedIndex.value === -1 || !form.id ? 'menyimpan peminjaman baru' : 'mengupdate peminjaman ini'
-  if (!window.confirm(`Yakin ingin ${actionLabel}?`)) return
+  if (!await confirmAction(`Yakin ingin ${actionLabel}?`)) return
 
   saving.value = true
   clearNotice()
@@ -279,7 +280,7 @@ const togglePengembalian = async (row: MinutaRow) => {
     ? 'Status akan diubah kembali ke dipinjam. Lanjutkan?'
     : 'Tandai minuta ini sudah dikembalikan?'
 
-  if (!window.confirm(confirmText)) return
+  if (!await confirmAction(confirmText)) return
 
   clearNotice()
   try {
@@ -306,7 +307,7 @@ const closePerpanjang = () => {
 const savePerpanjang = async () => {
   if (!selectedItem.value?.id || !tanggalPerpanjang.value || savingPerpanjang.value) return
   if (!import.meta.client) return
-  if (!window.confirm('Yakin ingin memperpanjang tanggal pengembalian minuta ini?')) return
+  if (!await confirmAction('Yakin ingin memperpanjang tanggal pengembalian minuta ini?')) return
 
   savingPerpanjang.value = true
   clearNotice()

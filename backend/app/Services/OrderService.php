@@ -7,11 +7,19 @@ use App\Models\invoice_non_taxs;
 use App\Models\invoice_taxs;
 use App\Models\orders;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class OrderService
 {
-    public function simpanDetailOrder(array $record, array $dataOrder, ?array $invoice = null): array
+    public function simpanDetailOrder(array $record, array $dataOrder, ?array $invoice = null, bool $completeWorkOrder = false): array
     {
+        $hasWorkItems = Schema::hasTable('work_order_items')
+            && DB::table('work_order_items')->where('id_order', $dataOrder['id_order'] ?? '')->exists();
+        if ($hasWorkItems && DB::table('work_order_items')
+            ->where('id_order', $dataOrder['id_order'])->where('status', '!=', 'numbered')->exists()) {
+            throw ValidationException::withMessages(['status' => 'Semua pekerjaan harus bernomor sebelum pesanan diselesaikan.']);
+        }
         $createdRows = [];
         $lastDetailId = $this->getLastDetailSequence();
 
@@ -56,11 +64,13 @@ class OrderService
                 $createdRows[] = $payload;
             }
 
-            orders::where('id_order', $dataOrder['id_order'])->update([
-                'status_order' => 'Selesai',
-            ]);
+            if (!$hasWorkItems || $completeWorkOrder) {
+                orders::where('id_order', $dataOrder['id_order'])->update([
+                    'status_order' => 'Selesai',
+                ]);
+            }
 
-            if ($invoice) {
+            if ($invoice && !$hasWorkItems) {
                 $this->markReferencedJobsAsCompleted($record);
             }
 
@@ -75,9 +85,10 @@ class OrderService
     public function simpanInvoice(array $payload): array
     {
         if (!empty($payload['status_tax'])) {
-            $exists = invoice_taxs::where('id_order', $payload['id_order'])->exists();
+            $existingId = invoice_taxs::where('id_order', $payload['id_order'])->value('id_invoice_tax');
+            $exists = $existingId !== null;
             $data = [
-                'id_invoice_tax' => $exists ? $payload['id_invoice_tax'] : $this->pembuatanNomorTax(),
+                'id_invoice_tax' => $existingId ?? $this->pembuatanNomorTax(),
                 'id_order' => $payload['id_order'],
                 'status_tax' => $payload['status_tax'],
                 'tax' => $payload['tax'],
@@ -96,9 +107,10 @@ class OrderService
             return $data;
         }
 
-        $exists = invoice_non_taxs::where('id_order', $payload['id_order'])->exists();
+        $existingId = invoice_non_taxs::where('id_order', $payload['id_order'])->value('id_invoice_non_tax');
+        $exists = $existingId !== null;
         $data = [
-            'id_invoice_non_tax' => $exists ? $payload['id_invoice_non_tax'] : $this->pembuatanNomorNonTax(),
+            'id_invoice_non_tax' => $existingId ?? $this->pembuatanNomorNonTax(),
             'id_order' => $payload['id_order'],
             'status_tax' => $payload['status_tax'],
             'tax' => $payload['tax'],

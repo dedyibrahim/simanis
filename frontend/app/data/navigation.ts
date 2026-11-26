@@ -28,7 +28,7 @@ export const navigationSections: NavigationSection[] = [
   {
     title: 'Informasi Pekerjaan',
     items: [
-      { title: 'Pesanan Masuk', path: '/order_masuk', icon: 'queue', hint: 'Order aktif yang sedang diproses' },
+      { title: 'Buat Kerjaan', path: '/buat-kerjaan', icon: 'queue', hint: 'Pesanan, jadwal TTD, dan pengambilan nomor' },
       { title: 'Pesanan Selesai', path: '/order_selesai', icon: 'done', hint: 'Riwayat order yang selesai' },
       { title: 'Invoice Tax', path: '/invoice_tax', icon: 'invoice', hint: 'Billing dengan komponen pajak' },
       { title: 'Invoice Non Tax', path: '/invoice_non_tax', icon: 'invoice', hint: 'Billing tanpa komponen pajak' },
@@ -41,7 +41,6 @@ export const navigationSections: NavigationSection[] = [
       { title: 'Buku Legalisasi', path: '/buku_legalisasi', icon: 'document', hint: 'Daftar legalisasi' },
       { title: 'Buku Waarmerking', path: '/buku_waarmerking', icon: 'document', hint: 'Daftar waarmerking' },
       { title: 'Buku PPAT', path: '/buku_ppat', icon: 'bank', hint: 'Akta PPAT dan dokumen' },
-      { title: 'Garis Otomatis Akta', path: '/garis-otomatis-akta', icon: 'document', hint: 'Upload DOC/DOCX akta dan buat PDF bergaris' },
     ],
   },
   {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmAction } = useAppDialog()
 definePageMeta({
   middleware: 'auth',
 })
@@ -315,7 +316,7 @@ const saveMaster = async () => {
 }
 
 const deleteMaster = async (row: RekananMaster) => {
-  if (!window.confirm(`Hapus/nonaktifkan PPAT rekanan ${row.nama_ppat}?`)) return
+  if (!await confirmAction(`Hapus/nonaktifkan PPAT rekanan ${row.nama_ppat}?`)) return
   saving.value = true
   error.value = ''
   try {
@@ -361,7 +362,7 @@ const saveKeluar = async () => {
 }
 
 const unmarkKeluar = async (row: RekananKeluar) => {
-  if (!window.confirm(`Lepas tanda rekanan keluar untuk Akta PPAT No ${row.no_akta}?`)) return
+  if (!await confirmAction(`Lepas tanda rekanan keluar untuk Akta PPAT No ${row.no_akta}?`)) return
   saving.value = true
   error.value = ''
   try {
@@ -473,7 +474,7 @@ const saveKedalam = async () => {
 }
 
 const deleteKedalam = async (row: RekananKedalam) => {
-  if (!window.confirm(`Hapus akta rekanan kedalam No ${row.no_akta}?`)) return
+  if (!await confirmAction(`Hapus akta rekanan kedalam No ${row.no_akta}?`)) return
   saving.value = true
   error.value = ''
   try {

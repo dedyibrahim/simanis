@@ -2,6 +2,8 @@
   RewriteEngine On
   RewriteBase /
 
+  RewriteRule ^garis-otomatis-akta(/.*)?$ - [R=404,L]
+
   RewriteRule ^pekerjaan(/.*)?$ - [R=404,L]
 
   RewriteCond %{REQUEST_FILENAME} -f [OR]

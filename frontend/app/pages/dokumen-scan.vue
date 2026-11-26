@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmAction } = useAppDialog()
 import {
   ArrowDownTrayIcon,
   ArrowLeftIcon,
@@ -310,7 +311,7 @@ const submitPosting = async () => {
 const deleteDocument = async (row: ScannedDocumentRow) => {
   if (!row.id || deletingId.value || !import.meta.client) return
   const name = row.original_name || row.title || `dokumen #${row.id}`
-  if (!window.confirm(`Hapus dokumen scan "${name}"?`)) return
+  if (!await confirmAction(`Hapus dokumen scan "${name}"?`)) return
 
   deletingId.value = row.id
   errorMessage.value = ''

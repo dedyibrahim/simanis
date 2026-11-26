@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmAction } = useAppDialog()
 type ApiEnvelope<T = unknown> = {
   status?: boolean
   message?: string
@@ -307,7 +308,7 @@ const deleteAnomalyRow = async (row: AnomalyRow) => {
   const recordId = String(row.record_id || '').trim()
   if (!modulePath || !recordId || deletingKey.value) return
 
-  const confirmed = window.confirm(`Hapus data anomali ${recordId} dari ${row.module_label || modulePath}? Aksi ini permanen.`)
+  const confirmed = await confirmAction(`Hapus data anomali ${recordId} dari ${row.module_label || modulePath}? Aksi ini permanen.`)
   if (!confirmed) return
 
   deletingKey.value = rowKey(row)

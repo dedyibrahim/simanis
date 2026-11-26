@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmAction } = useAppDialog()
 import { getModuleByPath } from '~/data/modules'
 
 type ApiEnvelope<T = unknown> = {
@@ -944,7 +945,7 @@ const onUserPhotoInputChange = async (event: Event) => {
 
 const deleteUserRow = async (row: UserRow) => {
   if (!canDeleteUserRow(row) || !import.meta.client) return
-  if (!window.confirm(`Hapus user ${userDisplayName(row)}?`)) return
+  if (!await confirmAction(`Hapus user ${userDisplayName(row)}?`)) return
 
   try {
     const response = await business.auth.DeleteAccount({ id_user: row.id_user }) as ApiEnvelope
@@ -1068,7 +1069,7 @@ const saveLayananForm = async () => {
 
 const deleteLayananRow = async (row: LayananRow) => {
   if (!import.meta.client) return
-  if (!window.confirm(`Hapus layanan ${String(row.nama_akta || row.id_akta || '-') }?`)) return
+  if (!await confirmAction(`Hapus layanan ${String(row.nama_akta || row.id_akta || '-') }?`)) return
 
   try {
     const response = await business.master.DeleteLayanan({ id_akta: row.id_akta }) as ApiEnvelope
@@ -1134,7 +1135,7 @@ const saveDokumenForm = async () => {
 
 const deleteDokumenRow = async (row: DokumenRow) => {
   if (!import.meta.client) return
-  if (!window.confirm(`Hapus dokumen ${String(row.nama_dokumen || row.id_dokumen || '-') }?`)) return
+  if (!await confirmAction(`Hapus dokumen ${String(row.nama_dokumen || row.id_dokumen || '-') }?`)) return
 
   try {
     const response = await business.master.DeleteDokumenStandar({ id_dokumen: row.id_dokumen }) as ApiEnvelope
@@ -1453,7 +1454,7 @@ const saveAktaMassal = async () => {
     return
   }
 
-  const confirmed = window.confirm(
+  const confirmed = await confirmAction(
     `Simpan ${aktaMassalPreview.value.jumlah || aktaMassalForm.jumlah} akta massal nomor ${aktaMassalPreview.value.nomor_mulai} - ${aktaMassalPreview.value.nomor_selesai}?`,
   )
   if (!confirmed) {
@@ -2396,6 +2397,8 @@ type ExcelTemplateConfig = {
   sampleRow: Array<string | number>
 }
 
+const uploadTab = ref<'work' | 'client'>('work')
+const clientDocumentUploading = ref(false)
 const uploadDialog = reactive({
   open: false,
   submitting: false,
@@ -2812,7 +2815,7 @@ const deleteUploadDocument = async (index: number) => {
   if (!import.meta.client) return
   const row = uploadDialog.documents[index]
   if (!row) return
-  if (!window.confirm('Yakin ingin menghapus dokumen ini?')) return
+  if (!await confirmAction('Yakin ingin menghapus dokumen ini?')) return
 
   uploadDialog.documentActionLoading = true
   uploadDialog.error = ''
@@ -2859,6 +2862,7 @@ const openUploadDialog = async (row: RowRecord) => {
   uploadDialog.row = row
   uploadDialog.config = config
   uploadDialog.title = config.title
+  uploadTab.value = 'work'
   uploadDialog.open = true
   if (config.mode === 'standard') {
     await loadUploadDocuments()
@@ -2866,7 +2870,7 @@ const openUploadDialog = async (row: RowRecord) => {
 }
 
 const closeUploadDialog = () => {
-  if (uploadDialog.submitting || uploadDialog.documentActionLoading) {
+  if (uploadDialog.submitting || uploadDialog.documentActionLoading || clientDocumentUploading.value) {
     return
   }
   uploadDialog.open = false
@@ -2952,7 +2956,7 @@ const deleteReportoriumFile = async (row: RowRecord) => {
   const path = moduleEntry.value?.path || ''
   if (!import.meta.client) return
 
-  const confirmed = window.confirm(path === '/tanda_terima' || path === '/tanda_terima_masuk'
+  const confirmed = await confirmAction(path === '/tanda_terima' || path === '/tanda_terima_masuk'
     ? 'Yakin ingin menghapus file tanda terima ini?'
     : 'Yakin ingin menghapus file surat ini?')
   if (!confirmed) return
@@ -2980,15 +2984,15 @@ const deleteReportoriumRow = async (row: RowRecord) => {
 
   let confirmed = false
   if (path === '/buku_akta' || path === '/buku_ppat' || path === '/buku_legalisasi' || path === '/buku_waarmerking') {
-    confirmed = window.confirm('Yakin ingin menghapus data ini? Data penghadap dan dokumen terkait juga akan dihapus.')
+    confirmed = await confirmAction('Yakin ingin menghapus data ini? Data penghadap dan dokumen terkait juga akan dihapus.')
   } else if (path === '/buku_surat_notaris' || path === '/buku_surat_ppat') {
-    confirmed = window.confirm('Yakin ingin menghapus data surat ini? File surat terkait juga akan dihapus.')
+    confirmed = await confirmAction('Yakin ingin menghapus data surat ini? File surat terkait juga akan dihapus.')
   } else if (path === '/tanda_terima' || path === '/tanda_terima_masuk') {
     if (!canDeleteRow(row)) {
       errorMessage.value = 'Hanya Super Admin atau pembuat data nomor terakhir yang dapat menghapus tanda terima.'
       return
     }
-    confirmed = window.confirm('Yakin ingin menghapus tanda terima ini? Isi diterima dan file terkait juga akan dihapus.')
+    confirmed = await confirmAction('Yakin ingin menghapus tanda terima ini? Isi diterima dan file terkait juga akan dihapus.')
   }
 
   if (!confirmed) {
@@ -5021,7 +5025,14 @@ watch(
             </button>
           </div>
 
-          <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <div v-if="uploadDialogHasStandardDocs" class="flex gap-2 border-b border-slate-200 px-5 py-3" aria-label="Jenis dokumen">
+            <button type="button" :disabled="uploadDialog.submitting || uploadDialog.documentActionLoading || clientDocumentUploading" :aria-pressed="uploadTab === 'work'" :class="uploadTab === 'work' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50" @click="uploadTab = 'work'">Dokumen pekerjaan</button>
+            <button type="button" :disabled="uploadDialog.submitting || uploadDialog.documentActionLoading || clientDocumentUploading" :aria-pressed="uploadTab === 'client'" :class="uploadTab === 'client' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50" @click="uploadTab = 'client'">Dokumen penghadap</button>
+          </div>
+          <div v-if="uploadDialogHasStandardDocs" v-show="uploadTab === 'client'" class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <ParticipantDocumentsUpload :participants="uploadDialog.row ? getPenghadapRows(uploadDialog.row) : []" @busy="clientDocumentUploading = $event" />
+          </div>
+          <div v-show="uploadTab === 'work'" class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
             <p v-if="uploadDialog.error" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {{ uploadDialog.error }}
             </p>
@@ -5151,7 +5162,7 @@ watch(
             </div>
           </div>
 
-          <div class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+          <div v-show="uploadTab === 'work'" class="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
             <button
               type="button"
               class="h-10 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"

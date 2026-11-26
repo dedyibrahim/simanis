@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmAction } = useAppDialog()
 type ApiEnvelope<T = unknown> = {
   status?: boolean
   message?: string
@@ -167,7 +168,7 @@ const decideRequest = async (row: DownloadRequestRow, decision: 'approved' | 're
   if (!import.meta.client) return
 
   const actionText = decision === 'approved' ? 'setujui' : 'tolak'
-  if (!window.confirm(`Yakin ingin ${actionText} permintaan download ini?`)) return
+  if (!await confirmAction(`Yakin ingin ${actionText} permintaan download ini?`)) return
 
   decidingId.value = row.id
   requestsError.value = ''
@@ -187,7 +188,7 @@ const decideSelectedRequests = async (decision: 'approved' | 'rejected') => {
   if (!import.meta.client) return
 
   const actionText = decision === 'approved' ? 'setujui' : 'tolak'
-  if (!window.confirm(`Yakin ingin ${actionText} ${selectedRequestIds.value.length} permintaan download terpilih?`)) return
+  if (!await confirmAction(`Yakin ingin ${actionText} ${selectedRequestIds.value.length} permintaan download terpilih?`)) return
 
   bulkDeciding.value = true
   requestsError.value = ''

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { showNotice } = useAppDialog()
 import {
   ArrowPathIcon,
   CalendarDaysIcon,
@@ -690,7 +691,7 @@ const handleConflictAlert = (error: unknown) => {
 
   errorMessage.value = text
   if (process.client) {
-    window.alert(text)
+    void showNotice(text, { title: 'Jadwal bentrok' })
   }
   return true
 }

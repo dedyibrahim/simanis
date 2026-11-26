@@ -8,6 +8,8 @@ use App\Services\GoogleCalendarSyncService;
 use App\Services\Waha\WahaNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon; // Pastikan Carbon diimpor
@@ -206,6 +208,10 @@ class EventController extends Controller
             return response()->json(['status' => false, 'message' => 'Acara tidak ditemukan'], 404);
         }
 
+        if ($workId = $this->linkedWorkId((int) $event->id)) {
+            return app(WorkOrderController::class)->cancelSchedule($this->workRequest(Auth::user()), $workId, $this->googleCalendarSyncService);
+        }
+
         $usersToNotify = $event->users; // Tetap ambil semua user untuk dikirimi notifikasi
         $creatorName = $event->creator->nama_lengkap ?? 'Sistem';
         $deletedByName = Auth::user()->nama_lengkap;
@@ -247,6 +253,20 @@ class EventController extends Controller
     {
         $event = Event::with('users')->find($id);
         if (!$event) { return response()->json(['status' => false, 'message' => 'Acara tidak ditemukan'], 404); }
+
+        if ($workId = $this->linkedWorkId((int) $event->id)) {
+            $participants = $event->users->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+            $requested = collect((array) $request->input('users', $participants))->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
+            if (($request->has('title') && $request->input('title') !== $event->title) || $participants !== $requested) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['schedule' => 'Judul dan penanggung jawab mengikuti data Buat Kerjaan. Ubah melalui pekerjaan terkait; kalender dapat mengubah waktu dan lokasi TTD.']);
+            }
+            $scheduleRequest = $this->workRequest($request->user(), [
+                'start_datetime' => $request->input('start_datetime', optional($event->start_datetime)->toDateTimeString()),
+                'end_datetime' => $request->input('end_datetime', optional($event->end_datetime)->toDateTimeString()),
+                'location' => $request->input('location', $event->location),
+            ]);
+            return app(WorkOrderController::class)->schedule($scheduleRequest, $workId, $this->googleCalendarSyncService);
+        }
 
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
@@ -724,6 +744,10 @@ class EventController extends Controller
             ], 403);
         }
 
+        if ($workId = $this->linkedWorkId((int) $event->id)) {
+            return app(WorkOrderController::class)->cancelSchedule($this->workRequest($requester), $workId, $this->googleCalendarSyncService);
+        }
+
         $usersToNotify = $event->users;
         $creatorName = $event->creator->nama_lengkap ?? $requester->nama_lengkap;
         $deletedByName = $requester->nama_lengkap;
@@ -739,6 +763,20 @@ class EventController extends Controller
             'success' => true,
             'message' => 'Jadwal berhasil dihapus.',
         ], 200);
+    }
+
+    private function linkedWorkId(int $eventId): ?int
+    {
+        if (!Schema::hasTable('work_order_items')) return null;
+        $id = DB::table('work_order_items')->where('event_id', $eventId)->value('id');
+        return $id ? (int) $id : null;
+    }
+
+    private function workRequest(object $actor, array $data = []): Request
+    {
+        $request = Request::create('/work-schedule', 'POST', $data);
+        $request->setUserResolver(fn () => $actor);
+        return $request;
     }
 
     private function normalizeScheduleRange(string $startDateTime, string $endDateTime): array

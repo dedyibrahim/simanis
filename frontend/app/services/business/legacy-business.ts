@@ -449,8 +449,20 @@ export function useLegacyBusinessService() {
     DeleteTandaTerima: (payload: BodyPayload) => post('/auth/DeleteTandaTerima', payload),
   }
 
-  const garisAkta = {
-    process: (formData: FormData) => postFormBlob('/auth/garis-otomatis-akta/process', formData),
+
+  const workOrders = {
+    actTypes: (type: string) => get(`/auth/work-orders/act-types/${encodeURIComponent(type)}`),
+    list: (month: string) => get('/auth/work-orders', { month }),
+    create: (payload: BodyPayload) => post('/auth/work-orders', payload),
+    addJob: (orderId: string, payload: BodyPayload) => post(`/auth/work-orders/${encodeURIComponent(orderId)}/jobs`, payload),
+    updateJob: (id: number, payload: BodyPayload) => put(`/auth/work-jobs/${id}`, payload),
+    deleteJob: (id: number) => del(`/auth/work-jobs/${id}`),
+    getJob: (id: number) => get(`/auth/work-jobs/${id}`),
+    schedule: (id: number, payload: BodyPayload) => post(`/auth/work-jobs/${id}/schedule`, payload),
+    cancelSchedule: (id: number) => post(`/auth/work-jobs/${id}/cancel-schedule`),
+    confirmSigning: (id: number) => post(`/auth/work-jobs/${id}/confirm-signing`),
+    takeNumber: (id: number, payload: BodyPayload) => post(`/auth/work-jobs/${id}/take-number`, payload),
+    complete: (orderId: string) => post(`/auth/work-orders/${encodeURIComponent(orderId)}/complete`),
   }
 
   const reports = {
@@ -485,6 +497,7 @@ export function useLegacyBusinessService() {
     client,
     bantek,
     order,
+    workOrders,
     bukuNotaris,
     bukuLegalisasi,
     bukuWarmerking,
@@ -501,7 +514,6 @@ export function useLegacyBusinessService() {
     documentAccess,
     scannedDocuments,
     tandaTerima,
-    garisAkta,
     reports,
     assets,
   }

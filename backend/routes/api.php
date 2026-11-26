@@ -13,7 +13,6 @@ use App\Http\Controllers\EmployeeChatController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GoogleCalendarController;
 use App\Http\Controllers\GoogleCalendarSyncController;
-use App\Http\Controllers\GarisOtomatisAktaController;
 use App\Http\Controllers\JadwalNotarisController;
 use App\Http\Controllers\LayananController;
 use App\Http\Controllers\Login;
@@ -128,6 +127,18 @@ Route::group(['prefix' => 'auth/user', 'middleware' => 'auth:sanctum'], function
 });
 
 Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
+    Route::get('/work-orders', [\App\Http\Controllers\WorkOrderController::class, 'index']);
+    Route::get('/work-orders/act-types/{type}', [\App\Http\Controllers\WorkOrderController::class, 'actTypes']);
+    Route::post('/work-orders', [\App\Http\Controllers\WorkOrderController::class, 'store']);
+    Route::get('/work-jobs/{id}', [\App\Http\Controllers\WorkOrderController::class, 'show']);
+    Route::post('/work-orders/{orderId}/jobs', [\App\Http\Controllers\WorkOrderController::class, 'addJob']);
+    Route::delete('/work-jobs/{id}', [\App\Http\Controllers\WorkOrderController::class, 'destroy']);
+    Route::put('/work-jobs/{id}', [\App\Http\Controllers\WorkOrderController::class, 'updateJob']);
+    Route::post('/work-jobs/{id}/schedule', [\App\Http\Controllers\WorkOrderController::class, 'schedule']);
+    Route::post('/work-jobs/{id}/cancel-schedule', [\App\Http\Controllers\WorkOrderController::class, 'cancelSchedule']);
+    Route::post('/work-jobs/{id}/confirm-signing', [\App\Http\Controllers\WorkOrderController::class, 'confirmSigning']);
+    Route::post('/work-jobs/{id}/take-number', [\App\Http\Controllers\WorkOrderController::class, 'takeNumber']);
+    Route::post('/work-orders/{orderId}/complete', [\App\Http\Controllers\WorkOrderController::class, 'complete']);
     Route::get('/getDashboard', [DashboardController::class, 'getDashboard']);
     Route::get('/ha-status', [HaStatusController::class, 'show']);
     Route::post('/ha-object-storage/sync', [HaStatusController::class, 'syncObjectStorage']);
@@ -187,7 +198,6 @@ Route::group(['prefix' => 'auth', 'middleware' => 'auth:sanctum'], function () {
     Route::post('/getBukuSuratNotaris', [PembuatanNomor::class, 'getBukuSuratNotaris']);
     Route::post('/getBukuSuratPPAT', [PembuatanNomor::class, 'getBukuSuratPPAT']);
     Route::post('/getBukuPesanan', [PembuatanNomor::class, 'getBukuPesanan']);
-    Route::post('/garis-otomatis-akta/process', [GarisOtomatisAktaController::class, 'process']);
 
     Route::post('/EditAktaNotaris', [PembuatanNomor::class, 'EditAktaNotaris']);
     Route::post('/EditSuratNotaris', [PembuatanNomor::class, 'EditSuratNotaris']);

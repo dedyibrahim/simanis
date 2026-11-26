@@ -37,6 +37,8 @@ const emit = defineEmits<{ saved: [message?: string] }>()
 
 const business = useLegacyBusiness()
 const { user } = useSession()
+const route = useRoute()
+const workItemId = ref(0)
 
 const inputClass
   = 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100'
@@ -545,6 +547,7 @@ const openForCreate = async () => {
     return
   }
   mode.value = 'create'
+  workItemId.value = 0
   resetAll()
   await ensureDependencies()
   showDialog.value = true
@@ -657,9 +660,50 @@ const hydrateFromEdit = async (row: RowRecord) => {
 
 const openForEdit = async (row: RowRecord) => {
   mode.value = 'edit'
+  workItemId.value = 0
   resetAll()
   await ensureDependencies()
   await hydrateFromEdit(row)
+  showDialog.value = true
+}
+
+const openForWorkItem = async (id: number) => {
+  mode.value = 'create'
+  resetAll()
+  await ensureDependencies()
+  const response = await business.workOrders.getJob(id) as ApiEnvelope<RowRecord>
+  const item = response.data
+  if (!item) throw new Error('Pekerjaan tidak ditemukan.')
+  const expectedPath: Record<string, string> = {
+    notaris: '/buku_akta', ppat: '/buku_ppat',
+    legalisasi: '/buku_legalisasi', waarmerking: '/buku_waarmerking',
+  }
+  if (expectedPath[String(item.type)] !== props.path || item.status !== 'signed') {
+    throw new Error('Pekerjaan belum siap untuk mengambil nomor.')
+  }
+  const details = (item.details || {}) as RowRecord
+  const title = String(item.title || '')
+  if (isNotaris.value) {
+    notarisForm.jenis_akta = String(details.jenis_akta || '')
+    notarisForm.judul_pekerjaan = title
+    notarisForm.nama_asisten = String(item.id_user || '')
+    notarisForm.sudah_tanda_tangan = true
+  } else if (isPpat.value) {
+    ppatForm.jenis_akta = String(details.jenis_akta || '')
+    for (const key of ['no_hak_milik', 'luas_tanah', 'luas_bangunan', 'harga_transaksi', 'nop', 'harga_njop', 'tgl_bphtb', 'harga_bphtb', 'tgl_pph', 'harga_pph'] as const) {
+      ppatForm[key] = String(details[key] ?? ppatForm[key])
+    }
+    ppatForm.sudah_tanda_tangan = true
+    syncApht()
+  } else if (isLegalisasi.value) {
+    legalisasiForm.judul_surat = title
+    legalisasiForm.keterangan_surat = String(details.keterangan_surat || '')
+  } else if (isWaarmerking.value) {
+    waarmerkingForm.judul_surat = title
+    waarmerkingForm.keterangan_surat = String(details.keterangan_surat || '')
+  }
+  penghadapRows.value = mapPenghadapRows(item.penghadap)
+  workItemId.value = id
   showDialog.value = true
 }
 
@@ -815,7 +859,7 @@ const submit = async () => {
     let response: unknown
 
     if (isNotaris.value) {
-      response = await business.bukuNotaris.SimpanNomorNotaris({
+      const payload = {
         data_buku: {
           id_buku_notaris: notarisForm.id_buku_notaris || undefined,
           no_akta: notarisForm.no_akta || undefined,
@@ -826,9 +870,10 @@ const submit = async () => {
           sudah_tanda_tangan: notarisForm.sudah_tanda_tangan,
         },
         penghadap: penghadapPayload(),
-      })
+      }
+      response = await (workItemId.value ? business.workOrders.takeNumber(workItemId.value, payload) : business.bukuNotaris.SimpanNomorNotaris(payload))
     } else if (isLegalisasi.value) {
-      response = await business.bukuLegalisasi.SimpanNomorLegalisasi({
+      const payload = {
         data_buku: {
           id_buku_legalisasi: legalisasiForm.id_buku_legalisasi || undefined,
           no_legalisasi: legalisasiForm.no_legalisasi || undefined,
@@ -837,9 +882,10 @@ const submit = async () => {
           keterangan_surat: legalisasiForm.keterangan_surat,
         },
         penghadap: penghadapPayload(),
-      })
+      }
+      response = await (workItemId.value ? business.workOrders.takeNumber(workItemId.value, payload) : business.bukuLegalisasi.SimpanNomorLegalisasi(payload))
     } else if (isWaarmerking.value) {
-      response = await business.bukuWarmerking.SimpanNomorWarmerking({
+      const payload = {
         data_buku: {
           id_buku_warmerking: waarmerkingForm.id_buku_warmerking || undefined,
           no_warmerking: waarmerkingForm.no_warmerking || undefined,
@@ -849,9 +895,10 @@ const submit = async () => {
           keterangan_surat: waarmerkingForm.keterangan_surat,
         },
         penghadap: penghadapPayload(),
-      })
+      }
+      response = await (workItemId.value ? business.workOrders.takeNumber(workItemId.value, payload) : business.bukuWarmerking.SimpanNomorWarmerking(payload))
     } else if (isPpat.value) {
-      response = await business.bukuPpat.SimpanNomorPPAT({
+      const payload = {
         id_buku_ppat: ppatForm.id_buku_ppat || undefined,
         no_akta: ppatForm.no_akta || undefined,
         tanggal_akta: canEditPpatDate.value ? ppatForm.tanggal_akta : undefined,
@@ -871,7 +918,8 @@ const submit = async () => {
         harga_pph: ppatForm.harga_pph,
         keterangan: ppatForm.keterangan,
         penghadap: penghadapPayload(),
-      })
+      }
+      response = await (workItemId.value ? business.workOrders.takeNumber(workItemId.value, payload) : business.bukuPpat.SimpanNomorPPAT(payload))
     } else if (isSuratNotaris.value) {
       response = await business.surat.SimpanNomorSuratNotaris({
         id_surat_notaris: suratForm.id_surat_notaris || undefined,
@@ -915,6 +963,10 @@ const submit = async () => {
     showDialog.value = false
     resetAll()
     message.value = okMessage
+    if (workItemId.value) {
+      workItemId.value = 0
+      await navigateTo('/buat-kerjaan')
+    }
   } catch (e) {
     error.value = (e as { data?: { message?: string } })?.data?.message || 'Gagal menyimpan data.'
   } finally {
@@ -946,6 +998,15 @@ watch(
   },
   { immediate: true },
 )
+onMounted(async () => {
+  const id = Number(route.query.work_item)
+  if (!Number.isInteger(id) || id <= 0) return
+  try {
+    await openForWorkItem(id)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Gagal memuat pekerjaan.'
+  }
+})
 </script>
 
 <template>
@@ -974,6 +1035,7 @@ watch(
         </p>
       </div>
       <p v-if="message" class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ message }}</p>
+      <p v-if='error && !showDialog' class='mt-4 text-sm text-red-700'>{{ error }}</p>
     </SurfaceCard>
 
     <Teleport to="body">

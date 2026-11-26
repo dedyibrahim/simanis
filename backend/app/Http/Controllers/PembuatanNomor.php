@@ -33,6 +33,8 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class PembuatanNomor extends ApiController
 {
+    public bool $workOrderNotification = false;
+
     public function getDaftarAkta(Request $request)
     {
         $data = DaftarAktas::where('nama_akta', 'like', '%'.$request->post('judul_akta').'%')->where('pekerjaan_milik', $request->post('tipe'))->limit(15)->get();
@@ -51,8 +53,9 @@ class PembuatanNomor extends ApiController
 
     public function getDaftarClient(Request $request)
     {
-        if (strlen($request->post('nama_penghadap')) > 3) {
-            $data = DataClient::where('nama_client', 'LIKE', '%'.$request->post('nama_penghadap').'%')->limit(15)->get();
+        $query = trim((string) $request->input('nama_penghadap', ''));
+        if (mb_strlen($query) >= 2) {
+            $data = DataClient::where('nama_client', 'LIKE', '%'.$query.'%')->orderBy('nama_client')->limit(15)->get();
             $result = [];
             foreach ($data as $r) {
                 $result[] = [
@@ -102,6 +105,8 @@ class PembuatanNomor extends ApiController
         }
 
 
+        $id_user_input = $request->attributes->get('work_order_assignee', $id_user_input);
+
         if (!array_key_exists('id_buku_notaris', $b)) {
             $latestTanggalAkta = DB::table('buku_notaris')->max('tgl_akta');
             if (!empty($latestTanggalAkta)) {
@@ -132,7 +137,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($buku->id_buku_notaris)) {
-                    $urutan = (int) substr($buku->id_buku_notaris, 6) + 1;
+                    $urutan = (int) substr($buku->id_buku_notaris, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -200,7 +205,7 @@ class PembuatanNomor extends ApiController
                     (array) $request->input('penghadap', [])
                 );
 
-                return $this->successResponse(null, 'Berhasil membuat nomor akta'.$urutan);
+                return $this->successResponse(['id' => $id_buku_notaris, 'number' => $data_buku['no_akta']], 'Berhasil membuat nomor akta'.$urutan);
             }
         } else {
             $tanggalSebelumnya = DB::table('buku_notaris')
@@ -474,6 +479,7 @@ class PembuatanNomor extends ApiController
         }
 
         DB::transaction(function () use ($idBukuNotaris) {
+            WorkOrderController::releaseNumber((string) $idBukuNotaris);
             DB::table('tb_dokumen_notaris')
                 ->where('id_buku_notaris', $idBukuNotaris)
                 ->delete();
@@ -511,6 +517,7 @@ class PembuatanNomor extends ApiController
         }
 
         DB::transaction(function () use ($id) {
+            WorkOrderController::releaseNumber((string) $id);
             tb_dokumen_ppat::where('id_buku_ppat', $id)->delete();
             PenghadapPPATS::where('id_buku_ppat', $id)->delete();
             BukuPPATS::where('id_buku_ppat', $id)->delete();
@@ -542,6 +549,7 @@ class PembuatanNomor extends ApiController
         }
 
         DB::transaction(function () use ($id) {
+            WorkOrderController::releaseNumber((string) $id);
             DB::table('tb_dokumen_legalisasis')
                 ->where('id_buku_legalisasi', $id)
                 ->delete();
@@ -575,6 +583,7 @@ class PembuatanNomor extends ApiController
         }
 
         DB::transaction(function () use ($id) {
+            WorkOrderController::releaseNumber((string) $id);
             DB::table('tb_dokumen_warmerkings')
                 ->where('id_buku_warmerking', $id)
                 ->delete();
@@ -1244,7 +1253,7 @@ class PembuatanNomor extends ApiController
                 ->first();
 
             if (isset($buku->id_buku_ppat)) {
-                $urutan = (int) substr($buku->id_buku_ppat, 6) + 1;
+                $urutan = (int) substr($buku->id_buku_ppat, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -1254,7 +1263,7 @@ class PembuatanNomor extends ApiController
             $data_buku = [
                 'id_buku_ppat' => $id_buku_ppat,
                 'id_akta' => $request->post('jenis_akta'),
-                'id_user' => auth()->user()->id_user,
+                'id_user' => $request->attributes->get('work_order_assignee', auth()->user()->id_user),
                 'tanggal_akta' => date('Y-m-d'),
                 'no_akta' => $this->PembuatanNomorPPAT(),
                 'status_akta' => 'Proses',
@@ -1282,7 +1291,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($daftarpenghadap->id_penghadap_ppat)) {
-                    $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 6) + 1;
+                    $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -1316,7 +1325,7 @@ class PembuatanNomor extends ApiController
                 (array) $request->input('penghadap', [])
             );
 
-            return $this->successResponse(null, 'Berhasil membuat nomor PPAT');
+            return $this->successResponse(['id' => $id_buku_ppat, 'number' => $data_buku['no_akta']], 'Berhasil membuat nomor PPAT');
         } else {
             // METODE UPDATE
 
@@ -1377,7 +1386,7 @@ class PembuatanNomor extends ApiController
                         ->first();
 
                     if (isset($daftarpenghadap->id_penghadap_ppat)) {
-                        $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 6) + 1;
+                        $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 3) + 1;
                     } else {
                         $urutan = 1;
                     }
@@ -1409,7 +1418,7 @@ class PembuatanNomor extends ApiController
                 ->first();
 
             if (isset($daftarpenghadap->id_penghadap_ppat)) {
-                $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 6) + 1;
+                $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -1444,7 +1453,7 @@ class PembuatanNomor extends ApiController
                 ->first();
 
             if (isset($daftarpenghadap->id_penghadap_ppat)) {
-                $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 6) + 1;
+                $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -1473,7 +1482,7 @@ class PembuatanNomor extends ApiController
                 ->first();
 
             if (isset($daftarpenghadap->id_penghadap_ppat)) {
-                $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 6) + 1;
+                $urutan = (int) substr($daftarpenghadap->id_penghadap_ppat, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -1550,7 +1559,7 @@ class PembuatanNomor extends ApiController
                 ->first();
 
             if (isset($buku->id_buku_legalisasi)) {
-                $urutan = (int) substr($buku->id_buku_legalisasi, 6) + 1;
+                $urutan = (int) substr($buku->id_buku_legalisasi, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -1566,7 +1575,7 @@ class PembuatanNomor extends ApiController
                 'id_buku_legalisasi' => $id_buku_legalisasi,
                 'judul_surat' => $b['judul_surat'],
                 'keterangan_surat' => $keterangan,
-                'id_user' => auth()->user()->id_user,
+                'id_user' => $request->attributes->get('work_order_assignee', auth()->user()->id_user),
                 'status_legalisasi' => 'Proses',
                 'tgl_surat' => date('Y-m-d'),
                 'no_legalisasi' => $this->PembuatanNomorLegalisasi(),
@@ -1583,7 +1592,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($daftarpenghadap->id_penghadap_legalisasi)) {
-                    $urutan = (int) substr($daftarpenghadap->id_penghadap_legalisasi, 6) + 1;
+                    $urutan = (int) substr($daftarpenghadap->id_penghadap_legalisasi, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -1617,7 +1626,7 @@ class PembuatanNomor extends ApiController
                 (array) $request->input('penghadap', [])
             );
 
-            return $this->successResponse(null, 'Berhasil membuat nomor akta');
+            return $this->successResponse(['id' => $id_buku_legalisasi, 'number' => $data_buku['no_legalisasi']], 'Berhasil membuat nomor akta');
         } else {
             $data_buku = [
                 'judul_surat' => $b['judul_surat'],
@@ -1640,7 +1649,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($daftarpenghadap->id_penghadap_legalisasi)) {
-                    $urutan = (int) substr($daftarpenghadap->id_penghadap_legalisasi, 6) + 1;
+                    $urutan = (int) substr($daftarpenghadap->id_penghadap_legalisasi, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -1724,7 +1733,7 @@ class PembuatanNomor extends ApiController
                 ->first();
 
             if (isset($buku->id_buku_warmerking)) {
-                $urutan = (int) substr($buku->id_buku_warmerking, 6) + 1;
+                $urutan = (int) substr($buku->id_buku_warmerking, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -1741,7 +1750,7 @@ class PembuatanNomor extends ApiController
                 'id_buku_warmerking' => $id_buku_warmerking,
                 'judul_surat' => $b['judul_surat'],
                 'keterangan_surat' => $keterangan,
-                'id_user' => auth()->user()->id_user,
+                'id_user' => $request->attributes->get('work_order_assignee', auth()->user()->id_user),
                 'status_warmerking' => 'Proses',
                 'tgl_didaftarkan' => date('Y-m-d'),
                 'tgl_surat' => date('Y-m-d'),
@@ -1759,7 +1768,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($daftarpenghadap->id_penghadap_warmerking)) {
-                    $urutan = (int) substr($daftarpenghadap->id_penghadap_warmerking, 6) + 1;
+                    $urutan = (int) substr($daftarpenghadap->id_penghadap_warmerking, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -1793,7 +1802,7 @@ class PembuatanNomor extends ApiController
                 (array) $request->input('penghadap', [])
             );
 
-            return $this->successResponse(null, 'Berhasil membuat nomor akta');
+            return $this->successResponse(['id' => $id_buku_warmerking, 'number' => $data_buku['no_warmerking']], 'Berhasil membuat nomor akta');
         } else {
             $data_buku = [
                 'judul_surat' => $b['judul_surat'],
@@ -1821,7 +1830,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($daftarpenghadap->id_penghadap_warmerking)) {
-                    $urutan = (int) substr($daftarpenghadap->id_penghadap_warmerking, 6) + 1;
+                    $urutan = (int) substr($daftarpenghadap->id_penghadap_warmerking, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -1907,7 +1916,7 @@ class PembuatanNomor extends ApiController
                 ->first();
 
             if (isset($buku->id_buku_warmerking)) {
-                $urutan = (int) substr($buku->id_buku_warmerking, 6) + 1;
+                $urutan = (int) substr($buku->id_buku_warmerking, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -1941,7 +1950,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($daftarpenghadap->id_penghadap_warmerking)) {
-                    $urutan = (int) substr($daftarpenghadap->id_penghadap_warmerking, 6) + 1;
+                    $urutan = (int) substr($daftarpenghadap->id_penghadap_warmerking, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -1988,7 +1997,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($daftarpenghadap->id_penghadap_warmerking)) {
-                    $urutan = (int) substr($daftarpenghadap->id_penghadap_warmerking, 6) + 1;
+                    $urutan = (int) substr($daftarpenghadap->id_penghadap_warmerking, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -2074,7 +2083,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($buku->id_buku_notaris)) {
-                    $urutan = (int) substr($buku->id_buku_notaris, 6) + 1;
+                    $urutan = (int) substr($buku->id_buku_notaris, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -2113,7 +2122,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($buku->id_buku_warmerking)) {
-                    $urutan = (int) substr($buku->id_buku_warmerking, 6) + 1;
+                    $urutan = (int) substr($buku->id_buku_warmerking, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -2160,7 +2169,7 @@ class PembuatanNomor extends ApiController
                     ->first();
 
                 if (isset($buku->id_buku_legalisasi)) {
-                    $urutan = (int) substr($buku->id_buku_legalisasi, 6) + 1;
+                    $urutan = (int) substr($buku->id_buku_legalisasi, 3) + 1;
                 } else {
                     $urutan = 1;
                 }
@@ -2204,7 +2213,7 @@ class PembuatanNomor extends ApiController
             ->first();
 
         if (isset($buku->id_buku_ppat)) {
-            $urutan = (int) substr($buku->id_buku_ppat, 6) + 1;
+            $urutan = (int) substr($buku->id_buku_ppat, 3) + 1;
         } else {
             $urutan = 1;
         }
@@ -2364,7 +2373,7 @@ class PembuatanNomor extends ApiController
             ->first();
 
             if (isset($buku->id_surat_notaris)) {
-                $urutan = (int) substr($buku->id_surat_notaris, 6) + 1;
+                $urutan = (int) substr($buku->id_surat_notaris, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -2434,7 +2443,7 @@ class PembuatanNomor extends ApiController
             ->first();
 
             if (isset($buku->id_surat_ppat)) {
-                $urutan = (int) substr($buku->id_surat_ppat, 6) + 1;
+                $urutan = (int) substr($buku->id_surat_ppat, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -2505,7 +2514,7 @@ class PembuatanNomor extends ApiController
                 ->first();
 
             if (isset($buku->id_order)) {
-                $urutan = (int) substr($buku->id_order, 6) + 1;
+                $urutan = (int) substr($buku->id_order, 3) + 1;
             } else {
                 $urutan = 1;
             }
@@ -2682,6 +2691,7 @@ class PembuatanNomor extends ApiController
         ?string $takenByIdUser,
         array $penghadapRows = []
     ): void {
+        if ($this->workOrderNotification) return;
         try {
             /** @var User|null $actor */
             $actor = auth()->user();

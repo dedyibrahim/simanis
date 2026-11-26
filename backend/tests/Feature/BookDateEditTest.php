@@ -162,4 +162,14 @@ class BookDateEditTest extends TestCase
         $this->assertSame('2026-09-02', $warmerking['tgl_surat']);
         $this->assertSame('2026-09-03', $warmerking['tgl_didaftarkan']);
     }
+
+    public function test_client_autocomplete_accepts_two_characters_and_get_query_parameters(): void
+    {
+        $request = Request::create('/api/auth/getDaftarClient', 'GET', ['nama_penghadap' => 'Co']);
+        $response = (new PembuatanNomor())->getDaftarClient($request)->getData(true);
+        $this->assertCount(1, $response['data']);
+        $this->assertSame('C000001', $response['data'][0]['id_client']);
+        $request = Request::create('/api/auth/getDaftarClient', 'POST', ['nama_penghadap' => ' C ']);
+        $this->assertSame([], (new PembuatanNomor())->getDaftarClient($request)->getData(true)['data']);
+    }
 }

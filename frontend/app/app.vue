@@ -4,6 +4,7 @@
     <NuxtLayout>
       <NuxtPage :page-key="pageKey" :transition="pageTransition" />
     </NuxtLayout>
+    <AppDialogHost />
   </div>
 </template>
 

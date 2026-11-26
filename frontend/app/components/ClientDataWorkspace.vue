@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmAction } = useAppDialog()
 import { joinKtpBirthDetails, splitKtpBirthDetails } from '~/utils/ktpBirthDetails'
 import { fillBlankWithOcr } from '~/utils/ktpOcrMerge'
 
@@ -1012,7 +1013,7 @@ const removeClientFromBantek = async (bantek: BantekRow, client: ClientRow) => {
     return
   }
 
-  if (import.meta.client && !window.confirm(`Hapus ${toString(client.nama_client)} dari ${toString(bantek.no_bantek)}?`)) {
+  if (import.meta.client && !await confirmAction(`Hapus ${toString(client.nama_client)} dari ${toString(bantek.no_bantek)}?`)) {
     return
   }
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmAction } = useAppDialog()
 type ApiEnvelope<T = unknown> = {
   status?: boolean
   message?: string
@@ -299,7 +300,7 @@ const saveReassign = async () => {
 
 const takeOver = async (row: JobRow) => {
   if (!import.meta.client) return
-  if (!window.confirm('Ambil alih pekerjaan ini sekarang?')) return
+  if (!await confirmAction('Ambil alih pekerjaan ini sekarang?')) return
   actionLoadingKey.value = rowActionKey(row)
   jobsError.value = ''
   try {
@@ -327,7 +328,7 @@ const takeOverSelected = async () => {
     jobsError.value = 'Pilih minimal satu pekerjaan terlebih dahulu.'
     return
   }
-  if (!window.confirm(`Ambil alih ${selectedJobs.value.length} pekerjaan terpilih sekarang?`)) return
+  if (!await confirmAction(`Ambil alih ${selectedJobs.value.length} pekerjaan terpilih sekarang?`)) return
 
   bulkActionLoading.value = true
   jobsError.value = ''
