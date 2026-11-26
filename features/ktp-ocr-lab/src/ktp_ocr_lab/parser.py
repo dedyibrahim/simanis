@@ -7,6 +7,8 @@ from ktp_ocr_lab.models import FieldResult, OcrLine, ParserConfig
 FIELD_KEYS = [
     "nik",
     "nama",
+    "provinsi",
+    "kabupaten_kota",
     "tempat_tanggal_lahir",
     "jenis_kelamin",
     "golongan_darah",
@@ -23,6 +25,8 @@ FIELD_KEYS = [
 
 LABEL_PATTERNS = {
     "nama": r"\bNAMA\b|MAMA",
+    "provinsi": r"^PROVINSI",
+    "kabupaten_kota": r"^(?:KOTA|KABUPATEN)",
     "tempat_tanggal_lahir": r"TEMPAT\s*['/]?\s*T[G6F]?[TL]?\s*L?AHIR|TEMPAT\s*TANGGAL\s*LAHIR|\bL?AHIR\b",
     "jenis_kelamin": r"JENIS\s*KELAMIN|JENIS\s*KELAM|JENIS\s*KEL",
     "alamat": r"\bALAMAT\b|\bALAMAL\b",
@@ -53,8 +57,8 @@ def parse_ktp_fields(lines: list[OcrLine], config: ParserConfig) -> dict[str, Fi
     fields["nik"] = _extract_nik(normalized, lines, config, fields["tempat_tanggal_lahir"].value, raw_text)
 
     _split_gender_and_blood(fields)
-    _clean_field_values(fields)
     _infer_missing_fields(fields, normalized, lines)
+    _clean_field_values(fields)
     _normalize_enums(fields)
 
     return fields
@@ -349,6 +353,7 @@ def _guess_name(normalized: list[str], lines: list[OcrLine]) -> FieldResult:
     ignored = (
         "PROVINSI",
         "KOTA",
+        "KABUPATEN",
         "NIK",
         "TEMP",
         "LAHIR",
@@ -574,6 +579,8 @@ def _looks_like_label(value: str) -> bool:
 def _clean_field_values(fields: dict[str, FieldResult]) -> None:
     for key in [
         "nama",
+        "provinsi",
+        "kabupaten_kota",
         "tempat_tanggal_lahir",
         "alamat",
         "kel_desa",
@@ -591,6 +598,14 @@ def _clean_field_values(fields: dict[str, FieldResult]) -> None:
         value = re.sub(r"\b1SLAM\b", "ISLAM", value, flags=re.IGNORECASE)
         value = re.sub(r"\b(STAN|SAN)\b", "ISLAM", value, flags=re.IGNORECASE)
         value = re.sub(r"\bHIBUP\b", "HIDUP", value, flags=re.IGNORECASE)
+        if key == "provinsi":
+            value = re.sub(r"^JAWA\s*(BARAT|TENGAH|TIMUR)$", r"JAWA \1", value, flags=re.IGNORECASE)
+            value = re.sub(r"^DKI\s*JAKARTA$", "DKI JAKARTA", value, flags=re.IGNORECASE)
+        if key == "kabupaten_kota":
+            source = (fields[key].source or "").upper()
+            region_type = "KABUPATEN" if source.startswith("KABUPATEN") else "KOTA"
+            value = re.sub(r"^(?:KOTA|KABUPATEN)\s*", "", value, flags=re.IGNORECASE)
+            value = f"{region_type} {value}" if value else ""
         if key == "nama":
             value = re.sub(r"\b(RDEEYA|ADELYA|ADEEYA|ADEE A|ADE YA)\b", "ADITYA", value, flags=re.IGNORECASE)
             value = re.sub(r"DWIY\s+ANDI", "DWIYANDI", value, flags=re.IGNORECASE)
@@ -602,6 +617,7 @@ def _clean_field_values(fields: dict[str, FieldResult]) -> None:
             value = re.sub(r"ADIT\s*YADWIYANDIPUTRA\b", "ADITYA DWIYANDI PUTRA", value, flags=re.IGNORECASE)
             value = re.sub(r"SITIRIZKIDIANTI\b", "SITI RIZKI DIANTI", value, flags=re.IGNORECASE)
         if key == "alamat":
+            value = re.sub(r"^KP\.?\s*", "KP ", value, flags=re.IGNORECASE)
             value = re.sub(r"\bBUKITHLJAU\b", "BUKIT HIJAU", value, flags=re.IGNORECASE)
             value = re.sub(r"\bKALIBATAINDAHB-2\b", "KALIBATA INDAH B-2", value, flags=re.IGNORECASE)
             value = re.sub(r"\bGELATIKATAS\b", "GELATIK ATAS", value, flags=re.IGNORECASE)
@@ -617,6 +633,7 @@ def _clean_field_values(fields: dict[str, FieldResult]) -> None:
             value = re.sub(r"^([A-Z .'-]+)\s+(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})$", r"\1, \2", value)
             value = re.sub(r"^([A-Z .'-]+)(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})$", r"\1, \2", value)
         if key == "kecamatan":
+            value = re.sub(r"^TANAH?\s*SAREAL$|^TANATSARAL$", "TANAH SAREAL", value, flags=re.IGNORECASE)
             value = re.sub(r"\bMUARA\s*BANGKAHULU\b", "MUARA BANGKAHULU", value, flags=re.IGNORECASE)
             value = re.sub(r"\bKEBAYORANLAMA\b", "KEBAYORAN LAMA", value, flags=re.IGNORECASE)
             value = re.sub(r"\bCIPUTATTIMUR\b", "CIPUTAT TIMUR", value, flags=re.IGNORECASE)
@@ -629,6 +646,7 @@ def _clean_field_values(fields: dict[str, FieldResult]) -> None:
         if key == "kewarganegaraan" and value.upper() == "WN":
             value = "WNI"
         if key == "pekerjaan":
+            value = re.sub(r"\bPELAJAR\s*/?\s*MAHASISWA\b", "PELAJAR/MAHASISWA", value, flags=re.IGNORECASE)
             value = re.sub(r"\bKARYAWANSWASTA\b", "KARYAWAN SWASTA", value, flags=re.IGNORECASE)
         fields[key].value = value.strip()
 

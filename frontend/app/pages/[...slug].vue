@@ -228,7 +228,7 @@ const isOrderMasukModule = computed(() => moduleEntry.value?.path === '/order_ma
 const isOrderSelesaiModule = computed(() => moduleEntry.value?.path === '/order_selesai')
 const isInvoiceModule = computed(() => moduleEntry.value?.path === '/invoice_tax' || moduleEntry.value?.path === '/invoice_non_tax')
 const isArsipUser = computed(() => String(user.value?.level_user || '') === 'Arsip')
-const currentUserId = computed(() => String(user.value?.id_user || user.value?.id || ''))
+const currentUserId = computed(() => String(user.value?.id_user || ''))
 const currentUserRole = computed(() => String(user.value?.level_user || '').trim().toLowerCase())
 const reportoriumFormRef = ref<{
   openForCreate: () => Promise<void>
@@ -3162,7 +3162,7 @@ const resolveRowPrintUrl = (row: Record<string, unknown>) => {
   return ''
 }
 
-const openReport = (url: string, title?: string) => {
+const openReport = (url: string | undefined, title?: string) => {
   if (!url) {
     return
   }

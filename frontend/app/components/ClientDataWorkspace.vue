@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { joinKtpBirthDetails, splitKtpBirthDetails } from '~/utils/ktpBirthDetails'
+import { fillBlankWithOcr } from '~/utils/ktpOcrMerge'
+
 type ApiEnvelope<T = unknown> = {
   status?: boolean
   message?: string
@@ -136,12 +139,14 @@ const banteks = ref<BantekRow[]>([])
 
 const clientDialogOpen = ref(false)
 const clientDialogRef = ref<HTMLDivElement | null>(null)
+const clientFieldsRef = ref<HTMLDivElement | null>(null)
 const savingClient = ref(false)
-const editingClientIndex = ref(-1)
 const clientDialogError = ref('')
 const clientIdentityInputRef = ref<HTMLInputElement | null>(null)
+const clientEmailInputRef = ref<HTMLInputElement | null>(null)
 const checkingClientIdentity = ref(false)
 const clientIdentityMatch = ref<ClientRow | null>(null)
+const referenceClient = ref<ClientRow | null>(null)
 const checkedClientIdentityKey = ref('')
 const clientForm = reactive<ClientRow>({
   no_identitas: '',
@@ -153,6 +158,8 @@ const clientForm = reactive<ClientRow>({
   email: '',
 })
 const ktpForm = reactive<KtpDetails>(emptyKtpDetails())
+const tempatLahir = ref('')
+const tanggalLahir = ref('')
 const ktpImageFile = ref<File | null>(null)
 const ocrProcessing = ref(false)
 
@@ -276,14 +283,16 @@ const setFormFromClient = (client?: ClientRow) => {
   clientForm.nama_client = toString(source.nama_client, '')
   clientForm.jenis_client = props.clientType
   clientForm.alamat_client = toString(source.alamat_client, '')
-  Object.assign(ktpForm, emptyKtpDetails(), source.ktp_data || {})
+  for (const field of ktpFields) ktpForm[field.key] = toString(source.ktp_data?.[field.key], '')
   if (!source.ktp_data) ktpForm.alamat = toString(source.alamat_client, '')
+  const birth = splitKtpBirthDetails(ktpForm.tempat_tgl_lahir)
+  tempatLahir.value = birth.place
+  tanggalLahir.value = birth.date
   clientForm.contact_number = toString(source.contact_number, '')
   clientForm.email = toString(source.email, '')
 }
 
 const resetClientForm = () => {
-  editingClientIndex.value = -1
   checkedClientIdentityKey.value = ''
   ktpImageFile.value = null
   ocrProcessing.value = false
@@ -389,12 +398,13 @@ const clientSearchFieldOptions = computed<Array<{ value: ClientSearchField; labe
 ])
 
 const clientFormTitle = computed(() =>
-  editingClientIndex.value === -1
-    ? `Tambahkan Client ${props.clientType}`
-    : `Edit Client ${props.clientType}`,
+  clientForm.id_client ? `Edit Client ${props.clientType}` : `Tambahkan Client ${props.clientType}`,
 )
 
-const clientIdentityBlocked = computed(() => Boolean(clientIdentityMatch.value))
+const clientIdentityBlocked = computed(() => Boolean(
+  clientIdentityMatch.value
+  && (isBusinessClient() || String(clientIdentityMatch.value.id_client || '') !== String(clientForm.id_client || '')),
+))
 const businessHasNpwp = computed(() => !isBusinessClient() || Boolean(clientForm.has_npwp))
 
 const changeNpwpStatus = () => {
@@ -419,7 +429,7 @@ const clearClientDialogError = () => {
 
 const showClientDialogError = (value: string) => {
   clientDialogError.value = value
-  nextTick(() => clientDialogRef.value?.scrollTo({ top: 0, behavior: 'smooth' }))
+  nextTick(() => (isBusinessClient() ? clientDialogRef.value : clientFieldsRef.value)?.scrollTo({ top: 0, behavior: 'smooth' }))
 }
 
 const applyIdentityMatchPreview = (client: ClientRow) => {
@@ -442,6 +452,7 @@ const closeClientDialog = () => {
   clientDialogOpen.value = false
   clearClientDialogError()
   clientIdentityMatch.value = null
+  referenceClient.value = null
   resetClientForm()
   if (route.query.scan === '1') {
     void navigateTo({ path: route.path, query: { ...route.query, scan: undefined } }, { replace: true })
@@ -518,20 +529,45 @@ const openCreateClientDialog = () => {
   clearStatus()
   clearClientDialogError()
   clientIdentityMatch.value = null
+  referenceClient.value = null
   resetClientForm()
   clientDialogOpen.value = true
   nextTick(() => clientIdentityInputRef.value?.focus())
 }
 
-const openEditClientDialog = (client: ClientRow, index: number) => {
+const openEditClientDialog = (client: ClientRow) => {
   clearStatus()
   clearClientDialogError()
   clientIdentityMatch.value = null
+  referenceClient.value = client
   checkedClientIdentityKey.value = ''
-  editingClientIndex.value = index
   setFormFromClient(client)
   clientDialogOpen.value = true
   nextTick(() => clientIdentityInputRef.value?.focus())
+}
+
+const startUpdatingMatchedClient = (matched: ClientRow) => {
+  if (isBusinessClient() || clientForm.id_client || !matched.id_client) return
+  if (toString(matched.no_identitas, '') !== toString(clientForm.no_identitas, '')) return
+
+  const scannedKtp = { ...ktpForm }
+  const scannedPlace = tempatLahir.value
+  const scannedDate = tanggalLahir.value
+  const enteredName = toString(clientForm.nama_client, '').trim()
+  const enteredContact = toString(clientForm.contact_number, '').trim()
+  const enteredEmail = toString(clientForm.email, '').trim()
+  setFormFromClient(matched)
+  clientForm.nama_client = fillBlankWithOcr(clientForm.nama_client, enteredName)
+  clientForm.contact_number = fillBlankWithOcr(clientForm.contact_number, enteredContact)
+  clientForm.email = fillBlankWithOcr(clientForm.email, enteredEmail)
+  for (const field of ktpFields) {
+    ktpForm[field.key] = fillBlankWithOcr(ktpForm[field.key], scannedKtp[field.key])
+  }
+  tempatLahir.value = fillBlankWithOcr(tempatLahir.value, scannedPlace)
+  tanggalLahir.value = fillBlankWithOcr(tanggalLahir.value, scannedDate)
+  referenceClient.value = matched
+  checkedClientIdentityKey.value = `${props.clientType}|${clientForm.no_identitas}|${clientForm.nama_client}|${businessHasNpwp.value}|${clientForm.id_client}`
+  clearClientDialogError()
 }
 
 const clearIdentityMatchOnInput = () => {
@@ -544,18 +580,25 @@ const applyKtpOcr = (payload: KtpOcrPayload) => {
   const read = (...keys: string[]) => keys.map(key => String(fields[key]?.value || '').trim()).find(Boolean) || ''
   const nik = read('nik').replace(/\D/g, '').slice(0, 16)
   const nama = read('nama')
-  if (nik) clientForm.no_identitas = nik
-  if (nama) clientForm.nama_client = nama
+  clientForm.no_identitas = fillBlankWithOcr(clientForm.no_identitas, nik)
+  clientForm.nama_client = fillBlankWithOcr(clientForm.nama_client, nama)
 
   const aliases: Partial<Record<keyof KtpDetails, string[]>> = {
     kabupaten_kota: ['kabupaten_kota', 'kabupaten', 'kota'],
+    tempat_tgl_lahir: ['tempat_tgl_lahir', 'tempat_tanggal_lahir'],
+    gol_darah: ['gol_darah', 'golongan_darah'],
   }
   for (const field of ktpFields) {
     const value = read(...(aliases[field.key] || [field.key]))
-    if (value) ktpForm[field.key] = value
+    if (field.key === 'tempat_tgl_lahir') {
+      const birth = splitKtpBirthDetails(value)
+      tempatLahir.value = fillBlankWithOcr(tempatLahir.value, birth.place)
+      tanggalLahir.value = fillBlankWithOcr(tanggalLahir.value, birth.date)
+    }
+    ktpForm[field.key] = fillBlankWithOcr(ktpForm[field.key], value)
   }
   clearIdentityMatchOnInput()
-  if (nik) void checkClientIdentity()
+  if (/^\d{16}$/.test(toString(clientForm.no_identitas, ''))) void checkClientIdentity()
 }
 
 const checkClientIdentity = async () => {
@@ -585,16 +628,22 @@ const checkClientIdentity = async () => {
       id_client: clientForm.id_client || undefined,
     }) as ApiEnvelope<ClientIdentityCheck>
 
+    const currentKey = `${props.clientType}|${clientForm.no_identitas}|${clientForm.nama_client}|${businessHasNpwp.value}|${clientForm.id_client || ''}`
+    if (!clientDialogOpen.value || currentKey !== checkKey) return
     checkedClientIdentityKey.value = checkKey
     const matchedClient = response.data?.exists ? response.data?.client : null
     if (matchedClient) {
       clientIdentityMatch.value = matchedClient
-      applyIdentityMatchPreview(matchedClient)
-      showClientDialogError(
-        isBusinessClient()
-          ? `NPWP atau nama client sudah terdaftar atas nama ${toString(matchedClient.nama_client, 'client ini')}. Tidak perlu input ulang.`
-          : `${identityLabel.value} sudah terdaftar atas nama ${toString(matchedClient.nama_client, 'client ini')}. Tidak perlu input ulang.`,
-      )
+      if (isBusinessClient()) applyIdentityMatchPreview(matchedClient)
+      if (!isBusinessClient() && !clientForm.id_client && matchedClient.id_client && toString(matchedClient.no_identitas, '') === identity) {
+        startUpdatingMatchedClient(matchedClient)
+      } else if (isBusinessClient() || clientForm.id_client) {
+        showClientDialogError(
+          isBusinessClient()
+            ? `NPWP atau nama client sudah terdaftar atas nama ${toString(matchedClient.nama_client, 'client ini')}. Tidak perlu input ulang.`
+            : `${identityLabel.value} sudah digunakan oleh client lain.`,
+        )
+      }
     }
   } catch (error) {
     showClientDialogError((error as { data?: { message?: string } })?.data?.message || `Gagal mengecek ${identityLabel.value}.`)
@@ -606,12 +655,17 @@ const checkClientIdentity = async () => {
 const saveClient = async () => {
   if (savingClient.value || ocrProcessing.value || clientIdentityBlocked.value) {
     if (clientIdentityBlocked.value) {
-      showClientDialogError(isBusinessClient() ? 'NPWP atau nama client sudah terdaftar. Data tidak perlu disimpan ulang.' : `${identityLabel.value} sudah terdaftar. Data tidak perlu disimpan ulang.`)
+      showClientDialogError(isBusinessClient() ? 'NPWP atau nama client sudah terdaftar. Data tidak perlu disimpan ulang.' : `${identityLabel.value} sudah digunakan oleh client lain.`)
     }
     return
   }
   if (isBusinessClient() && businessHasNpwp.value && (!/^\d{15,16}$/.test(toString(clientForm.no_identitas, '')) || /^9{5}/.test(toString(clientForm.no_identitas, '')))) {
     showClientDialogError('NPWP harus terdiri dari 15 atau 16 digit angka dan bukan nomor placeholder.')
+    return
+  }
+  const email = toString(clientForm.email, '').trim() || null
+  if (email && !clientEmailInputRef.value?.checkValidity()) {
+    showClientDialogError('Format email tidak valid.')
     return
   }
   if (!isBusinessClient()) {
@@ -623,6 +677,15 @@ const saveClient = async () => {
       showClientDialogError('Nama sesuai KTP wajib diisi.')
       return
     }
+    if (!tempatLahir.value.trim()) {
+      showClientDialogError('Tempat lahir sesuai KTP wajib diisi.')
+      return
+    }
+    if (!tanggalLahir.value) {
+      showClientDialogError('Tanggal lahir sesuai KTP wajib diisi.')
+      return
+    }
+    ktpForm.tempat_tgl_lahir = joinKtpBirthDetails(tempatLahir.value, tanggalLahir.value)
     const missingField = ktpFields.find(field => !field.optional && !ktpForm[field.key].trim())
     if (missingField) {
       showClientDialogError(`${missingField.label} sesuai KTP wajib diisi.`)
@@ -646,7 +709,7 @@ const saveClient = async () => {
       alamat_client: isBusinessClient() ? clientForm.alamat_client : ktpForm.alamat,
       ktp_data: isBusinessClient() ? undefined : { ...ktpForm },
       contact_number: clientForm.contact_number,
-      email: clientForm.email,
+      email,
     }
     let response: ApiEnvelope
     if (ktpImageFile.value && !isBusinessClient()) {
@@ -658,7 +721,7 @@ const saveClient = async () => {
       form.append('jenis_client', props.clientType)
       form.append('alamat_client', ktpForm.alamat.trim())
       form.append('contact_number', String(payload.contact_number || ''))
-      form.append('email', String(payload.email || ''))
+      if (payload.email) form.append('email', payload.email)
       for (const field of ktpFields) form.append(`ktp_data[${field.key}]`, ktpForm[field.key].trim())
       form.append('ktp_image', ktpImageFile.value)
       response = await business.client.SimpanClientBaru(form) as ApiEnvelope
@@ -1325,7 +1388,7 @@ onBeforeUnmount(() => {
                       <button
                         type="button"
                         class="inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
-                        @click="openEditClientDialog(client, index)"
+                        @click="openEditClientDialog(client)"
                       >
                         Edit
                       </button>
@@ -1563,10 +1626,10 @@ onBeforeUnmount(() => {
     </SurfaceCard>
 
     <Teleport to="body">
-      <div v-if="clientDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div v-if="clientDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center" :class="isBusinessClient() ? 'p-4' : ''">
         <button type="button" class="absolute inset-0 bg-slate-900/60" @click="closeClientDialog" />
-        <div ref="clientDialogRef" class="relative z-10 max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5">
-          <div class="flex items-start justify-between gap-3">
+        <div ref="clientDialogRef" role="dialog" aria-modal="true" :aria-label="clientFormTitle" class="relative z-10 w-full border border-slate-200 bg-white" :class="isBusinessClient() ? 'max-h-[92vh] max-w-3xl overflow-y-auto rounded-lg' : 'flex h-[100dvh] flex-col overflow-hidden border-0'">
+          <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
             <h3 class="text-lg font-semibold text-slate-900">{{ clientFormTitle }}</h3>
             <button type="button" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="closeClientDialog">Tutup</button>
           </div>
@@ -1580,19 +1643,14 @@ onBeforeUnmount(() => {
           >
             <div
               v-if="clientDialogError"
-              class="absolute left-5 right-5 top-16 z-20 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-xl shadow-red-950/10"
+              class="mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
             >
               {{ clientDialogError }}
             </div>
           </Transition>
-          <div class="mt-4 grid gap-4 md:grid-cols-2">
-            <ClientKtpScanner
-              v-if="!isBusinessClient()"
-              :disabled="savingClient"
-              @image-change="ktpImageFile = $event"
-              @processing-change="ocrProcessing = $event"
-              @recognized="applyKtpOcr"
-            />
+          <div :class="isBusinessClient() ? '' : 'flex min-h-0 flex-1 flex-col-reverse overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden'">
+          <div ref="clientFieldsRef" :class="isBusinessClient() ? 'px-5 pt-4' : 'min-w-0 shrink-0 px-5 py-5 lg:min-h-0 lg:overflow-y-auto'">
+          <div class="grid gap-4 md:grid-cols-2">
             <label v-if="isBusinessClient()" class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Status NPWP</span>
               <select
@@ -1641,7 +1699,7 @@ onBeforeUnmount(() => {
               />
             </label>
             <div v-if="clientIdentityMatch" class="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <p class="font-semibold">{{ identityLabel }} sudah ada di data client.</p>
+              <p class="font-semibold">{{ identityLabel }} sudah ada di data client{{ !clientIdentityBlocked && !isBusinessClient() ? '. Data client ini akan diperbarui.' : '.' }}</p>
               <p class="mt-1">
                 {{ toString(clientIdentityMatch.nama_client) }}
                 <span v-if="clientIdentityMatch.id_client">- {{ clientIdentityMatch.id_client }}</span>
@@ -1650,7 +1708,18 @@ onBeforeUnmount(() => {
             </div>
             <template v-if="!isBusinessClient()">
               <div class="md:col-span-2 border-t border-slate-200 pt-3 text-xs font-semibold uppercase text-slate-500">Data KTP</div>
-              <label v-for="field in ktpFields" :key="field.key" class="flex flex-col gap-2" :class="field.wide ? 'md:col-span-2' : ''">
+              <template v-for="field in ktpFields" :key="field.key">
+              <template v-if="field.key === 'tempat_tgl_lahir'">
+                <label class="flex flex-col gap-2">
+                  <span class="text-xs font-semibold uppercase text-slate-500">Tempat Lahir *</span>
+                  <input v-model="tempatLahir" type="text" required :disabled="clientIdentityBlocked" class="h-10 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100" />
+                </label>
+                <label class="flex flex-col gap-2">
+                  <span class="text-xs font-semibold uppercase text-slate-500">Tanggal Lahir *</span>
+                  <input v-model="tanggalLahir" type="date" required :disabled="clientIdentityBlocked" class="h-10 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100" />
+                </label>
+              </template>
+              <label v-else class="flex flex-col gap-2" :class="field.wide ? 'md:col-span-2' : ''">
                 <span class="text-xs font-semibold uppercase text-slate-500">{{ field.label }}{{ field.optional ? '' : ' *' }}</span>
                 <textarea
                   v-if="field.key === 'alamat'"
@@ -1669,6 +1738,7 @@ onBeforeUnmount(() => {
                   class="h-10 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                 />
               </label>
+              </template>
             </template>
             <label class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Contact Number</span>
@@ -1676,17 +1746,43 @@ onBeforeUnmount(() => {
             </label>
             <label class="flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Email</span>
-              <input v-model="clientForm.email" type="email" :disabled="clientIdentityBlocked" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" />
+              <input ref="clientEmailInputRef" v-model="clientForm.email" type="email" maxlength="255" :disabled="clientIdentityBlocked" class="h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" />
             </label>
             <label v-if="isBusinessClient()" class="md:col-span-2 flex flex-col gap-2">
               <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Alamat Client</span>
               <textarea v-model="clientForm.alamat_client" rows="4" :disabled="clientIdentityBlocked" class="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500"></textarea>
             </label>
           </div>
-          <div class="mt-5 flex justify-end gap-2">
+          </div>
+          <aside v-if="!isBusinessClient()" class="min-w-0 shrink-0 border-b border-slate-200 bg-slate-50 px-5 py-5 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:border-l">
+            <ClientKtpScanner
+              comparison-mode
+              :disabled="savingClient"
+              @image-change="ktpImageFile = $event"
+              @processing-change="ocrProcessing = $event"
+              @recognized="applyKtpOcr"
+            />
+            <section v-if="referenceClient" class="mt-5 border-t border-slate-200 pt-4">
+              <h4 class="text-sm font-semibold text-slate-900">Data Client Tersimpan</h4>
+              <dl class="mt-2 divide-y divide-slate-200 text-sm">
+                <div v-for="item in [{ label: 'ID Client', value: referenceClient.id_client }, { label: 'Nama', value: referenceClient.nama_client }, { label: 'NIK', value: referenceClient.no_identitas }, { label: 'Pembuat', value: referenceClient.pembuat_client }]" :key="item.label" class="grid gap-1 py-2 sm:grid-cols-[9rem_minmax(0,1fr)]">
+                  <dt class="text-slate-500">{{ item.label }}</dt>
+                  <dd class="min-w-0 break-words font-medium text-slate-800">{{ toString(item.value) }}</dd>
+                </div>
+                <template v-for="field in ktpFields" :key="field.key">
+                  <div v-if="toString(referenceClient.ktp_data?.[field.key], '')" class="grid gap-1 py-2 sm:grid-cols-[9rem_minmax(0,1fr)]">
+                    <dt class="text-slate-500">{{ field.label }}</dt>
+                    <dd class="min-w-0 break-words font-medium text-slate-800">{{ toString(referenceClient.ktp_data?.[field.key]) }}</dd>
+                  </div>
+                </template>
+              </dl>
+            </section>
+          </aside>
+          </div>
+          <div class="flex justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4">
             <button type="button" class="h-10 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="closeClientDialog">Batal</button>
             <button type="button" class="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50" :disabled="savingClient || ocrProcessing || checkingClientIdentity || clientIdentityBlocked" @click="saveClient">
-              {{ savingClient ? 'Menyimpan...' : 'Simpan Client' }}
+              {{ savingClient ? (clientForm.id_client ? 'Memperbarui...' : 'Menyimpan...') : clientForm.id_client ? 'Update Client' : 'Simpan Client' }}
             </button>
           </div>
         </div>

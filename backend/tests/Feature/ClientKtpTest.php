@@ -153,6 +153,32 @@ class ClientKtpTest extends TestCase
         $this->assertNull(DB::table('data_clients')->value('ktp_data'));
     }
 
+    public function test_personal_client_email_is_optional_nullable_and_validated(): void
+    {
+        $payload = $this->personalPayload();
+        $this->assertSame(200, $this->save($payload)->getStatusCode());
+        $clientId = DB::table('data_clients')->value('id_client');
+        $this->assertNull(DB::table('data_clients')->value('email'));
+
+        $payload['id_client'] = $clientId;
+        $payload['email'] = 'siti@example.com';
+        $this->assertSame(200, $this->save($payload)->getStatusCode());
+        $this->assertSame('siti@example.com', DB::table('data_clients')->value('email'));
+
+        $payload['email'] = '';
+        $this->assertSame(200, $this->save($payload)->getStatusCode());
+        $this->assertNull(DB::table('data_clients')->value('email'));
+
+        $payload['email'] = 'bukan-email';
+        try {
+            $this->save($payload);
+            $this->fail('Expected validation error for invalid email');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('email', $exception->errors());
+        }
+        $this->assertNull(DB::table('data_clients')->value('email'));
+    }
+
     public function test_ocr_save_requires_complete_personal_ktp(): void
     {
         $payload = $this->personalPayload();
@@ -192,6 +218,7 @@ class ClientKtpTest extends TestCase
         $this->assertDatabaseCount('tb_berkas', 1);
         $firstFile = DB::table('tb_berkas')->value('nama_berkas');
         Storage::disk('documents_local')->assertExists('berkasclient/DokC000001/'.$firstFile);
+        DB::table('data_clients')->where('id_client', $client->id_client)->update(['pembuat_client' => '0002']);
 
         $updated = $this->personalPayload();
         $updated['has_npwp'] = '1';
@@ -203,6 +230,9 @@ class ClientKtpTest extends TestCase
         $this->assertSame(200, (new ClientController())->SimpanClientBaru($request)->getStatusCode());
         $this->assertDatabaseCount('data_clients', 1);
         $this->assertDatabaseCount('tb_berkas', 2);
+        $this->assertSame('0002', DB::table('data_clients')->value('pembuat_client'));
+        $this->assertSame(2, DB::table('tb_berkas')->where('id_client', $client->id_client)->count());
+        Storage::disk('documents_local')->assertExists('berkasclient/DokC000001/'.$firstFile);
         $this->assertSame('Pegawai Swasta', json_decode(DB::table('data_clients')->value('ktp_data'), true)['pekerjaan']);
     }
 

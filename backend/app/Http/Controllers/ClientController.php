@@ -436,6 +436,7 @@ class ClientController extends ApiController
         }
 
         $validated = $request->validate(array_merge([
+            'id_client' => ['nullable', 'string', 'exists:data_clients,id_client'],
             'jenis_client' => ['required', 'in:Perorangan,Badan Hukum'],
             'no_identitas' => $identityRules,
             'has_npwp' => ['required', 'boolean'],
@@ -447,6 +448,7 @@ class ClientController extends ApiController
                 ? ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,bmp,tif,tiff', 'max:10240']
                 : ['prohibited'],
         ], $isPersonal ? $this->ktpValidationRules() : []));
+        $email = trim((string) ($validated['email'] ?? '')) ?: null;
         $ktpData = $isPersonal ? $this->normalizedKtpData($validated['ktp_data']) : null;
         $address = $isPersonal ? $this->formatKtpAddress($ktpData) : $request->post('alamat_client');
         $ktpFile = $validated['ktp_image'] ?? null;
@@ -475,8 +477,7 @@ class ClientController extends ApiController
                 'has_npwp' => $request->boolean('has_npwp'),
                 'jenis_client' => $request->post('jenis_client'),
                 'alamat_client' => $address,
-                'pembuat_client' => auth()->user()->id_user,
-                'email' => $request->post('email'),
+                'email' => $email,
                 'contact_number' => $request->post('contact_number'),
             ];
             if ($isPersonal) {
@@ -515,7 +516,7 @@ class ClientController extends ApiController
                 );
             }
 
-            DB::transaction(function () use ($request, $address, $isPersonal, $ktpData, $ktpFile, $userId) {
+            DB::transaction(function () use ($request, $address, $isPersonal, $ktpData, $ktpFile, $userId, $email) {
                 $id_client = $this->nextClientId();
 
 
@@ -527,7 +528,7 @@ class ClientController extends ApiController
                     'jenis_client' => $request->post('jenis_client'),
                     'alamat_client' => $address,
                     'pembuat_client' => auth()->user()->id_user,
-                    'email' => $request->post('email'),
+                    'email' => $email,
                     'nama_folder' => 'Dok'.$id_client,
                     'contact_number' => $request->post('contact_number'),
                 ];
@@ -718,7 +719,7 @@ class ClientController extends ApiController
                     'jenis_client' => $validated['jenis_client'],
                     'alamat_client' => $address,
                     'pembuat_client' => $userId,
-                    'email' => $validated['email'] ?? null,
+                    'email' => trim((string) ($validated['email'] ?? '')) ?: null,
                     'nama_folder' => 'Dok'.$idClient,
                     'contact_number' => $validated['contact_number'] ?? null,
                 ];
