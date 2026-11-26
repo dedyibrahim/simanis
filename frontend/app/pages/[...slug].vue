@@ -1737,9 +1737,17 @@ const canDeleteRow = (row: RowRecord) => {
   const path = moduleEntry.value?.path || ''
   const field = deleteNumberFieldByPath[path]
   if (!field) return false
-  if (isSuperAdmin.value) return true
+  if (isSuperAdmin.value || isAdmin.value) return true
+  if (currentUserRole.value !== 'asisten') return false
   return extractLeadingNumber(row[field]) === maxDeleteNumber.value
     && rowOwnerId(row) === String(user.value?.id_user || '')
+}
+
+const canEditRow = (row: RowRecord) => {
+  if (isArsipUser.value) return false
+  if (!deleteNumberFieldByPath[moduleEntry.value?.path || '']) return true
+  return isSuperAdmin.value || isAdmin.value
+    || (currentUserRole.value === 'asisten' && rowOwnerId(row) === currentUserId.value)
 }
 
 const canUploadRow = (row: RowRecord) =>
@@ -2939,7 +2947,7 @@ const submitUpload = async () => {
 }
 
 const editReportoriumRow = async (row: RowRecord) => {
-  if (isArsipUser.value) return
+  if (!canEditRow(row)) return
   if (!reportoriumFormRef.value) {
     errorMessage.value = 'Form reportorium belum siap.'
     return
@@ -4460,7 +4468,7 @@ watch(
                   <td :class="reportoriumActionCellClass">
                     <div class="flex flex-wrap gap-2">
                       <button
-                        v-if="hasAction('edit')"
+                        v-if="hasAction('edit') && canEditRow(row)"
                         type="button"
                         :class="reportoriumActionButtonClass('edit')"
                         :disabled="isArsipUser"
@@ -5008,9 +5016,9 @@ watch(
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="uploadDialog.open" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div v-if="uploadDialog.open" class="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Upload dokumen pekerjaan dan penghadap">
         <div class="absolute inset-0 bg-slate-900/50" @click="closeUploadDialog" />
-        <div class="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div class="relative z-10 flex h-dvh w-full flex-col overflow-hidden bg-white shadow-2xl">
           <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Upload</p>
@@ -5025,7 +5033,7 @@ watch(
             </button>
           </div>
 
-          <div v-if="uploadDialogHasStandardDocs" class="flex gap-2 border-b border-slate-200 px-5 py-3" aria-label="Jenis dokumen">
+          <div v-if="uploadDialogHasStandardDocs" class="flex shrink-0 gap-2 border-b border-slate-200 px-5 py-3" aria-label="Jenis dokumen">
             <button type="button" :disabled="uploadDialog.submitting || uploadDialog.documentActionLoading || clientDocumentUploading" :aria-pressed="uploadTab === 'work'" :class="uploadTab === 'work' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50" @click="uploadTab = 'work'">Dokumen pekerjaan</button>
             <button type="button" :disabled="uploadDialog.submitting || uploadDialog.documentActionLoading || clientDocumentUploading" :aria-pressed="uploadTab === 'client'" :class="uploadTab === 'client' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'" class="rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50" @click="uploadTab = 'client'">Dokumen penghadap</button>
           </div>

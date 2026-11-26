@@ -87,7 +87,7 @@ class BookDateEditTest extends TestCase
                 'status_kedudukan' => 'Pemohon',
             ]],
         ]);
-        $request->setUserResolver(fn () => (object) ['level_user' => $role]);
+        $request->setUserResolver(fn () => (object) ['level_user' => $role, 'id_user' => '0001']);
         $method = 'SimpanNomor'.$module;
         (new PembuatanNomor())->$method($request);
     }
@@ -153,10 +153,10 @@ class BookDateEditTest extends TestCase
         $controller = new PembuatanNomor();
         $legalisasi = $controller->EditLegalisasi(Request::create('/', 'POST', [
             'id_buku_legalisasi' => 'BKL0000001',
-        ]))->getData(true)['data'];
+        ])->setUserResolver(fn () => (object) ['id_user' => '0001', 'level_user' => 'Asisten']))->getData(true)['data'];
         $warmerking = $controller->EditWarmerking(Request::create('/', 'POST', [
             'id_buku_warmerking' => 'BKW0000001',
-        ]))->getData(true)['data'];
+        ])->setUserResolver(fn () => (object) ['id_user' => '0001', 'level_user' => 'Asisten']))->getData(true)['data'];
 
         $this->assertSame('2026-09-02', $legalisasi['tgl_surat']);
         $this->assertSame('2026-09-02', $warmerking['tgl_surat']);

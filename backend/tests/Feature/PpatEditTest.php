@@ -94,7 +94,7 @@ class PpatEditTest extends TestCase
                 'id_mewakili' => null,
             ]],
         ], $overrides));
-        $request->setUserResolver(fn () => (object) ['level_user' => $role]);
+        $request->setUserResolver(fn () => (object) ['level_user' => $role, 'id_user' => '0001']);
 
         return $request;
     }

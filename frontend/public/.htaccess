@@ -12,3 +12,10 @@
 
   RewriteRule ^ 200.html [L]
 </IfModule>
+
+# Revalidate entry pages after deployments; hashed assets keep their normal cache policy.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>

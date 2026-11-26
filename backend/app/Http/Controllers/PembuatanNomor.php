@@ -77,6 +77,9 @@ class PembuatanNomor extends ApiController
 
     public function SimpanNomorNotaris(Request $request)
     {
+        if ($request->has('data_buku.id_buku_notaris')) {
+            $this->assertNumberOwner($request, 'buku_notaris', 'id_buku_notaris', $request->input('data_buku.id_buku_notaris'), 'id_user');
+        }
         $b = $request->input('data_buku');
         $request->validate([
             'data_buku.jenis_akta' => ['required', 'exists:daftar_aktas,id_akta'],
@@ -384,6 +387,19 @@ class PembuatanNomor extends ApiController
         return $this->successResponse($created, 'Akta massal berhasil dibuat.');
     }
 
+    private function assertNumberOwner(Request $request, string $table, string $key, mixed $id, string $ownerColumn = 'id_user'): void
+    {
+        $actor = $request->user();
+        abort_unless($actor, 401);
+        $row = DB::table($table)->where($key, $id)->first();
+        abort_unless($row, 404, 'Nomor tidak ditemukan.');
+        if ($this->isAdminLevel($actor->level_user)) return;
+        $role = strtoupper(trim((string) $actor->level_user));
+        abort_unless($role === 'ASISTEN' && (string) ($actor->id_user ?? '') !== ''
+            && (string) $row->{$ownerColumn} === (string) $actor->id_user, 403,
+            'Anda hanya dapat mengedit atau menghapus nomor milik sendiri.');
+    }
+
     private function isSuperAdminUser(Request $request): bool
     {
         $level = strtoupper(trim((string) optional($request->user())->level_user));
@@ -450,8 +466,9 @@ class PembuatanNomor extends ApiController
 
     public function DeleteNomorNotaris(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_notaris', 'id_buku_notaris', $request->input('id_buku_notaris'), 'id_user');
         $level = strtoupper(trim((string) optional($request->user())->level_user));
-        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $isSuperAdmin = $this->isAdminLevel($level);
         $idBukuNotaris = $request->input('id_buku_notaris');
 
         $buku = BukuNotaris::where('id_buku_notaris', $idBukuNotaris)->first();
@@ -491,8 +508,9 @@ class PembuatanNomor extends ApiController
     }
     public function DeleteNomorPPAT(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_ppats', 'id_buku_ppat', $request->input('id_buku_ppat'), 'id_user');
         $level = strtoupper(trim((string) optional($request->user())->level_user));
-        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $isSuperAdmin = $this->isAdminLevel($level);
         $id = $request->input('id_buku_ppat');
 
         $buku = BukuPPATS::where('id_buku_ppat', $id)->first();
@@ -528,8 +546,9 @@ class PembuatanNomor extends ApiController
 
     public function DeleteNomorLegalisasi(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_legalisasis', 'id_buku_legalisasi', $request->input('id_buku_legalisasi'), 'id_user');
         $level = strtoupper(trim((string) optional($request->user())->level_user));
-        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $isSuperAdmin = $this->isAdminLevel($level);
         $id = $request->input('id_buku_legalisasi');
 
         $buku = BukuLegalisasi::where('id_buku_legalisasi', $id)->first();
@@ -562,8 +581,9 @@ class PembuatanNomor extends ApiController
 
     public function DeleteNomorWarmerking(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_warmerkings', 'id_buku_warmerking', $request->input('id_buku_warmerking'), 'id_user');
         $level = strtoupper(trim((string) optional($request->user())->level_user));
-        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $isSuperAdmin = $this->isAdminLevel($level);
         $id = $request->input('id_buku_warmerking');
 
         $buku = BukuWarmerking::where('id_buku_warmerking', $id)->first();
@@ -596,8 +616,9 @@ class PembuatanNomor extends ApiController
 
     public function DeleteNomorSuratNotaris(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_surat_notaris', 'id_surat_notaris', $request->input('id_surat_notaris'), 'pengirim');
         $level = strtoupper(trim((string) optional($request->user())->level_user));
-        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $isSuperAdmin = $this->isAdminLevel($level);
         $id = $request->input('id_surat_notaris');
 
         $buku = BukuSuratNotaris::where('id_surat_notaris', $id)->first();
@@ -634,8 +655,9 @@ class PembuatanNomor extends ApiController
 
     public function DeleteNomorSuratPPAT(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_surat_ppats', 'id_surat_ppat', $request->input('id_surat_ppat'), 'pengirim');
         $level = strtoupper(trim((string) optional($request->user())->level_user));
-        $isSuperAdmin = in_array($level, ['SUPER ADMIN', 'SUPERADMIN'], true);
+        $isSuperAdmin = $this->isAdminLevel($level);
         $id = $request->input('id_surat_ppat');
 
         $buku = BukuSuratPPAT::where('id_surat_ppat', $id)->first();
@@ -1050,6 +1072,7 @@ class PembuatanNomor extends ApiController
 
     public function EditAktaNotaris(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_notaris', 'id_buku_notaris', $request->input('id_buku_notaris'), 'id_user');
         $buku = DB::table('buku_notaris')
             ->leftJoin('daftar_aktas', 'buku_notaris.id_akta', '=', 'daftar_aktas.id_akta')
             ->orderBy('id_buku_notaris', 'desc')
@@ -1073,6 +1096,7 @@ class PembuatanNomor extends ApiController
 
     public function EditSuratNotaris(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_surat_notaris', 'id_surat_notaris', $request->input('id_surat_notaris'), 'pengirim');
         $query = DB::table('buku_surat_notaris')
         ->Leftjoin('users', 'buku_surat_notaris.pengirim', '=', 'users.id_user')
         ->Leftjoin('data_clients', 'data_clients.id_client', '=', 'buku_surat_notaris.id_client')
@@ -1099,6 +1123,7 @@ class PembuatanNomor extends ApiController
 
     public function EditSuratPPAT(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_surat_ppats', 'id_surat_ppat', $request->input('id_surat_ppat'), 'pengirim');
         $query = DB::table('buku_surat_ppats')
         ->Leftjoin('users', 'buku_surat_ppats.pengirim', '=', 'users.id_user')
         ->Leftjoin('data_clients', 'data_clients.id_client', '=', 'buku_surat_ppats.id_client')
@@ -1125,6 +1150,7 @@ class PembuatanNomor extends ApiController
 
     public function EditAktaPPAT(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_ppats', 'id_buku_ppat', $request->input('id_buku_ppat'), 'id_user');
         $buku = DB::table('buku_ppats')
             ->leftJoin('daftar_aktas', 'buku_ppats.id_akta', '=', 'daftar_aktas.id_akta')
             ->select('buku_ppats.*', 'daftar_aktas.nama_akta', 'daftar_aktas.apht')
@@ -1169,6 +1195,7 @@ class PembuatanNomor extends ApiController
 
     public function EditLegalisasi(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_legalisasis', 'id_buku_legalisasi', $request->input('id_buku_legalisasi'), 'id_user');
         $buku = DB::table('buku_legalisasis')
             ->orderBy('id_buku_legalisasi', 'desc')
             ->where('buku_legalisasis.id_buku_legalisasi', $request->post('id_buku_legalisasi'))
@@ -1192,6 +1219,7 @@ class PembuatanNomor extends ApiController
 
     public function EditWarmerking(Request $request)
     {
+        $this->assertNumberOwner($request, 'buku_warmerkings', 'id_buku_warmerking', $request->input('id_buku_warmerking'), 'id_user');
         $buku = DB::table('buku_warmerkings')
             ->orderBy('id_buku_warmerking', 'desc')
             ->where('buku_warmerkings.id_buku_warmerking', $request->post('id_buku_warmerking'))
@@ -1216,6 +1244,9 @@ class PembuatanNomor extends ApiController
 
     public function SimpanNomorPPAT(Request $request)
     {
+        if ($request->has('id_buku_ppat')) {
+            $this->assertNumberOwner($request, 'buku_ppats', 'id_buku_ppat', $request->input('id_buku_ppat'), 'id_user');
+        }
         if (!$request->post('id_buku_ppat')) {
             if ($request->post('apht') == 'TRUE') {
                 $request->validate([
@@ -1547,6 +1578,9 @@ class PembuatanNomor extends ApiController
 
     public function SimpanNomorLegalisasi(Request $request)
     {
+        if ($request->has('data_buku.id_buku_legalisasi')) {
+            $this->assertNumberOwner($request, 'buku_legalisasis', 'id_buku_legalisasi', $request->input('data_buku.id_buku_legalisasi'), 'id_user');
+        }
         $b = $request->input('data_buku');
         $request->validate([
             'data_buku.judul_surat' => ['required'],
@@ -1721,6 +1755,9 @@ class PembuatanNomor extends ApiController
 
     public function SimpanNomorWarmerking(Request $request)
     {
+        if ($request->has('data_buku.id_buku_warmerking')) {
+            $this->assertNumberOwner($request, 'buku_warmerkings', 'id_buku_warmerking', $request->input('data_buku.id_buku_warmerking'), 'id_user');
+        }
         $b = $request->input('data_buku');
         $request->validate([
             'data_buku.judul_surat' => ['required'],
@@ -2361,6 +2398,9 @@ class PembuatanNomor extends ApiController
 
     public function SimpanNomorSuratNotaris(Request $request)
     {
+        if ($request->has('id_surat_notaris')) {
+            $this->assertNumberOwner($request, 'buku_surat_notaris', 'id_surat_notaris', $request->input('id_surat_notaris'), 'pengirim');
+        }
         $request->validate([
             'id_client' => 'required',
             'pengirim' => 'required',
@@ -2432,6 +2472,9 @@ class PembuatanNomor extends ApiController
 
     public function SimpanNomorSuratPPAT(Request $request)
     {
+        if ($request->has('id_surat_ppat')) {
+            $this->assertNumberOwner($request, 'buku_surat_ppats', 'id_surat_ppat', $request->input('id_surat_ppat'), 'pengirim');
+        }
         $request->validate([
             'id_client' => 'required',
             'pengirim' => 'required',
