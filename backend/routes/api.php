@@ -65,6 +65,14 @@ Route::prefix('auth')->group(function () {
 
 
 Route::group(['middleware' => ['auth:sanctum']], function () {
+    Route::prefix('auth/word')->middleware('throttle:120,1')->group(function () {
+        Route::delete('/session', [\App\Http\Controllers\WordDataController::class, 'closeSession']);
+        Route::get('/clients', [\App\Http\Controllers\WordDataController::class, 'clients']);
+        Route::get('/clients/{id}', [\App\Http\Controllers\WordDataController::class, 'client']);
+        Route::get('/ppat', [\App\Http\Controllers\WordDataController::class, 'ppat']);
+        Route::get('/ppat/{source}/{id}', [\App\Http\Controllers\WordDataController::class, 'transaction']);
+    });
+
     Route::get('/auth/whatsapp-broadcast/assistants', [WhatsAppBroadcastController::class, 'index']);
     Route::get('/auth/whatsapp-broadcast/history', [WhatsAppBroadcastController::class, 'history']);
     Route::post('/auth/whatsapp-broadcast/send', [WhatsAppBroadcastController::class, 'send'])->middleware('throttle:60,1');

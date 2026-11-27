@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='utf-8'?>
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="RibbonLoaded">
+  <ribbon><tabs>
+    <tab id="SigandiTab" label="SIMANIS" keytip="SG">
+      <group id="SimanisData" label="Data SIMANIS">
+        <button id="SimanisPickData" label="Penghadap / Transaksi PPAT" size="large" imageMso="AddressBook" onAction="RibbonSimanisData" screentip="Pilih data dari SIMANIS" supertip="Login SIMANIS, cari penghadap atau transaksi PPAT, tinjau field lalu masukkan ke posisi kursor. Teks yang sudah ada dipertahankan." />
+      </group>
+      <group id="SigandiArea" label="Area Akta">
+        <button id="SigandiMark" label="Tandai Area Isi (Ctrl+F7)" size="large" imageMso="SelectAll" onAction="RibbonMark" screentip="Tandai Area Isi (Ctrl+F7)" supertip="Pilih isi akta tanpa judul dan area tanda tangan. Garis hanya dibuat dalam area yang ditandai." keytip="M" />
+      </group>
+      <group id="SigandiLines" label="Garis Akta">
+        <dropDown id="SigandiLineColor" label="Warna Garis" onAction="RibbonLineColorChanged" getSelectedItemIndex="RibbonLineColorIndex" supertip="Pilihan warna berlaku untuk garis vertikal dan penutup. Pengisi mendatar ---- selalu hitam, termasuk di kedua sisi judul tengah.">
+          <item id="SigandiColorBlack" label="Hitam" /><item id="SigandiColorRed" label="Merah" />
+          <item id="SigandiColorGreen" label="Hijau" /><item id="SigandiColorGray" label="Abu-abu" />
+        </dropDown>
+        <editBox id="SigandiWeight" label="Ketebalan (pt)" sizeString="0.00" getText="RibbonWeightText" onChange="RibbonWeightChanged" supertip="0,1 sampai 4 pt. Langsung diterapkan ke semua garis SIMANIS dan disimpan untuk garis berikutnya." />
+        <button id="SigandiAll" label="Buat Semua (Ctrl+F6)" size="large" imageMso="BordersAll" onAction="RibbonAll" keytip="G" screentip="Buat Semua (Ctrl+F6)" />
+        <button id="SigandiVertical" label="Garis Vertikal (Ctrl+F8)" imageMso="BorderLeft" onAction="RibbonVertical" keytip="V" screentip="Garis Vertikal (Ctrl+F8)" />
+        <button id="SigandiFill" label="Isi ---- di Luar Tabel (Ctrl+F9)" supertip="Mengisi ujung baris, paragraf kosong, serta sisi kiri dan kanan judul di dalam area isi. Semua pengisi mendatar tetap hitam." imageMso="BorderBottom" onAction="RibbonFill" keytip="H" screentip="Isi ---- di Luar Tabel (Ctrl+F9)" />
+        <button id="SigandiRefresh" label="Perbarui Garis (Ctrl+F10)" imageMso="RefreshAll" onAction="RibbonRefresh" supertip="Klik setelah mengedit isi dokumen agar posisi garis mengikuti tata letak terbaru." keytip="R" screentip="Perbarui Garis (Ctrl+F10)" />
+        <button id="SigandiCancel" label="Batalkan Proses" imageMso="Cancel" onAction="RibbonCancel" />
+      </group>
+      <group id="SigandiCaps" label="Penutup Garis (pt)">
+        <checkBox id="SigandiCross" label="Bersilangan" getPressed="RibbonCrossPressed" onAction="RibbonCrossChanged" />
+        <dropDown id="SigandiCapStyle" label="Kemiringan" onAction="RibbonCapPreset" getSelectedItemIndex="RibbonCapPresetIndex">
+          <item id="SigandiLow" label="Landai" /><item id="SigandiMedium" label="Sedang" />
+          <item id="SigandiHigh" label="Tinggi" /><item id="SigandiCustom" label="Kustom" />
+        </dropDown>
+        <editBox id="SigandiTopDX" label="Panjang atas" sizeString="000.00" getText="RibbonCapText" onChange="RibbonCapChanged" />
+        <editBox id="SigandiTopDY" label="Miring atas" sizeString="000.00" getText="RibbonCapText" onChange="RibbonCapChanged" />
+        <editBox id="SigandiBottomDX" label="Panjang bawah" sizeString="000.00" getText="RibbonCapText" onChange="RibbonCapChanged" />
+        <editBox id="SigandiBottomDY" label="Miring bawah" sizeString="000.00" getText="RibbonCapText" onChange="RibbonCapChanged" />
+        <button id="SigandiCapApply" label="Terapkan Penutup" imageMso="RefreshAll" onAction="RibbonCapApply" supertip="Memperbarui penutup yang sudah ada tanpa menghitung ulang semua baris. Setelah teks diubah, gunakan Perbarui Garis." />
+      </group>
+      <group id="SigandiPageLicense" label="Halaman">
+        <menu id="SigandiPageMenu" label="Halaman Akta" size="large" imageMso="PageSetupDialog">
+          <button id="SigandiPageSetup" label="Atur Margin dan Kertas" onAction="RibbonPageSetup" />
+          <button id="SigandiPageSave" label="Simpan Preset Kantor" onAction="RibbonSavePagePreset" />
+          <button id="SigandiPageApply" label="Preset ke Bagian Aktif" onAction="RibbonApplyPagePreset" />
+          <button id="SigandiPageApplyAll" label="Preset ke Seluruh Dokumen" onAction="RibbonApplyPagePreset" />
+          <button id="SigandiPageHelp" label="Rujukan Margin Akta" onAction="RibbonMarginHelp" />
+        </menu>
+</group>
+      <group id="SigandiOutput" label="Hasil">
+        <button id="SigandiPDF" label="Simpan PDF (Ctrl+F11)" size="large" imageMso="FileSaveAsPdfOrXps" onAction="RibbonPDF" keytip="P" screentip="Simpan PDF (Ctrl+F11)" />
+        <button id="SigandiRemove" label="Hapus Garis SIMANIS" imageMso="Clear" onAction="RibbonRemove" />
+        <button id="SigandiHelp" label="Panduan / Versi Preview" imageMso="Help" onAction="RibbonHelp" />
+      </group>
+    </tab>
+  </tabs></ribbon>
+</customUI>

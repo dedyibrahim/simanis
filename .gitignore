@@ -81,3 +81,10 @@ bothWA/.wwebjs_auth/
 bothWA/node_modules/
 bothWA/sessions/
 bothWA/whatsapp-session/
+
+# Desktop generated artifacts
+/desktop/dist/
+/desktop/output/
+/desktop/tmp/
+/desktop/**/__pycache__/
+/desktop/*.spec.bak
