@@ -1,9 +1,9 @@
-SIMANIS Desktop 1.5.2 / Word 0.5.2 - edisi mandiri
+SIMANIS Desktop 1.5.3 / Word 0.5.3 - installer gabungan
 
-Desktop dan fitur garis Word langsung digunakan tanpa lisensi, aktivasi, secret atau internet.
-Ekstrak paket desktop dan jalankan SIMANIS.exe. Gunakan Buka PDF / Buka Word, periksa garis, lalu simpan PDF.
-Untuk add-in Word opsional, tutup Word dan jalankan Word/Install-SIMANIS-Word.cmd. Pengaturan keamanan macro tidak diubah.
-Di Word gunakan tab SIMANIS: tandai area isi, buat/perbarui garis lalu simpan PDF.
-Penghadap / Transaksi PPAT memerlukan login akun SIMANIS, berbeda dari aktivasi aplikasi. Alamat server dapat diatur.
-API produksi tersedia di http://192.168.0.12:8000/api untuk jaringan kantor.
-Lihat PANDUAN.md untuk akses data, pointing server dan sertifikat HTTPS.
+Tutup Word lalu jalankan SIMANIS_Setup_v1.5.3.exe. Desktop dan add-in Word terpasang sekaligus.
+Buka Word > SIMANIS > Pekerjaan / Data Draf, login akun SIMANIS dan pilih Pekerjaan Saya.
+Server kantor sudah terisi: http://192.168.0.12:8000/api. Gunakan LAN kantor tepercaya.
+Asisten hanya dapat mengambil data pekerjaan miliknya; Admin/Super Admin dapat melihat semua.
+Pilih pekerjaan, tinjau field dan masukkan ke draf. Bukan pembuatan redaksi hukum otomatis.
+Tidak ada aktivasi lisensi. Login hanya diperlukan untuk akses data kantor.
+Installer tidak mengubah keamanan macro Office atau menyimpan password/token.

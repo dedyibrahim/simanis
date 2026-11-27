@@ -145,7 +145,7 @@ class DataPicker:
         self.results, self.fields = [], []
         self.busy = False
         self.pending = queue.Queue()
-        root.title("SIMANIS | Data penghadap dan transaksi PPAT")
+        root.title("SIMANIS | Pekerjaan operasional untuk draf Word")
         root.geometry("1080x780"); root.minsize(860, 620)
         ttk.Style(root).configure("TButton", padding=(10, 7))
         container = ttk.Frame(root, padding=18); container.pack(fill="both", expand=True)
@@ -170,8 +170,8 @@ class DataPicker:
         ttk.Button(self.login_frame, text="Login / Verifikasi OTP", command=self.login).grid(row=5, column=1, sticky="e", pady=6)
         self.content = ttk.Frame(container)
         search = ttk.Frame(self.content); search.pack(fill="x", pady=(8, 10))
-        self.mode, self.query = tk.StringVar(value="Penghadap"), tk.StringVar()
-        self.mode_box = ttk.Combobox(search, textvariable=self.mode, values=["Penghadap", "Transaksi PPAT"], state="readonly", width=19)
+        self.mode, self.query = tk.StringVar(value="Pekerjaan Saya"), tk.StringVar()
+        self.mode_box = ttk.Combobox(search, textvariable=self.mode, values=["Pekerjaan Saya", "Penghadap", "Transaksi PPAT"], state="readonly", width=19)
         self.mode_box.pack(side="left", padx=(0, 8)); self.mode_box.bind("<<ComboboxSelected>>", lambda event: self.search())
         query_entry = ttk.Entry(search, textvariable=self.query); query_entry.pack(side="left", fill="x", expand=True)
         query_entry.bind("<Return>", lambda event: self.search())
@@ -247,7 +247,7 @@ class DataPicker:
         if self.busy or not self.api or not self.api.token: return
         self.loaded_mode = self.mode.get()
         self.fields = []; self.tree.delete(*self.tree.get_children()); self.preview()
-        path = "/auth/word/clients" if self.loaded_mode == "Penghadap" else "/auth/word/ppat"
+        path = {"Pekerjaan Saya": "/auth/word/jobs", "Penghadap": "/auth/word/clients", "Transaksi PPAT": "/auth/word/ppat"}[self.loaded_mode]
         query = self.query.get().strip()[:100]
         def done(rows):
             self.results = rows; self.list.delete(0, "end")
@@ -259,7 +259,12 @@ class DataPicker:
         if self.busy or not self.list.curselection(): return
         row = self.results[self.list.curselection()[0]]
         self.fields = []; self.tree.delete(*self.tree.get_children()); self.preview()
-        path = ("/auth/word/clients/" + parse.quote(str(row["id_client"]), safe="")) if self.loaded_mode == "Penghadap" else ("/auth/word/ppat/" + row["source"] + "/" + parse.quote(str(row["id"]), safe=""))
+        if self.loaded_mode == "Pekerjaan Saya":
+            path = "/auth/word/jobs/" + parse.quote(str(row["id"]), safe="")
+        elif self.loaded_mode == "Penghadap":
+            path = "/auth/word/clients/" + parse.quote(str(row["id_client"]), safe="")
+        else:
+            path = "/auth/word/ppat/" + row["source"] + "/" + parse.quote(str(row["id"]), safe="")
         def done(data):
             self.fields = data["fields"]
             for i, field in enumerate(self.fields): self.tree.insert("", "end", iid=str(i), values=(field["label"], field["value"]))

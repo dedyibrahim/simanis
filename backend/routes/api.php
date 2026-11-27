@@ -67,6 +67,8 @@ Route::prefix('auth')->group(function () {
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::prefix('auth/word')->middleware('throttle:120,1')->group(function () {
         Route::delete('/session', [\App\Http\Controllers\WordDataController::class, 'closeSession']);
+        Route::get('/jobs', [\App\Http\Controllers\WordDataController::class, 'jobs']);
+        Route::get('/jobs/{id}', [\App\Http\Controllers\WordDataController::class, 'job']);
         Route::get('/clients', [\App\Http\Controllers\WordDataController::class, 'clients']);
         Route::get('/clients/{id}', [\App\Http\Controllers\WordDataController::class, 'client']);
         Route::get('/ppat', [\App\Http\Controllers\WordDataController::class, 'ppat']);

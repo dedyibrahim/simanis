@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import win32com.client
 
 root = Path(__file__).resolve().parents[1]
-target = root / "output/word-addin/SIMANIS-Word-0.5.2-preview.dotm"
+target = root / "output/word-addin/SIMANIS-Word-0.5.3-preview.dotm"
 with zipfile.ZipFile(target) as archive:
     ribbon = ET.fromstring(archive.read("customUI/customUI.xml"))
     assert any(e.attrib.get("label") == "SIMANIS" for e in ribbon.iter())

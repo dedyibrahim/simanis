@@ -31,7 +31,7 @@ begin
        RegQueryStringValue(HKCU, 'Software\Microsoft\Office\15.0\Word\Options', 'STARTUP-PATH', Custom) or
        RegQueryStringValue(HKCU, 'Software\Microsoft\Office\14.0\Word\Options', 'STARTUP-PATH', Custom) then begin
       Custom := ExpandEnvironment(RemoveQuotes(Trim(Custom)));
-      if (Length(Custom) > 2) and ((Custom[2] = ':') or (Copy(Custom, 1, 2) = '\\')) then
+      if (Length(Custom) > 2) and (Custom[2] = ':') then
         WordStartup := Custom;
     end;
 #endif
@@ -59,10 +59,11 @@ var
 begin
   Folder := AddBackslash(ExpandConstant('{app}\WordAddin\Backup')) +
     GetDateTimeString('yyyymmdd-hhnnss', '-', ':');
-  if FindFirst(AddBackslash(GetWordStartup('')) + 'SIGANDI-Word*.dotm', Find) then begin
+  if FindFirst(AddBackslash(GetWordStartup('')) + '*.dotm', Find) then begin
     try
       repeat
-        if (Find.Attributes and FILE_ATTRIBUTE_DIRECTORY) = 0 then begin
+        if ((Find.Attributes and FILE_ATTRIBUTE_DIRECTORY) = 0) and
+          ((CompareText(Find.Name, 'SIMANIS-Word.dotm') = 0) or (CompareText(Copy(Find.Name, 1, 12), 'SIGANDI-Word') = 0)) then begin
           Source := AddBackslash(GetWordStartup('')) + Find.Name;
           if not ForceDirectories(Folder) then
             RaiseException('Folder cadangan add-in Word tidak dapat dibuat.');
@@ -94,7 +95,7 @@ begin
       RaiseException('Add-in Word belum terpasang. Jalankan ulang installer.');
     if CompareText(GetSHA256OfFile(Installed), '{#WordAddinSHA}') <> 0 then
       RaiseException('Verifikasi add-in Word yang terpasang gagal.');
-    Details := 'SIMANIS Word 0.5.0' + #13#10 +
+    Details := 'SIMANIS Word 0.5.3' + #13#10 +
       'Startup=' + GetWordStartup('') + #13#10 +
       'SHA256=' + GetSHA256OfFile(Installed) + #13#10 +
       'Office macro security unchanged' + #13#10;
@@ -120,5 +121,7 @@ begin
   Result := MemoDirInfo + NewLine + NewLine +
     'Add-in Microsoft Word (desktop Windows):' + NewLine + Space +
     'SIMANIS dipasang otomatis dan dimuat setiap Word dibuka.' + NewLine + Space +
+    'Server data: http://192.168.0.12:8000/api (LAN kantor).' + NewLine + Space +
+    'Login akun SIMANIS, pilih Pekerjaan Saya untuk mengisi draf.' + NewLine + Space +
     'Simpan dokumen dan tutup Word sebelum melanjutkan.' + NewLine + NewLine + MemoTasksInfo;
 end;

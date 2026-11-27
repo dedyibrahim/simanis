@@ -90,6 +90,35 @@ class WordDataTest extends TestCase
         }
     }
 
+    public function test_jobs_include_all_work_types_and_enforce_owner_for_list_search_and_detail(): void
+    {
+        $controller = new WordDataController();
+        foreach (['notaris', 'legalisasi', 'waarmerking'] as $type) {
+            $id = DB::table('work_order_items')->insertGetId(['id_order' => 'O1', 'type' => $type,
+                'title' => 'Draf '.$type, 'id_user' => 'U1', 'details' => json_encode(['jenis_akta' => 'A1',
+                    'judul_surat' => 'Surat contoh', 'keterangan' => 'Catatan draf', 'secret' => 'JANGAN KIRIM']), 'created_at' => now()]);
+            DB::table('work_order_participants')->insert(['work_order_item_id' => $id, 'id_client' => 'C1',
+                'id_mewakili' => 'C3', 'status_kedudukan' => 'Direktur']);
+            $data = $controller->job($this->request(), (string) $id)->getData(true)['data'];
+            $fields = array_column($data['fields'], 'value', 'key');
+            $this->assertSame('Transaksi', $fields['pesanan']);
+            $this->assertSame('Direktur', $fields['penghadap_1.kedudukan']);
+            $this->assertSame('Perseroan diwakili', $fields['penghadap_1.mewakili.nama_client']);
+            $this->assertSame('Surat contoh', $fields['judul_surat']);
+            $this->assertStringNotContainsString('JANGAN KIRIM', json_encode($data));
+        }
+        $this->assertCount(4, $controller->jobs($this->request())->getData(true)['data']);
+        $this->assertCount(5, $controller->jobs($this->request('Admin'))->getData(true)['data']);
+        $request = $this->request(); $request->query->set('q', 'Client lain');
+        $this->assertCount(0, $controller->jobs($request)->getData(true)['data']);
+        $ppat = $controller->job($this->request(), '1')->getData(true)['data'];
+        $this->assertContains('125000000', array_column($ppat['fields'], 'value'));
+        try { $controller->job($this->request(), '2'); $this->fail('Another owner job must be denied'); }
+        catch (HttpException $e) { $this->assertSame(404, $e->getStatusCode()); }
+        $this->getJson('/api/auth/word/jobs')->assertStatus(401);
+        $this->getJson('/api/auth/word/jobs/1')->assertStatus(401);
+    }
+
     public function test_admin_can_read_all_and_arsip_cannot_use_word_data(): void
     {
         $controller = new WordDataController();

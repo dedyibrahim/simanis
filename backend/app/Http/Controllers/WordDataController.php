@@ -104,6 +104,55 @@ class WordDataController extends Controller
         $this->field($fields, 'judul', 'Pekerjaan', $title);
         $this->field($fields, 'jenis_akta', 'Jenis akta', $actId ? DB::table('daftar_aktas')->where('id_akta', $actId)->value('nama_akta') : '');
         foreach (self::PPAT as $key => $label) $this->field($fields, $key, $label, $details[$key] ?? null);
+        $this->participantFields($fields, $participants);
+        return $this->result(['title' => $title, 'fields' => $fields]);
+    }
+
+    public function jobs(Request $request)
+    {
+        $actor = $this->actor($request);
+        $q = $this->search($request);
+        $rows = DB::table('work_order_items as w')->join('orders as o', 'o.id_order', '=', 'w.id_order')
+            ->when(!$this->admin($actor), fn ($query) => $query->where('w.id_user', $actor->id_user))
+            ->when($q !== '', fn ($query) => $query->where(function ($query) use ($q) {
+                $query->where('w.title', 'like', '%'.$q.'%')->orWhere('o.nama_pesanan', 'like', '%'.$q.'%')
+                    ->orWhereExists(fn ($p) => $p->selectRaw('1')->from('work_order_participants as p')
+                        ->join('data_clients as c', 'c.id_client', '=', 'p.id_client')
+                        ->whereColumn('p.work_order_item_id', 'w.id')->where('c.nama_client', 'like', '%'.$q.'%'));
+            }))->orderByDesc('w.created_at')->orderByDesc('w.id')->limit(50)
+            ->get(['w.id', 'w.type', 'w.title', 'o.nama_pesanan'])
+            ->map(fn ($w) => ['id' => $w->id, 'type' => $w->type,
+                'title' => strtoupper($w->type).' | '.$w->nama_pesanan.' / '.$w->title]);
+        return $this->result($rows);
+    }
+
+    public function job(Request $request, string $id)
+    {
+        $actor = $this->actor($request);
+        $item = DB::table('work_order_items')->where('id', $id)
+            ->when(!$this->admin($actor), fn ($query) => $query->where('id_user', $actor->id_user))->first();
+        abort_unless($item, 404);
+        $fields = [];
+        $this->field($fields, 'pesanan', 'Pesanan', DB::table('orders')->where('id_order', $item->id_order)->value('nama_pesanan'));
+        $this->field($fields, 'jenis_pekerjaan', 'Jenis pekerjaan', strtoupper($item->type));
+        if ($item->type === 'ppat') {
+            $transaction = $this->transaction($request, 'work', $id)->getData(true)['data'];
+            return $this->result(['title' => $item->title, 'fields' => array_merge($fields, $transaction['fields'])]);
+        }
+        $details = json_decode((string) $item->details, true) ?: [];
+        $this->field($fields, 'judul', 'Pekerjaan', $item->title);
+        $actId = $details['jenis_akta'] ?? null;
+        $this->field($fields, 'jenis_akta', 'Jenis akta', $actId ? DB::table('daftar_aktas')->where('id_akta', $actId)->value('nama_akta') : '');
+        foreach (['judul_surat' => 'Judul surat', 'keterangan' => 'Keterangan'] as $key => $label) {
+            $this->field($fields, $key, $label, $details[$key] ?? null);
+        }
+        $participants = DB::table('work_order_participants')->where('work_order_item_id', $id)->orderBy('id')->get();
+        $this->participantFields($fields, $participants);
+        return $this->result(['title' => $item->title, 'fields' => $fields]);
+    }
+
+    private function participantFields(array &$fields, $participants): void
+    {
         foreach ($participants as $i => $participant) {
             $client = DataClient::find($participant->id_client);
             if (!$client) continue;
@@ -120,7 +169,6 @@ class WordDataController extends Controller
                 }
             }
         }
-        return $this->result(['title' => $title, 'fields' => $fields]);
     }
 
     public function closeSession(Request $request)

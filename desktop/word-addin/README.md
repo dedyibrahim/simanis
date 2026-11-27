@@ -1,4 +1,4 @@
-# SIMANIS Word 0.5.2 Preview
+# SIMANIS Word 0.5.3 Preview
 
 Fitur garis bekerja langsung tanpa desktop berlisensi atau server aktivasi. Tombol Penghadap / Transaksi PPAT memakai helper SIMANIS Word Data dan login akun SIMANIS. Alamat API HTTPS dan CA internal dapat diatur dari dialog login.
 

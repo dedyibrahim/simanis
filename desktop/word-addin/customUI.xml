@@ -3,7 +3,7 @@
   <ribbon><tabs>
     <tab id="SigandiTab" label="SIMANIS" keytip="SG">
       <group id="SimanisData" label="Data SIMANIS">
-        <button id="SimanisPickData" label="Penghadap / Transaksi PPAT" size="large" imageMso="AddressBook" onAction="RibbonSimanisData" screentip="Pilih data dari SIMANIS" supertip="Login SIMANIS, cari penghadap atau transaksi PPAT, tinjau field lalu masukkan ke posisi kursor. Teks yang sudah ada dipertahankan." />
+        <button id="SimanisPickData" label="Pekerjaan / Data Draf" size="large" imageMso="AddressBook" onAction="RibbonSimanisData" screentip="Pilih data dari SIMANIS" supertip="Login SIMANIS, pilih pekerjaan operasional, penghadap atau transaksi PPAT, tinjau field lalu masukkan ke posisi kursor. Teks yang sudah ada dipertahankan." />
       </group>
       <group id="SigandiArea" label="Area Akta">
         <button id="SigandiMark" label="Tandai Area Isi (Ctrl+F7)" size="large" imageMso="SelectAll" onAction="RibbonMark" screentip="Tandai Area Isi (Ctrl+F7)" supertip="Pilih isi akta tanpa judul dan area tanda tangan. Garis hanya dibuat dalam area yang ditandai." keytip="M" />

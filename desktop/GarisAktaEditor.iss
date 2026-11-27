@@ -2,9 +2,9 @@
 ; Build with: ISCC GarisAktaEditor.iss
 
 #define AppName "SIMANIS"
-#define AppVersion "1.5.2"
+#define AppVersion "1.5.3"
 #ifndef AppSourceDir
-  #define AppSourceDir "dist\SIMANIS-v1.5.2"
+  #define AppSourceDir "dist\SIMANIS-v1.5.3"
 #endif
 #define AppPublisher "SIMANIS"
 #define AppExeName "SIMANIS.exe"
@@ -22,18 +22,17 @@ AppId={#AppId}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
-AppPublisherURL=https://radina.net
-AppSupportURL=https://radina.net
-AppUpdatesURL=https://radina.net
-DefaultDirName={localappdata}\Programs\GarisAktaEditor
+AppPublisherURL=http://192.168.0.12
+AppSupportURL=http://192.168.0.12
+AppUpdatesURL=http://192.168.0.12
+DefaultDirName={localappdata}\Programs\SIMANIS
 DefaultGroupName=SIMANIS
 DisableProgramGroupPage=yes
 AllowNoIcons=yes
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 #ifdef IntegrationTest
-OutputBaseFilename=SIGANDI_Installer_Integration_Test
-OutputDir=tmp\installer-word-test-1.5.2
+OutputBaseFilename=SIMANIS_Installer_Integration_Test
+OutputDir=tmp\installer-word-test-1.5.3
 Uninstallable=no
 CreateUninstallRegKey=no
 UsePreviousAppDir=no
@@ -57,7 +56,7 @@ VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} Installer
 VersionInfoProductName={#AppName}
 VersionInfoProductVersion={#AppVersion}
-CloseApplications=yes
+CloseApplications=no
 RestartApplications=no
 
 [Languages]
