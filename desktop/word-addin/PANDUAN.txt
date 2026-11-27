@@ -1,9 +1,9 @@
-SIMANIS Desktop 1.5.3 / Word 0.5.3 - installer gabungan
+SIMANIS Desktop 1.6.0 / Word 0.6.0
 
-Tutup Word lalu jalankan SIMANIS_Setup_v1.5.3.exe. Desktop dan add-in Word terpasang sekaligus.
-Buka Word > SIMANIS > Pekerjaan / Data Draf, login akun SIMANIS dan pilih Pekerjaan Saya.
-Server kantor sudah terisi: http://192.168.0.12:8000/api. Gunakan LAN kantor tepercaya.
-Asisten hanya dapat mengambil data pekerjaan miliknya; Admin/Super Admin dapat melihat semua.
-Pilih pekerjaan, tinjau field dan masukkan ke draf. Bukan pembuatan redaksi hukum otomatis.
-Tidak ada aktivasi lisensi. Login hanya diperlukan untuk akses data kantor.
-Installer tidak mengubah keamanan macro Office atau menyimpan password/token.
+Tutup Word lalu jalankan SIMANIS_Setup_v1.6.0.exe. Desktop dan panel Word dipasang sekaligus.
+Buka Word > SIMANIS > Pekerjaan / Data Draf. Panel tampil di dalam Word.
+Login sekali dengan Ingat login di akun Windows ini; token tersimpan terenkripsi DPAPI, bukan password.
+Pilih pekerjaan, centang field dan Masukkan ke posisi kursor. Panel tidak menutup sehingga Anda dapat memasukkan data lagi.
+Alamat kantor sudah terisi: http://192.168.0.12:8000/api. Hanya LAN kantor tepercaya.
+Keluar menghapus sesi lokal dan mencabut token server jika terhubung. Sesi yang diingat berlaku maksimum 30 hari atau sampai server menolaknya.
+Hak akses tetap sesuai pemilik pekerjaan. Tidak ada aktivasi lisensi atau perubahan keamanan macro Office.

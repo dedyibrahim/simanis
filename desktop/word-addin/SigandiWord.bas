@@ -1589,80 +1589,14 @@ Public Sub RibbonSimanisData(ByVal control As Object)
     SimanisPickData
 End Sub
 
-Private Function SimanisDataHelper() As String
-    Dim shell As Object, fso As Object, path As String
-    Set shell = CreateObject("WScript.Shell")
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    On Error Resume Next
-    path = shell.RegRead("HKEY_CURRENT_USER\Software\SIMANIS\WordDataExe")
-    On Error GoTo 0
-    If Not fso.FileExists(path) Then path = Environ$("LOCALAPPDATA") & "\Programs\SIMANIS\SIMANIS-WordData.exe"
-    If Not fso.FileExists(path) Then Exit Function
-    If Left$(path, 2) = "\\" Or InStr(path, Chr(34)) > 0 Then Exit Function
-    SimanisDataHelper = path
-End Function
-
 Public Sub SimanisPickData()
-    Dim helper As String, shell As Object, fso As Object, process As Object, stream As Object
-    Dim path As String, text As String, original As String, started As Date
-    Dim doc As Document, target As Range, recording As Boolean
+    Dim panel As Object
     On Error GoTo Failed
-    If mBusy Then Exit Sub
     If Documents.Count = 0 Then Exit Sub
-    Set doc = ActiveDocument
-    If doc.ReadOnly Or doc.ProtectionType <> wdNoProtection Then
-        MsgBox "Dokumen terkunci atau hanya baca. Buka dokumen yang dapat diedit.", vbInformation, "SIMANIS"
-        Exit Sub
-    End If
-    helper = SimanisDataHelper()
-    If Len(helper) = 0 Then
-        MsgBox "Pasang helper SIMANIS Word Data terbaru terlebih dahulu.", vbInformation, "SIMANIS"
-        Exit Sub
-    End If
-    Set target = Selection.Range.Duplicate
-    target.Collapse wdCollapseEnd
-    original = doc.Content.Text
-    Set shell = CreateObject("WScript.Shell")
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    path = fso.BuildPath(fso.GetSpecialFolder(2), fso.GetTempName)
-    mBusy = True
-    Set process = shell.Exec(QuoteArg(helper) & " --output " & QuoteArg(path))
-    started = Now
-    Do While process.Status = 0
-        DoEvents
-        Sleep 50
-        If DateDiff("n", started, Now) > 30 Then
-            process.Terminate
-            Err.Raise vbObjectError + 230, , "Pemilihan data melewati 30 menit. Coba lagi."
-        End If
-    Loop
-    If process.ExitCode <> 0 Then Err.Raise vbObjectError + 231, , "Helper SIMANIS berhenti sebelum selesai."
-    If Not fso.FileExists(path) Then GoTo Finished
-    If fso.GetFile(path).Size > 250000 Then Err.Raise vbObjectError + 232, , "Pilihan data terlalu panjang."
-    Set stream = fso.OpenTextFile(path, 1, False, -1)
-    text = stream.ReadAll
-    stream.Close
-    fso.DeleteFile path, True
-    If Len(Trim$(text)) = 0 Then GoTo Finished
-    If Documents.Count = 0 Then Err.Raise vbObjectError + 233, , "Dokumen tujuan telah ditutup."
-    If Not (ActiveDocument Is doc) Then Err.Raise vbObjectError + 234, , "Dokumen aktif berubah. Pilih kembali data dari dokumen tujuan."
-    If doc.Content.Text <> original Then Err.Raise vbObjectError + 235, , "Dokumen berubah selama pemilihan. Pilih kembali posisi kursor dan ulangi."
-    Application.UndoRecord.StartCustomRecord "Masukkan data SIMANIS"
-    recording = True
-    target.InsertAfter Replace(Replace(text, vbCrLf, vbCr), vbLf, vbCr)
-    target.Collapse wdCollapseEnd
-    target.Select
-    Application.UndoRecord.EndCustomRecord
-    recording = False
-Finished:
-    On Error Resume Next
-    If recording Then Application.UndoRecord.EndCustomRecord
-    If Len(path) > 0 Then
-        If fso.FileExists(path) Then fso.DeleteFile path, True
-    End If
-    mBusy = False
+    Set panel = Application.COMAddIns("SIMANIS.Word")
+    If Not panel.Connect Then panel.Connect = True
+    panel.Object.ShowPane
     Exit Sub
 Failed:
-    MsgBox Err.Description, vbExclamation, "SIMANIS | Data Word"
-    Resume Finished
+    MsgBox "Panel SIMANIS belum dapat dibuka. Pasang SIMANIS Setup 1.6.0 dan buka ulang Word." & vbCrLf & Err.Description, vbInformation, "SIMANIS"
 End Sub

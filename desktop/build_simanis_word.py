@@ -8,15 +8,18 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.5.3-preview"
+VERSION = "0.6.0-preview"
 def main():
     subprocess.run([sys.executable, str(ROOT / "word-addin/build_addin.py")], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile", "--windowed",
         "--name", "SIMANIS-WordData", "--distpath", "output/word-addin/installer",
         "--workpath", "tmp/data-build", "--specpath", "tmp", "simanis_data.py"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, str(ROOT / "word-pane/build.py")], cwd=ROOT, check=True)
     package = ROOT / "output" / ("SIMANIS-Word-" + VERSION)
     package.mkdir(parents=True, exist_ok=True)
     inputs = {
+        "Simanis.Word.dll": ROOT / "output/word-addin/installer/Simanis.Word.dll",
+        "Register-SIMANIS-WordPane.ps1": ROOT / "word-pane/Register-SIMANIS-WordPane.ps1",
         "SIMANIS-Word.dotm": ROOT / "output/word-addin/installer/SIMANIS-Word.dotm",
         "SIMANIS-WordData.exe": ROOT / "output/word-addin/installer/SIMANIS-WordData.exe",
         "Install-SIMANIS-Word.ps1": ROOT / "word-addin/Install-SIMANIS-Word.ps1",

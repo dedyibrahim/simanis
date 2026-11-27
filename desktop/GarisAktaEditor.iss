@@ -2,9 +2,9 @@
 ; Build with: ISCC GarisAktaEditor.iss
 
 #define AppName "SIMANIS"
-#define AppVersion "1.5.3"
+#define AppVersion "1.6.0"
 #ifndef AppSourceDir
-  #define AppSourceDir "dist\SIMANIS-v1.5.3"
+  #define AppSourceDir "dist\SIMANIS-v1.6.0"
 #endif
 #define AppPublisher "SIMANIS"
 #define AppExeName "SIMANIS.exe"
@@ -32,7 +32,7 @@ AllowNoIcons=yes
 PrivilegesRequired=lowest
 #ifdef IntegrationTest
 OutputBaseFilename=SIMANIS_Installer_Integration_Test
-OutputDir=tmp\installer-word-test-1.5.3
+OutputDir=tmp\installer-word-test-1.6.0
 Uninstallable=no
 CreateUninstallRegKey=no
 UsePreviousAppDir=no
@@ -73,6 +73,10 @@ Source: "word-addin\PANDUAN.txt"; DestDir: "{app}\WordAddin"; Flags: ignoreversi
 Source: "word-addin\PANDUAN.txt"; DestDir: "{app}"; DestName: "Panduan SIMANIS.txt"; Flags: ignoreversion
 
 Source: "output\word-addin\installer\SIMANIS-WordData.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+Source: "output\word-addin\installer\Simanis.Word.dll"; DestDir: "{app}\WordAddin"; Flags: ignoreversion
+
+#include "word-pane\registry.iss"
 
 [Registry]
 #ifndef IntegrationTest

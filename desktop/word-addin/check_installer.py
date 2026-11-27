@@ -9,11 +9,11 @@ import subprocess
 import winreg
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "tmp/installer-word-test-1.5.3" / datetime.now().strftime("run-%Y%m%d-%H%M%S")
+OUT = ROOT / "tmp/installer-word-test-1.6.0" / datetime.now().strftime("run-%Y%m%d-%H%M%S")
 INSTALL = OUT / "install"
 STARTUP = OUT / "startup"
 TEMPLATE = ROOT / "output/word-addin/installer/SIMANIS-Word.dotm"
-EXE = ROOT / "dist/SIMANIS-v1.5.3/SIMANIS.exe"
+EXE = ROOT / "dist/SIMANIS-v1.6.0/SIMANIS.exe"
 HELPER = ROOT / "output/word-addin/installer/SIMANIS-WordData.exe"
 
 def sha(path):
@@ -47,6 +47,7 @@ def main():
         assert result.returncode == 0, result.returncode
         assert sha(INSTALL / "SIMANIS.exe") == sha(EXE)
         assert sha(INSTALL / "SIMANIS-WordData.exe") == sha(HELPER)
+        assert sha(INSTALL / "WordAddin/Simanis.Word.dll") == sha(ROOT / "output/word-addin/installer/Simanis.Word.dll")
         assert sha(STARTUP / "SIMANIS-Word.dotm") == sha(TEMPLATE)
         assert sha(INSTALL / "WordAddin/SIMANIS-Word.dotm") == sha(TEMPLATE)
         assert not legacy.exists()

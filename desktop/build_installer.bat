@@ -3,7 +3,7 @@ setlocal EnableExtensions
 
 cd /d "%~dp0"
 
-set "EXE_PATH=dist\SIMANIS-v1.5.3\SIMANIS.exe"
+set "EXE_PATH=dist\SIMANIS-v1.6.0\SIMANIS.exe"
 set "ISS_FILE=GarisAktaEditor.iss"
 
 echo.
@@ -44,6 +44,8 @@ if errorlevel 1 (
   echo [ERROR] Build add-in Word gagal.
   goto :fail
 )
+python word-pane\build.py
+if errorlevel 1 goto :fail
 "%ISCC_PATH%" "%ISS_FILE%"
 if errorlevel 1 (
   echo [ERROR] Build installer gagal.
@@ -53,7 +55,7 @@ if errorlevel 1 (
 echo.
 echo [OK] Installer berhasil dibuat.
 echo Cek folder dist untuk file:
-echo SIMANIS_Setup_v1.5.3.exe
+echo SIMANIS_Setup_v1.6.0.exe
 echo.
 pause
 exit /b 0

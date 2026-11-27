@@ -95,7 +95,7 @@ begin
       RaiseException('Add-in Word belum terpasang. Jalankan ulang installer.');
     if CompareText(GetSHA256OfFile(Installed), '{#WordAddinSHA}') <> 0 then
       RaiseException('Verifikasi add-in Word yang terpasang gagal.');
-    Details := 'SIMANIS Word 0.5.3' + #13#10 +
+    Details := 'SIMANIS Word 0.6.0' + #13#10 +
       'Startup=' + GetWordStartup('') + #13#10 +
       'SHA256=' + GetSHA256OfFile(Installed) + #13#10 +
       'Office macro security unchanged' + #13#10;
@@ -124,4 +124,11 @@ begin
     'Server data: http://192.168.0.12:8000/api (LAN kantor).' + NewLine + Space +
     'Login akun SIMANIS, pilih Pekerjaan Saya untuk mengisi draf.' + NewLine + Space +
     'Simpan dokumen dan tutup Word sebelum melanjutkan.' + NewLine + NewLine + MemoTasksInfo;
+end;
+
+function GetPaneAssemblyUri(Param: String): String;
+begin
+  Result := ExpandConstant('{app}\WordAddin\Simanis.Word.dll');
+  StringChangeEx(Result, '\', '/', True);
+  Result := 'file:///' + Result;
 end;

@@ -1,10 +1,14 @@
-# SIMANIS mandiri — Desktop 1.5.3 / Word 0.5.3
+# SIMANIS 1.6.0 ? panel Word dan sesi tersimpan
+
+Installer memasang desktop serta panel pekerjaan di dalam Word. Login dapat diingat secara terenkripsi untuk akun Windows; data bisa dimasukkan berulang kali tanpa menutup panel. Lihat [panduan Word](word-addin/SIMANIS-DATA.md).
+
+# SIMANIS mandiri — Desktop 1.6.0 / Word 0.6.0
 
 Desktop dan fitur garis Word berjalan langsung tanpa aktivasi/lisensi, tanpa file .env atau pemeriksaan server lisensi. Login SIMANIS hanya untuk mengambil data penghadap/PPAT sesuai hak akun. ID macro/shape tetap kompatibel dengan dokumen lama.
 
 Build: `python build_simanis_desktop.py` menghasilkan paket desktop portable lengkap dengan Word opsional. `python build_simanis_word.py` membuat paket Word terpisah. API produksi: http://192.168.0.12:8000/api (HTTP LAN). Lihat `word-addin/SIMANIS-DATA.md`.
 
-Installer gabungan: `python build_simanis_installer.py --iscc C:/path/to/ISCC.exe` (Inno Setup 6.4+). Hasil: `dist/SIMANIS_Setup_v1.5.3.exe`. Installer memasang desktop, helper dan add-in Word sekaligus untuk akun saat ini, dengan default API kantor. Buka Word > SIMANIS > Pekerjaan / Data Draf > login > Pekerjaan Saya untuk memilih pekerjaan operasional.
+Installer gabungan: `python build_simanis_installer.py --iscc C:/path/to/ISCC.exe` (Inno Setup 6.4+). Hasil: `dist/SIMANIS_Setup_v1.6.0.exe`. Installer memasang desktop, helper dan add-in Word sekaligus untuk akun saat ini, dengan default API kantor. Buka Word > SIMANIS > Pekerjaan / Data Draf > login > Pekerjaan Saya untuk memilih pekerjaan operasional.
 
 ## Riwayat SIGANDI sebelum edisi mandiri
 

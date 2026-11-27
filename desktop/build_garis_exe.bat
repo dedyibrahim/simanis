@@ -4,7 +4,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 set "APP_NAME=SIMANIS"
-set "DIST_DIR=dist\SIMANIS-v1.5.3"
+set "DIST_DIR=dist\SIMANIS-v1.6.0"
 set "ENTRY=garis_editor.py"
 set "ICON=assets\app_icon.ico"
 set "SPLASH=assets\splash_small.png"
