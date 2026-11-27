@@ -22,7 +22,7 @@ def main():
     manifest = {"version": VERSION, "activation_required": False, "license_server": None,
         "simanis_login_required_for_data_only": True, "server_setup_included": False, "files": {}}
     for source in sorted(package.rglob("*")):
-        if source.is_file():
+        if source.is_file() and source != package / "manifest.json":
             manifest["files"][source.relative_to(package).as_posix()] = {
                 "bytes": source.stat().st_size, "sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
     (package / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
