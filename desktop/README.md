@@ -1,8 +1,8 @@
-# SIMANIS mandiri — Desktop 1.5.1 / Word 0.5.1
+# SIMANIS mandiri — Desktop 1.5.2 / Word 0.5.2
 
 Desktop dan fitur garis Word berjalan langsung tanpa aktivasi/lisensi, tanpa file .env atau pemeriksaan server lisensi. Login SIMANIS hanya untuk mengambil data penghadap/PPAT sesuai hak akun. ID macro/shape tetap kompatibel dengan dokumen lama.
 
-Build: `python build_simanis_desktop.py` menghasilkan paket desktop portable lengkap dengan Word opsional. `python build_simanis_word.py` membuat paket Word terpisah. Server data/HTTPS belum dipasang sesuai permintaan pengguna. Lihat `word-addin/SIMANIS-DATA.md`.
+Build: `python build_simanis_desktop.py` menghasilkan paket desktop portable lengkap dengan Word opsional. `python build_simanis_word.py` membuat paket Word terpisah. API produksi: http://192.168.0.12:8000/api (HTTP LAN). Lihat `word-addin/SIMANIS-DATA.md`.
 
 ## Riwayat SIGANDI sebelum edisi mandiri
 

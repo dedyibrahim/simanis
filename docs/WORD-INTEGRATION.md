@@ -1,6 +1,6 @@
-# SIMANIS Word Data — preview 0.5.1
+# SIMANIS Word Data — preview 0.5.2
 
-Tanggal: 27 November 2026. Aplikasi disiapkan lokal; API dan HTTPS produksi belum dipasang sesuai permintaan pengguna.
+Tanggal: 27 November 2026. Pengguna mengizinkan deploy API produksi melalui HTTP LAN; HTTPS tidak diwajibkan untuk IP privat kantor.
 
 ## Cara menggunakan
 
@@ -8,7 +8,7 @@ Tanggal: 27 November 2026. Aplikasi disiapkan lokal; API dan HTTPS produksi belu
 2. Simpan dokumen dan tutup Word. Jalankan Install-SIMANIS-Word.cmd (akun Windows Anda, tanpa administrator).
 3. Pemasang mencadangkan add-in SIGANDI/SIMANIS sebelumnya, menyalin template ke Startup Word, dan mendaftarkan helper di HKCU Software/SIMANIS/WordDataExe.
 4. Buka Word dan dokumen yang dapat diedit. Gunakan tab SIMANIS > Penghadap / Transaksi PPAT.
-5. Atur alamat API HTTPS. Default sementara: https://192.168.0.12:8443/api. IP/port bisa diganti. Setelah login berhasil, alamat API dan path sertifikat publik disimpan untuk pemakaian berikutnya; password/OTP/token tidak ikut disimpan.
+5. Atur alamat API. Default LAN: http://192.168.0.12:8000/api. IP/port bisa diganti. Setelah login berhasil, alamat API dan path sertifikat publik disimpan untuk pemakaian berikutnya; password/OTP/token tidak ikut disimpan.
 6. Jika server memakai CA internal, pilih file sertifikat publik PEM/CRT. Jangan pilih atau membagikan private key.
 7. Login akun SIMANIS; masukkan OTP WhatsApp jika akun mewajibkannya.
 8. Pilih Penghadap atau Transaksi PPAT, lalu cari nama client, nama pekerjaan/pesanan, nomor akta atau hak milik.
@@ -27,7 +27,7 @@ Ini penyisipan field berlabel/nilai, bukan pembuatan redaksi hukum atau penggant
 
 ## Keamanan dan kompatibilitas
 
-HTTPS wajib, sertifikat dan nama host/IP diperiksa. Tidak ada fallback HTTP atau verify=False; redirect tidak diikuti.
+HTTP diizinkan hanya untuk IP privat RFC1918 atau loopback sesuai instruksi pengguna. HTTP tidak terenkripsi: gunakan hanya LAN kantor tepercaya. HTTPS tetap didukung dengan pemeriksaan sertifikat dan nama host/IP; redirect tidak diikuti.
 Password, OTP dan bearer token tidak disimpan di disk/registry. Sesi dibuka saat login dan hanya token sesi tersebut dicabut saat helper ditutup.
 File hasil sementara hanya berisi pilihan pengguna dalam UTF-16, lalu dihapus setelah dibaca Word.
 Jika dokumen aktif atau teksnya berubah selama pemilihan, penyisipan dibatalkan. Dokumen terkunci/hanya baca ditolak.
@@ -46,27 +46,33 @@ Build desktop mandiri tidak membutuhkan atau menyertakan .env lisensi, secret, c
 - DELETE /api/auth/word/session (hanya token saat ini)
 Semua memakai auth:sanctum, throttle dan respons data no-store. Tidak membutuhkan perubahan skema.
 
-Sebelum dipakai kantor, pasang WordDataController.php dan rute terkait pada server SIMANIS, siapkan HTTPS pada IP kantor beserta sertifikat IP SAN yang valid, lalu konfigurasi alamat API/CA di helper.
-Jangan mengirim login ke port HTTP 8000. Belum ada perubahan/deploy server dalam pekerjaan ini.
+API menggunakan WordDataController.php dan rute terkait pada server SIMANIS. Konfigurasi helper ke http://192.168.0.12:8000/api untuk LAN; sertifikat tidak diperlukan untuk HTTP.
+Deploy API HTTP LAN diizinkan pengguna pada 27 November 2026; tidak mengubah pengaturan HTTPS server.
 
 ## Hasil pemeriksaan
 
 - 58 tes backend SIMANIS lulus, termasuk scope pemilik, pihak yang diwakili, role admin/Arsip, field allowlist dan autentikasi.
-- 47 tes Python desktop/helper lulus, termasuk startup desktop dengan jaringan diblokir, tidak ada gerbang aktivasi pada Word, HTTPS, OTP, token header/session, Unicode dan baris baru.
+- 48 tes Python desktop/helper lulus, termasuk startup desktop dengan jaringan diblokir, tidak ada gerbang aktivasi pada Word, HTTPS, OTP, token header/session, Unicode dan baris baru.
 - Builder memverifikasi source VBA paket identik, metadata/ribbon SIMANIS ada, tanpa handler auto-run.
 - Template dibuka pada instance Word terpisah dengan macro dinonaktifkan, ditutup tanpa simpan; hash file tidak berubah.
 - GUI helper berhasil dibentuk dan sintaks PowerShell pemasang diperiksa.
-- Belum menguji login/data produksi atau menjalankan macro penyisipan secara end-to-end; server sengaja belum dipasang.
+- API telah dipasang di node 192.168.0.10 dan 192.168.0.11; endpoint tanpa autentikasi merespons 401 melalui VIP 192.168.0.12. Login Word dan macro penyisipan end-to-end masih perlu dicoba dengan akun pengguna.
 
 
 ## Edisi mandiri 1.5.1 / Word 0.5.1
 
-Atas instruksi pengguna, seluruh gerbang aktivasi desktop dan Word dilepas, termasuk pemeriksaan online, pembacaan cache/key, CLI bridge dan menu lisensi. Tidak membuat status aktivasi palsu atau key pengganti. Build tidak memuat .env/secret. Login SIMANIS tetap hanya untuk akses data penghadap/PPAT. Pengguna secara eksplisit menyetujui penggantian tes lisensi lama dengan tes edisi mandiri. 47 tes Python lulus, termasuk startup GUI desktop dengan akses jaringan diblokir dan tanpa cache aktivasi; tes memastikan kode Word tidak memiliki gerbang aktivasi. Paket desktop portable disiapkan dengan SIMANIS.exe dan Word opsional. Produksi/API/HTTPS server tetap tidak diubah.
+Atas instruksi pengguna, seluruh gerbang aktivasi desktop dan Word dilepas, termasuk pemeriksaan online, pembacaan cache/key, CLI bridge dan menu lisensi. Tidak membuat status aktivasi palsu atau key pengganti. Build tidak memuat .env/secret. Login SIMANIS tetap hanya untuk akses data penghadap/PPAT. Pengguna secara eksplisit menyetujui penggantian tes lisensi lama dengan tes edisi mandiri. 48 tes Python lulus, termasuk startup GUI desktop dengan akses jaringan diblokir dan tanpa cache aktivasi; tes memastikan kode Word tidak memiliki gerbang aktivasi. Paket desktop portable disiapkan dengan SIMANIS.exe dan Word opsional. Deploy API HTTP LAN diizinkan pada tahap berikutnya oleh pengguna.
 
 ## Lokasi aplikasi
 
 Sumber desktop dan add-in Word berada di folder desktop/, sejajar backend/ dan frontend/. Kedua folder clone Radina telah dihapus setelah sumber dan build dipindahkan serta diverifikasi.
 
-- Desktop portable: desktop/output/SIMANIS-Desktop-1.5.1-portable.zip
-- Add-in Word: desktop/output/SIMANIS-Word-0.5.1-preview.zip
-- Executable desktop: desktop/dist/SIMANIS-v1.5.1/SIMANIS.exe
+- Desktop portable: desktop/output/SIMANIS-Desktop-1.5.2-portable.zip
+- Add-in Word: desktop/output/SIMANIS-Word-0.5.2-preview.zip
+- Executable desktop: desktop/dist/SIMANIS-v1.5.2/SIMANIS.exe
+
+## Deploy HTTP LAN 27 November 2026
+
+API Word diaktifkan pada kedua node produksi dengan backup /var/backups/simanis/word-data-20261127. Tidak mengubah skema database atau konfigurasi HTTPS. Helper default ke http://192.168.0.12:8000/api; HTTP ditolak untuk domain/IP publik dan link-local. Paket baru: Desktop 1.5.2 / Word 0.5.2.
+
+Pemeriksaan produksi read-only: daftar/detail client dan PPAT berhasil untuk Asisten dan Admin pada database produksi; tidak membuat token, tidak mengubah data. Halaman Buat Kerjaan tetap 200. Integritas ZIP baru dan hash sumber helper diverifikasi; template Word 0.5.2 dapat dibuka dengan macro dinonaktifkan.

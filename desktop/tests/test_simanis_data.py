@@ -6,10 +6,16 @@ from unittest.mock import Mock
 import simanis_data as data
 
 class SimanisDataTests(unittest.TestCase):
-    def test_https_is_required_and_credentials_in_url_are_rejected(self):
-        for url in ["http://192.168.0.12/api", "https://user:pass@server/api", "https://server/api?token=x", "file:///api"]:
+    def test_http_is_limited_to_private_lan_ips_and_url_credentials_are_rejected(self):
+        for url in ["http://8.8.8.8/api", "http://example.com/api", "http://169.254.169.254/api", "https://user:pass@server/api", "https://server/api?token=x", "file:///api"]:
             with self.assertRaises(ValueError): data.api_base(url)
         self.assertEqual(data.api_base("https://192.168.0.12:8443/api/"), "https://192.168.0.12:8443/api")
+
+    def test_private_http_api_is_supported(self):
+        for host in ["192.168.0.12", "10.0.0.5", "172.16.0.5", "127.0.0.1"]:
+            url = "http://" + host + ":8000/api"
+            self.assertEqual(data.api_base(url), url)
+        self.assertEqual(data.SimanisApi().base, "http://192.168.0.12:8000/api")
 
     def test_token_stays_in_header_and_only_current_session_is_closed(self):
         api = data.SimanisApi("https://example.test/api")

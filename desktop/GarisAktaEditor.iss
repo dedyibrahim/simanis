@@ -2,9 +2,9 @@
 ; Build with: ISCC GarisAktaEditor.iss
 
 #define AppName "SIMANIS"
-#define AppVersion "1.5.1"
+#define AppVersion "1.5.2"
 #ifndef AppSourceDir
-  #define AppSourceDir "dist\SIMANIS-v1.5.1"
+  #define AppSourceDir "dist\SIMANIS-v1.5.2"
 #endif
 #define AppPublisher "SIMANIS"
 #define AppExeName "SIMANIS.exe"
@@ -33,7 +33,7 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 #ifdef IntegrationTest
 OutputBaseFilename=SIGANDI_Installer_Integration_Test
-OutputDir=tmp\installer-word-test-1.5.1
+OutputDir=tmp\installer-word-test-1.5.2
 Uninstallable=no
 CreateUninstallRegKey=no
 UsePreviousAppDir=no

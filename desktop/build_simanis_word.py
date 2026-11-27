@@ -8,7 +8,7 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.5.1-preview"
+VERSION = "0.5.2-preview"
 def main():
     subprocess.run([sys.executable, str(ROOT / "word-addin/build_addin.py")], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile", "--windowed",
@@ -23,7 +23,7 @@ def main():
         "Install-SIMANIS-Word.cmd": ROOT / "word-addin/Install-SIMANIS-Word.cmd",
         "PANDUAN.md": ROOT / "word-addin/SIMANIS-DATA.md",
     }
-    manifest = {"version": VERSION, "production_server_deployed": False,
+    manifest = {"version": VERSION, "server_setup_included": False,
         "helper_source_sha256": hashlib.sha256((ROOT / "simanis_data.py").read_bytes()).hexdigest(), "files": {}}
     for name, source in inputs.items():
         shutil.copy2(source, package / name)

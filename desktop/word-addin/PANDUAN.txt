@@ -1,9 +1,9 @@
-SIMANIS Desktop 1.5.1 / Word 0.5.1 - edisi mandiri
+SIMANIS Desktop 1.5.2 / Word 0.5.2 - edisi mandiri
 
 Desktop dan fitur garis Word langsung digunakan tanpa lisensi, aktivasi, secret atau internet.
 Ekstrak paket desktop dan jalankan SIMANIS.exe. Gunakan Buka PDF / Buka Word, periksa garis, lalu simpan PDF.
 Untuk add-in Word opsional, tutup Word dan jalankan Word/Install-SIMANIS-Word.cmd. Pengaturan keamanan macro tidak diubah.
 Di Word gunakan tab SIMANIS: tandai area isi, buat/perbarui garis lalu simpan PDF.
 Penghadap / Transaksi PPAT memerlukan login akun SIMANIS, berbeda dari aktivasi aplikasi. Alamat server dapat diatur.
-Server API/HTTPS belum dipasang sesuai permintaan pengguna; data online belum dapat digunakan sampai server siap.
+API produksi tersedia di http://192.168.0.12:8000/api untuk jaringan kantor.
 Lihat PANDUAN.md untuk akses data, pointing server dan sertifikat HTTPS.

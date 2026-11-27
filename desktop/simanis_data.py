@@ -1,6 +1,7 @@
-"""SIMANIS Word data picker. TLS verified; credentials/token are never persisted."""
+"""SIMANIS Word data picker. HTTP for private LAN IPs or verified TLS; credentials/token are never persisted."""
 import argparse
 import json
+import ipaddress
 import os
 from pathlib import Path
 import queue
@@ -11,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from urllib import request, error, parse
 
-DEFAULT_API = "https://192.168.0.12:8443/api"
+DEFAULT_API = "http://192.168.0.12:8000/api"
 
 class NoRedirect(request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -23,8 +24,16 @@ class ApiError(Exception):
 def api_base(value):
     value = value.strip().rstrip("/")
     parts = parse.urlsplit(value)
-    if parts.scheme != "https" or not parts.hostname or parts.username or parts.password or parts.query or parts.fragment:
-        raise ValueError("Gunakan alamat HTTPS dengan sertifikat valid, tanpa user/password di URL.")
+    if parts.scheme not in ("http", "https") or not parts.hostname or parts.username or parts.password or parts.query or parts.fragment:
+        raise ValueError("Gunakan alamat API HTTP LAN atau HTTPS, tanpa user/password di URL.")
+    if parts.scheme == "http":
+        try:
+            address = ipaddress.ip_address(parts.hostname)
+            networks = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "::1/128")
+            if not any(address in ipaddress.ip_network(network) for network in networks):
+                raise ValueError()
+        except ValueError:
+            raise ValueError("HTTP hanya diperbolehkan untuk IP LAN privat atau loopback.") from None
     if parts.path.rstrip("/") != "/api":
         raise ValueError("Alamat server harus diakhiri /api.")
     return value
@@ -62,7 +71,7 @@ class SimanisApi:
                 message = "Permintaan ditolak server (HTTP %s)." % exc.code
             raise ApiError(message) from None
         except (error.URLError, TimeoutError, ValueError, OSError):
-            raise ApiError("Tidak dapat terhubung. Periksa alamat HTTPS, sertifikat, dan koneksi server.") from None
+            raise ApiError("Tidak dapat terhubung. Periksa alamat API, koneksi LAN, dan sertifikat jika memakai HTTPS.") from None
         if not isinstance(result, dict) or result.get("status") is False:
             raise ApiError(result.get("message", "Permintaan gagal.") if isinstance(result, dict) else "Respons tidak valid.")
         return result.get("data", result)
@@ -142,14 +151,14 @@ class DataPicker:
         container = ttk.Frame(root, padding=18); container.pack(fill="both", expand=True)
         ttk.Label(container, text="SIMANIS untuk Word", font=("Segoe UI", 18, "bold")).pack(anchor="w")
         ttk.Label(container, text="Pilih data tersimpan, tinjau field, lalu masukkan ke posisi kursor Word.").pack(anchor="w", pady=(4, 14))
-        self.status = tk.StringVar(value="Login SIMANIS melalui HTTPS. Sesi hanya berlaku selama jendela ini terbuka.")
+        self.status = tk.StringVar(value="Login SIMANIS. HTTP LAN tidak terenkripsi; gunakan jaringan kantor tepercaya.")
         self.login_frame = ttk.LabelFrame(container, text="Login SIMANIS", padding=12); self.login_frame.pack(fill="x")
         connection = read_settings()
         self.server = tk.StringVar(value=connection.get("api", DEFAULT_API))
         self.ca_file = tk.StringVar(value=connection.get("ca_file", ""))
         self.email, self.password, self.otp = tk.StringVar(), tk.StringVar(), tk.StringVar()
         for row, (label, variable, secret) in enumerate([
-            ("Alamat API HTTPS", self.server, False), ("Email", self.email, False),
+            ("Alamat API (HTTP LAN / HTTPS)", self.server, False), ("Email", self.email, False),
             ("Password", self.password, True), ("Kode OTP (jika diminta)", self.otp, False),
         ]):
             ttk.Label(self.login_frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 12), pady=3)
