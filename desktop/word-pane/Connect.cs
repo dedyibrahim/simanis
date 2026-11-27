@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using Office = Microsoft.Office.Core;
 [assembly: ComVisible(false)]
 [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.6.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.6.1.0")]
 namespace Simanis.Word {
  public static class Identity {
 #if INTEGRATION_TEST
@@ -24,6 +24,10 @@ namespace Simanis.Word {
   [DispId(3)] void InsertTestText(string text);
   [DispId(4)] string Snapshot();
   [DispId(5)] void ShowFixture();
+  [DispId(6)] string Preview();
+  [DispId(7)] void PickPerson(int index);
+  [DispId(8)] void PickMode(string mode);
+  [DispId(9)] void InsertPreview();
 #endif
  }
  [ComVisible(true),Guid(Identity.AddinGuid),ProgId(Identity.AddinProgId),ClassInterface(ClassInterfaceType.None),ComDefaultInterface(typeof(IPaneAutomation))]
@@ -49,6 +53,11 @@ namespace Simanis.Word {
 #if INTEGRATION_TEST
   public void InsertTestText(string text) {if(dispatcher.InvokeRequired){dispatcher.Invoke((Action)(()=>InsertTestText(text)));return;}PaneControl.InsertIntoWord(app,text);}
   public void ShowFixture(){if(dispatcher.InvokeRequired){dispatcher.Invoke((Action)ShowFixture);return;}foreach(var pane in panes.Values)((PaneControl)pane.ContentControl).ShowFixture();}
+  PaneControl FirstControl(){foreach(var pane in panes.Values)return (PaneControl)pane.ContentControl;throw new InvalidOperationException("No test pane");}
+  public string Preview(){if(dispatcher.InvokeRequired)return (string)dispatcher.Invoke((Func<string>)Preview);return FirstControl().TestPreview();}
+  public void PickPerson(int index){if(dispatcher.InvokeRequired){dispatcher.Invoke((Action)(()=>PickPerson(index)));return;}FirstControl().TestPickPerson(index);}
+  public void PickMode(string mode){if(dispatcher.InvokeRequired){dispatcher.Invoke((Action)(()=>PickMode(mode)));return;}FirstControl().TestMode(mode);}
+  public void InsertPreview(){if(dispatcher.InvokeRequired){dispatcher.Invoke((Action)InsertPreview);return;}FirstControl().TestInsertPreview();}
   public string Snapshot() {if(dispatcher.InvokeRequired)return (string)dispatcher.Invoke((Func<string>)Snapshot);
    foreach(var pane in panes.Values) {
     var control=(PaneControl)pane.ContentControl;

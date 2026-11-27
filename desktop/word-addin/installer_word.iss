@@ -95,7 +95,7 @@ begin
       RaiseException('Add-in Word belum terpasang. Jalankan ulang installer.');
     if CompareText(GetSHA256OfFile(Installed), '{#WordAddinSHA}') <> 0 then
       RaiseException('Verifikasi add-in Word yang terpasang gagal.');
-    Details := 'SIMANIS Word 0.6.0' + #13#10 +
+    Details := 'SIMANIS Word 0.6.1' + #13#10 +
       'Startup=' + GetWordStartup('') + #13#10 +
       'SHA256=' + GetSHA256OfFile(Installed) + #13#10 +
       'Office macro security unchanged' + #13#10;

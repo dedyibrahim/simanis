@@ -1,9 +1,8 @@
-SIMANIS Desktop 1.6.0 / Word 0.6.0
+SIMANIS Desktop 1.6.1 / Word 0.6.1
 
-Tutup Word lalu jalankan SIMANIS_Setup_v1.6.0.exe. Desktop dan panel Word dipasang sekaligus.
-Buka Word > SIMANIS > Pekerjaan / Data Draf. Panel tampil di dalam Word.
-Login sekali dengan Ingat login di akun Windows ini; token tersimpan terenkripsi DPAPI, bukan password.
-Pilih pekerjaan, centang field dan Masukkan ke posisi kursor. Panel tidak menutup sehingga Anda dapat memasukkan data lagi.
-Alamat kantor sudah terisi: http://192.168.0.12:8000/api. Hanya LAN kantor tepercaya.
-Keluar menghapus sesi lokal dan mencabut token server jika terhubung. Sesi yang diingat berlaku maksimum 30 hari atau sampai server menolaknya.
-Hak akses tetap sesuai pemilik pekerjaan. Tidak ada aktivasi lisensi atau perubahan keamanan macro Office.
+Simpan dokumen dan tutup Word/SIMANIS sebelum menjalankan SIMANIS_Setup_v1.6.1.exe.
+Word > SIMANIS > Pekerjaan / Data Draf > pilih pekerjaan.
+Narasi penghadap: pilih satu penghadap dan sapaan, centang data yang disertakan, tinjau/edit pratinjau, lalu Masukkan ke posisi kursor.
+Nama tebal; tanggal lahir angka dan terbilang; tidak ada label Penghadap 1 atau semua pihak otomatis.
+Transaksi PPAT: pilih nominal dan aktifkan Sertakan terbilang nominal PPAT untuk angka rupiah beserta terbilangnya.
+Login yang diingat tetap terenkripsi untuk akun Windows. Jangan tutup dokumen yang belum disimpan saat memasang pembaruan.

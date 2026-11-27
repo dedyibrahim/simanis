@@ -1,8 +1,8 @@
-# SIMANIS Word 0.6.0 / Desktop 1.6.0
+# SIMANIS Word 0.6.1 / Desktop 1.6.1
 
 ## Cara memakai
 
-1. Simpan dokumen dan tutup semua jendela Word. Jalankan SIMANIS_Setup_v1.6.0.exe.
+1. Simpan dokumen dan tutup semua jendela Word. Jalankan SIMANIS_Setup_v1.6.1.exe.
 2. Buka Word > SIMANIS > Pekerjaan / Data Draf. Panel muncul di sebelah kanan dokumen; tidak membuka jendela helper terpisah.
 3. Login akun SIMANIS dan masukkan OTP WhatsApp jika diminta. Alamat kantor sudah terisi: http://192.168.0.12:8000/api.
 4. Biarkan Ingat login di akun Windows ini dicentang untuk memulihkan sesi setelah Word dibuka lagi. Password dan OTP tidak disimpan. Sesi yang diingat berlaku sampai 30 hari, sampai server menolak token, atau sampai pengguna keluar.
@@ -32,4 +32,14 @@ Tes sesi: python word-pane/test_session.py. Tes COM Word terisolasi: python word
 ## Verifikasi rilis
 
 48 tes desktop/helper lulus. Tes sesi native memverifikasi DPAPI lintas proses, penggantian atomik, kedaluwarsa, kerusakan file, logout, pembatasan URL, login HTTP sintetis, respons 401 dan tidak mengikuti redirect. Panel diuji pada Word sungguhan dengan dokumen dummy: tampil di dalam Word, memasukkan data berulang kali saat panel data terbuka, satu Undo dan penolakan dokumen terkunci. Layout login dan data ditinjau dari snapshot test.
-Installer EXE diuji untuk pemasangan pertama dan upgrade di folder terisolasi: hash desktop/helper/DLL/template sesuai, template lama dicadangkan, template lain dan registry pengguna tetap utuh. Versi 1.6.0 kemudian dipasang untuk akun Windows pengguna, dan COM add-in/panel yang terpasang berhasil dimuat di Word. Tidak memakai password, OTP atau data kantor untuk tes.
+Installer EXE diuji untuk pemasangan pertama dan upgrade di folder terisolasi: hash desktop/helper/DLL/template sesuai, template lama dicadangkan, template lain dan registry pengguna tetap utuh. Versi 1.6.0 sebelumnya dipasang untuk akun Windows pengguna, dan COM add-in/panel yang terpasang berhasil dimuat di Word. Pembaruan narasi 1.6.1 tersedia melalui installer dan memerlukan Word/SIMANIS ditutup sebelum pemasangan. Tidak memakai password, OTP atau data kantor untuk tes.
+
+## Narasi dan terbilang 1.6.1
+
+Setelah memilih pekerjaan, pilih bentuk Narasi penghadap lalu pilih satu nama pada dropdown Penghadap. Hanya data orang tersebut yang ditawarkan; tidak memasukkan semua penghadap sekaligus. Pilih sapaan Sesuai nama/Tuan/Nyonya/Nona/Tanpa sapaan. Sesuai nama hanya memakai sapaan yang sudah ada dalam nama, tidak mengira status perkawinan. Narasi memuat data identitas yang tersedia, tanggal lahir angka/terbilang, pekerjaan, kewarganegaraan dan alamat. Nama dibuat tebal saat disisipkan. Nomor identitas dan nol di depan tetap dipertahankan; badan hukum tidak diberi sapaan pribadi atau disebut pemegang KTP.
+
+Centang/hapus centang field yang diperlukan. Nama wajib untuk membentuk narasi. Data kosong tidak dikarang; tanggal tidak valid harus dikoreksi pada client atau dihilangkan dari pilihan. Kelurahan/Desa tidak disimpulkan jika jenisnya tidak tercatat. Kedudukan dan kewenangan mewakili tidak disusun menjadi pernyataan hukum otomatis. Field pilihan tersedia jika diperlukan untuk mengambil data mentah, termasuk pihak yang diwakili.
+
+Pilih Transaksi PPAT untuk memilih nominal pekerjaan tersebut. Harga transaksi, NJOP, BPHTB dan PPh dapat diformat Rp125.000.000,00 (seratus dua puluh lima juta rupiah) dengan Sertakan terbilang nominal PPAT dicentang. Pecahan dua digit dibaca sebagai sen, bukan dibulatkan diam-diam; lebih dari dua digit bermakna ditolak. NIK dan nomor objek bukan nominal dan tidak diubah menjadi terbilang.
+
+Pratinjau di bagian bawah bisa diedit sebelum Masukkan ke posisi kursor. Mengganti penghadap, mode atau centang field membentuk ulang pratinjau. Tidak menambahkan nomor urut penghadap atau judul metadata pada narasi. Hasil mengikuti font dokumen dan memberi huruf tebal hanya pada nama; satu Undo membatalkan sisipan beserta formatnya.

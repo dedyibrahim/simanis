@@ -1,4 +1,4 @@
-﻿"""Compile the native task pane with embedded Office interop interfaces (no VSTO runtime)."""
+"""Compile the native task pane with embedded Office interop interfaces (no VSTO runtime)."""
 from pathlib import Path
 import argparse, os, subprocess
 ROOT=Path(__file__).resolve().parents[1]
@@ -14,6 +14,6 @@ def main():
  if a.test:args+=['/define:INTEGRATION_TEST']
  args+=['/r:'+x for x in ['System.Windows.Forms.dll','System.Drawing.dll','System.Web.Extensions.dll','System.Security.dll','System.Net.Http.dll','Microsoft.CSharp.dll']]
  args+=['/link:'+str(office),'/link:'+str(extensibility)]
- args += [str(ROOT/'word-pane'/name) for name in ['Connect.cs','Session.cs','Pane.cs']]
+ args += [str(ROOT/'word-pane'/name) for name in ['Connect.cs','Session.cs','Pane.cs','DraftText.cs']]
  subprocess.run(args,check=True);print(target)
 if __name__=='__main__':main()

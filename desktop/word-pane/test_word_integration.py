@@ -50,6 +50,18 @@ try:
  time.sleep(0.8);pythoncom.PumpWaitingMessages();print('SNAPSHOT='+auto.Snapshot(),flush=True)
  auto.ShowFixture();time.sleep(0.3)
  import shutil;shutil.copy2(auto.Snapshot(),root/'desktop/tmp/word-pane-data-preview.png')
+ first=auto.Preview()
+ assert 'Nyonya SITI CONTOH' in first and 'BUDI CONTOH' not in first and 'Penghadap 1' not in first
+ assert 'tiga puluh Agustus seribu sembilan ratus delapan puluh tujuh' in first
+ auto.InsertPreview();assert first in doc.Content.Text
+ name=doc.Range(7,18);assert name.Font.Bold==-1
+ auto.PickPerson(1);second=auto.Preview();assert 'BUDI CONTOH' in second and 'SITI CONTOH' not in second
+ auto.InsertPreview();assert second in doc.Content.Text
+ doc.Undo();assert second not in doc.Content.Text
+ auto.PickMode('Transaksi PPAT');money=auto.Preview()
+ assert 'Rp125.000.000,00 (seratus dua puluh lima juta rupiah)' in money and 'SITI CONTOH' not in money
+ print('NARRATIVE_PERSON_SELECTION_BOLD_AND_PPAT_WORDS_OK',flush=True)
+ doc.Content.Text=''
  auto.InsertTestText('SIMANIS TEST satu');auto.InsertTestText(' dua')
  assert 'SIMANIS TEST satu dua' in doc.Content.Text
  assert 'visible=1' in auto.Diagnostics()

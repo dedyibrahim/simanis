@@ -3,7 +3,7 @@ setlocal EnableExtensions
 
 cd /d "%~dp0"
 
-set "EXE_PATH=dist\SIMANIS-v1.6.0\SIMANIS.exe"
+set "EXE_PATH=dist\SIMANIS-v1.6.1\SIMANIS.exe"
 set "ISS_FILE=GarisAktaEditor.iss"
 
 echo.
@@ -55,7 +55,7 @@ if errorlevel 1 (
 echo.
 echo [OK] Installer berhasil dibuat.
 echo Cek folder dist untuk file:
-echo SIMANIS_Setup_v1.6.0.exe
+echo SIMANIS_Setup_v1.6.1.exe
 echo.
 pause
 exit /b 0

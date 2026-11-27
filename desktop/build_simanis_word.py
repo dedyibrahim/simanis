@@ -8,7 +8,7 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.6.0-preview"
+VERSION = "0.6.1-preview"
 def main():
     subprocess.run([sys.executable, str(ROOT / "word-addin/build_addin.py")], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile", "--windowed",

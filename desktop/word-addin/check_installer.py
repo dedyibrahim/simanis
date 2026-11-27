@@ -9,11 +9,11 @@ import subprocess
 import winreg
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "tmp/installer-word-test-1.6.0" / datetime.now().strftime("run-%Y%m%d-%H%M%S")
+OUT = ROOT / "tmp/installer-word-test-1.6.1" / datetime.now().strftime("run-%Y%m%d-%H%M%S")
 INSTALL = OUT / "install"
 STARTUP = OUT / "startup"
 TEMPLATE = ROOT / "output/word-addin/installer/SIMANIS-Word.dotm"
-EXE = ROOT / "dist/SIMANIS-v1.6.0/SIMANIS.exe"
+EXE = ROOT / "dist/SIMANIS-v1.6.1/SIMANIS.exe"
 HELPER = ROOT / "output/word-addin/installer/SIMANIS-WordData.exe"
 
 def sha(path):

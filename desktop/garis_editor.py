@@ -37,7 +37,7 @@ def _runtime_base_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.6.1"
 APP_SHORTCUT_NAME = "SIMANIS.lnk"
 
 COLOR_RED = (1.0, 0.0, 0.0)

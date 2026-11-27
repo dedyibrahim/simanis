@@ -8,7 +8,7 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 def main():
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm",
         "--distpath", "dist/SIMANIS-v" + VERSION, "--workpath", "tmp/desktop-build",
@@ -18,7 +18,7 @@ def main():
     package.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / ("dist/SIMANIS-v" + VERSION) / "SIMANIS.exe", package / "SIMANIS.exe")
     shutil.copy2(ROOT / "word-addin/PANDUAN.txt", package / "BACA-DULU.txt")
-    shutil.copytree(ROOT / "output/SIMANIS-Word-0.6.0-preview", package / "Word", dirs_exist_ok=True)
+    shutil.copytree(ROOT / "output/SIMANIS-Word-0.6.1-preview", package / "Word", dirs_exist_ok=True)
     manifest = {"version": VERSION, "activation_required": False, "license_server": None,
         "simanis_login_required_for_data_only": True, "server_setup_included": False, "files": {}}
     for source in sorted(package.rglob("*")):

@@ -1598,5 +1598,5 @@ Public Sub SimanisPickData()
     panel.Object.ShowPane
     Exit Sub
 Failed:
-    MsgBox "Panel SIMANIS belum dapat dibuka. Pasang SIMANIS Setup 1.6.0 dan buka ulang Word." & vbCrLf & Err.Description, vbInformation, "SIMANIS"
+    MsgBox "Panel SIMANIS belum dapat dibuka. Pasang SIMANIS Setup 1.6.1 dan buka ulang Word." & vbCrLf & Err.Description, vbInformation, "SIMANIS"
 End Sub
